@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## catalog-part
 
-## Getting Started
+Auto parts catalog (Next.js, Drizzle ORM, SQLite, RapidAPI auto-parts-catalog).
 
-First, run the development server:
+### Config
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Copy `.env.example` to `.env` and fill in the values.
+
+```sh
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Key variables:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `USE_MOCK_API` — set to `true` to use the local fixture server instead of RapidAPI (no key required)
+- `MOCK_BASE_URL` — fixture server address, default `http://localhost:4000`
+- `RAPIDAPI_KEY` — required only when `USE_MOCK_API=false`
+- `SQLITE_PATH` — path to the SQLite database file, default `./data/app.db`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### First run
 
-## Learn More
+```sh
+pnpm install
+cd fixture-server && npm install && cd ..
+pnpm db:generate
+pnpm db:migrate
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Development
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Run `pnpm dev:mock` to start the fixture server and Next.js together
+- The app is accessible at `http://localhost:3000`
+- The fixture server runs at `http://localhost:4000`
+- Run `pnpm sync:vehicle [vehicleId]` to populate the database for a given vehicle (fixture server must be running)
+- Run `pnpm dev` if the fixture server is already running separately
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Database
 
-## Deploy on Vercel
+- Run `pnpm db:generate` to generate a migration from the schema
+- Run `pnpm db:migrate` to apply pending migrations to the SQLite file
+- Run `pnpm drizzle-kit studio` to browse the database in a web UI
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Switching to production API
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Set in `.env`:
+
+```sh
+USE_MOCK_API=false
+RAPIDAPI_KEY=your_key_here
+```
+
+Then use `pnpm dev` instead of `pnpm dev:mock`.
