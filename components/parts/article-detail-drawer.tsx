@@ -244,7 +244,7 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
                             </dl>
 
                             {/* Références OEM */}
-                            {article.oemNo.length > 0 && (
+                            {article.oemNo?.length > 0 && (
                                 <div>
                                     <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                                         Références OEM
@@ -271,7 +271,7 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
                             )}
 
                             {/* Spécifications */}
-                            {article.allSpecifications.length > 0 && (
+                            {article.allSpecifications?.length > 0 && (
                                 <div>
                                     <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                                         Spécifications
@@ -289,10 +289,10 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
                             )}
 
                             {/* Véhicules compatibles */}
-                            {article.compatibleCars.length > 0 && (
+                            {article.compatibleCars?.length > 0 && (
                                 <div className="mt-6">
                                     <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        Véhicules compatibles ({article.compatibleCars.length})
+                                    Véhicules compatibles ({article.compatibleCars?.length})
                                     </p>
                                     <div className="flex flex-col gap-2">
                                         {Object.entries(groupedCompatibleCars).map(([manuf, modelsMap]) => {

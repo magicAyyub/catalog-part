@@ -208,13 +208,13 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                             render={
                                 <Button
                                     variant="outline"
-                                    className="w-full justify-between font-normal text-left min-w-0 border-input shadow-xs"
+                                    className="w-full justify-between font-normal text-left min-w-0 overflow-hidden border-input shadow-xs"
                                     disabled={mfLoading}
                                 />
                             }
                         >
                             <ComboboxValue>
-                                {(m) => m ? m.manufacturerName : (mfLoading ? "Chargement…" : "Sélectionner un fabricant")}
+                                {(m) => <span className="truncate">{m ? m.manufacturerName : (mfLoading ? "Chargement…" : "Sélectionner un fabricant")}</span>}
                             </ComboboxValue>
                         </ComboboxTrigger>
                         <ComboboxContent className="w-(--anchor-width)">
@@ -252,13 +252,13 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                             render={
                                 <Button
                                     variant="outline"
-                                    className="w-full justify-between font-normal text-left min-w-0 border-input shadow-xs"
+                                    className="w-full justify-between font-normal text-left min-w-0 overflow-hidden border-input shadow-xs"
                                     disabled={!manufacturer || mdLoading}
                                 />
                             }
                         >
                             <ComboboxValue>
-                                {(m) => m ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})` : (!manufacturer ? "D'abord un fabricant" : (mdLoading ? "Chargement…" : "Sélectionner un modèle"))}
+                                {(m) => <span className="truncate">{m ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})` : (!manufacturer ? "D'abord un fabricant" : (mdLoading ? "Chargement…" : "Sélectionner un modèle"))}</span>}
                             </ComboboxValue>
                         </ComboboxTrigger>
                         <ComboboxContent className="w-(--anchor-width)">
@@ -299,13 +299,13 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                             render={
                                 <Button
                                     variant="outline"
-                                    className="w-full justify-between font-normal text-left min-w-0 border-input shadow-xs"
+                                    className="w-full justify-between font-normal text-left min-w-0 overflow-hidden border-input shadow-xs"
                                     disabled={!model || etLoading}
                                 />
                             }
                         >
                             <ComboboxValue>
-                                {(et) => et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : (!model ? "D'abord un modèle" : (etLoading ? "Chargement…" : "Sélectionner une motorisation"))}
+                                {(et) => <span className="truncate">{et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : (!model ? "D'abord un modèle" : (etLoading ? "Chargement…" : "Sélectionner une motorisation"))}</span>}
                             </ComboboxValue>
                         </ComboboxTrigger>
                         <ComboboxContent className="w-(--anchor-width)">
