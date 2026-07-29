@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/reui/badge";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
 interface PartCardProps {
@@ -48,15 +49,22 @@ export function PartCard({ part, onDetail }: PartCardProps) {
                 )}
                 {/* Fallback toujours présent en arrière-plan */}
                 <BrakeIcon />
+
+                {/* Badge fournisseur ancré sur l'image */}
+                {part.supplierName && (
+                    <Badge
+                        variant="secondary"
+                        size="xs"
+                        radius="full"
+                        className="absolute top-2 right-2 shadow-sm font-semibold backdrop-blur-sm"
+                    >
+                        {part.supplierName}
+                    </Badge>
+                )}
             </div>
 
             {/* Contenu */}
             <div className="flex flex-1 flex-col gap-2 p-3">
-                {/* Badge fournisseur */}
-                <span className="absolute top-2 right-2 rounded-md bg-background/90 px-1.5 py-0.5 text-xs font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur-sm">
-                    {part.supplierName ?? ""}
-                </span>
-
                 {/* Nom produit */}
                 <h3 className="line-clamp-2 text-sm font-medium leading-snug text-card-foreground">
                     {part.articleProductName}

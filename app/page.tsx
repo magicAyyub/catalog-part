@@ -35,7 +35,7 @@ export default function Home() {
       </div>
 
       {/* Sélecteur véhicule */}
-      <section className="mb-10 rounded-xl border border-border bg-card p-6 shadow-sm">
+      <section className="mb-10 rounded-xl border border-border bg-card p-6 shadow-sm max-w-4xl">
         <h2 className="mb-5 text-base font-semibold text-foreground">Votre véhicule</h2>
         <VehicleCascade
           onVehicleSelected={handleVehicleSelected}

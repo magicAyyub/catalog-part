@@ -1,6 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useArticleDetail } from "@/hooks/parts/use-article-detail";
+import { useArticleMedia } from "@/hooks/parts/use-article-media";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +20,55 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
     );
 }
 
+function BrakeIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="0.8"
+            className="size-16 text-muted-foreground/20"
+        >
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M19.07 4.93l-2.83 2.83M7.76 16.24l-2.83 2.83" />
+        </svg>
+    );
+}
+
 export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerProps) {
-    const { data, isLoading, isError } = useArticleDetail(articleId);
-    const article = data?.article;
+    const { data: detailData, isLoading: isDetailLoading, isError: isDetailError } = useArticleDetail(articleId);
+    const { data: mediaData } = useArticleMedia(articleId);
+
+    const article = detailData?.article;
+
+    // Image active dans le visualiseur
+    const [activeImage, setActiveImage] = useState<string | null>(null);
+
+    // Initialise/réinitialise l'image affichée au chargement d'un nouvel article
+    useEffect(() => {
+        if (article?.s3image) {
+            setActiveImage(article.s3image);
+        } else {
+            setActiveImage(null);
+        }
+    }, [articleId, article]);
 
     if (!articleId) return null;
+
+    const isLoading = isDetailLoading;
+    const isError = isDetailError;
+
+    // Union de l'image principale et de toutes les images secondaires pour la galerie
+    const allImages = Array.from(
+        new Set(
+            [
+                article?.s3image,
+                ...(mediaData?.map((m) => m.s3image) ?? []),
+            ].filter(Boolean) as string[]
+        )
+    );
 
     return (
         <>
@@ -80,17 +126,58 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
 
                     {article && (
                         <div className="flex flex-col gap-6">
-                            {/* Image */}
-                            {article.s3image && (
-                                <div className="overflow-hidden rounded-xl border border-border bg-muted/30">
-                                    <img
-                                        src={article.s3image}
-                                        alt={article.articleProductName}
-                                        className="w-full object-contain p-4"
-                                        onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).parentElement!.style.display = "none";
-                                        }}
-                                    />
+                            {/* Galerie d'images */}
+                            {activeImage && (
+                                <div className="flex flex-col gap-3">
+                                    {/* Grande image active */}
+                                    <div className="relative flex h-64 w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/20">
+                                        <img
+                                            src={activeImage}
+                                            alt={article.articleProductName}
+                                            className="h-full w-full object-contain p-4 transition-all duration-300"
+                                            onError={(e) => {
+                                                const el = e.currentTarget as HTMLImageElement;
+                                                el.style.display = "none";
+                                                (el.nextSibling as HTMLElement | null)?.classList.remove("hidden");
+                                            }}
+                                        />
+                                        {/* Fallback en arrière-plan (masqué par défaut, révélé si image error) */}
+                                        <div className="hidden flex-col items-center gap-1 text-muted-foreground/30">
+                                            <BrakeIcon />
+                                        </div>
+                                    </div>
+
+                                    {/* Liste des miniatures */}
+                                    {allImages.length > 1 && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {allImages.map((imgUrl, idx) => {
+                                                const isActive = imgUrl === activeImage;
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => setActiveImage(imgUrl)}
+                                                        className={cn(
+                                                            "relative size-12 overflow-hidden rounded-lg border bg-muted/10 p-1 transition-all",
+                                                            isActive
+                                                                ? "border-primary ring-2 ring-primary/20"
+                                                                : "border-border hover:border-primary/40 hover:bg-muted/30"
+                                                        )}
+                                                        aria-label={`Afficher l'image ${idx + 1}`}
+                                                    >
+                                                        <img
+                                                            src={imgUrl}
+                                                            alt=""
+                                                            className="h-full w-full object-contain"
+                                                            onError={(e) => {
+                                                                const btn = (e.currentTarget as HTMLImageElement).parentElement as HTMLButtonElement;
+                                                                if (btn) btn.style.display = "none";
+                                                            }}
+                                                        />
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
