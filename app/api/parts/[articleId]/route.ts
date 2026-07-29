@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { rapidApi } from "@/lib/rapidapi/client";
+import { getWithCache } from "@/lib/vehicle/api-cache";
 
-// Ce endpoint reste un appel live RapidAPI : le détail d'un article est consulté
-// ponctuellement (ouverture d'une fiche produit) et trop volumineux à pré-cacher.
 export async function GET(
     _request: Request,
     { params }: { params: Promise<{ articleId: string }> }
@@ -14,6 +13,16 @@ export async function GET(
         return NextResponse.json({ error: "articleId invalide" }, { status: 400 });
     }
 
-    const data = await rapidApi.getArticleDetails(id);
-    return NextResponse.json(data);
+    try {
+        const data = await getWithCache(`article_details_${id}`, () =>
+            rapidApi.getArticleDetails(id)
+        );
+        return NextResponse.json(data);
+    } catch (error: any) {
+        console.error(`Erreur récupération détails article ${id} :`, error);
+        return NextResponse.json(
+            { error: "Impossible de charger les détails de l'article." },
+            { status: 500 }
+        );
+    }
 }

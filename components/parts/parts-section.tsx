@@ -7,6 +7,14 @@ import { PartsGrid } from "./parts-grid";
 import { ArticleDetailDrawer } from "./article-detail-drawer";
 import { useParts } from "@/hooks/parts/use-parts";
 
+import {
+    Empty,
+    EmptyHeader,
+    EmptyTitle,
+    EmptyDescription,
+    EmptyMedia,
+} from "@/components/ui/empty";
+
 const DEFAULT_PAGE_SIZE = 24;
 
 interface PartsSectionProps {
@@ -14,9 +22,16 @@ interface PartsSectionProps {
     isSyncing: boolean;
     isSynced: boolean;
     vehicleLabel?: string;
+    syncError?: Error | null;
 }
 
-export function PartsSection({ vehicleId, isSyncing, isSynced, vehicleLabel }: PartsSectionProps) {
+export function PartsSection({
+    vehicleId,
+    isSyncing,
+    isSynced,
+    vehicleLabel,
+    syncError,
+}: PartsSectionProps) {
     // Onglet actif
     const [activeCategoryId, setActiveCategoryId] = useState<number>(BRAKE_CATEGORIES[0].categoryId);
 
@@ -83,6 +98,7 @@ export function PartsSection({ vehicleId, isSyncing, isSynced, vehicleLabel }: P
         setCurrentPage(1);
     }
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     function resetFilters() {
         setActiveSuppliers(new Set());
         setActiveCriteria({});
@@ -97,6 +113,47 @@ export function PartsSection({ vehicleId, isSyncing, isSynced, vehicleLabel }: P
     function handlePageSizeChange(size: number) {
         setPageSize(size);
         setCurrentPage(1);
+    }
+
+    const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+    if (syncError) {
+        return (
+            <Empty className="my-6 border-destructive/15 bg-destructive/5 text-destructive-foreground p-10">
+                <EmptyMedia variant="icon" className="bg-destructive/10 text-destructive">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        className="size-5"
+                        aria-hidden="true"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </EmptyMedia>
+                <EmptyHeader>
+                    <EmptyTitle className="text-destructive font-semibold">Impossible de charger le catalogue</EmptyTitle>
+                    <EmptyDescription>
+                        Une erreur s'est produite lors de la communication avec le service de pièces.
+                    </EmptyDescription>
+                </EmptyHeader>
+                <div className="mt-2 flex flex-col items-center gap-3">
+                    <button
+                        onClick={() => setShowErrorDetails(!showErrorDetails)}
+                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                    >
+                        {showErrorDetails ? "Masquer les détails techniques" : "Afficher les détails techniques"}
+                    </button>
+                    {showErrorDetails && (
+                        <pre className="mt-4 max-w-xl w-full overflow-x-auto text-left whitespace-pre-wrap rounded bg-muted/60 border border-border/40 p-3 font-mono text-xs text-muted-foreground leading-relaxed">
+                            {syncError.message}
+                        </pre>
+                    )}
+                </div>
+            </Empty>
+        );
     }
 
     return (

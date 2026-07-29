@@ -44,28 +44,55 @@ async function callMockApi<T>(path: string): Promise<T> {
     return res.json() as Promise<T>;
 }
 
-async function callRealApi<T>(path: string): Promise<T> {
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise<T> {
     const apiKey = process.env.RAPIDAPI_KEY;
     if (!apiKey) {
         throw new Error("RAPIDAPI_KEY manquante dans les variables d'environnement.");
     }
 
-    const res = await fetch(`${RAPIDAPI_BASE_URL}${path}`, {
-        method: "GET",
-        headers: {
-            "x-rapidapi-key": apiKey,
-            "x-rapidapi-host": "auto-parts-catalog.p.rapidapi.com",
-            "Content-Type": "application/json",
-        },
-        cache: "no-store",
-    });
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        const res = await fetch(`${RAPIDAPI_BASE_URL}${path}`, {
+            method: "GET",
+            headers: {
+                "x-rapidapi-key": apiKey,
+                "x-rapidapi-host": "auto-parts-catalog.p.rapidapi.com",
+                "Content-Type": "application/json",
+            },
+            cache: "no-store",
+        });
 
-    if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`RapidAPI ${path} -> ${res.status} ${res.statusText} : ${body}`);
+        if (res.status === 429) {
+            const body = await res.text().catch(() => "");
+            const lowerBody = body.toLowerCase();
+
+            // Si c'est le quota mensuel qui est épuisé, aucun retry ne résoudra le problème de suite.
+            if (lowerBody.includes("monthly") || lowerBody.includes("quota")) {
+                throw new Error(`RapidAPI ${path} -> 429 Too Many Requests : ${body}`);
+            }
+
+            if (attempt < retries) {
+                const sleepTime = backoff * Math.pow(2, attempt) + Math.random() * 100;
+                console.warn(
+                    `[RapidAPI] Rate limit 429 pour ${path}. Tentative ${attempt}/${retries}. Attente de ${Math.round(
+                        sleepTime
+                    )}ms...`
+                );
+                await delay(sleepTime);
+                continue;
+            }
+        }
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            throw new Error(`RapidAPI ${path} -> ${res.status} ${res.statusText} : ${body}`);
+        }
+
+        return res.json() as Promise<T>;
     }
 
-    return res.json() as Promise<T>;
+    throw new Error(`RapidAPI ${path} -> Rate limit dépassé de façon persistante après ${retries} tentatives.`);
 }
 
 async function callApi<T>(path: string): Promise<T> {

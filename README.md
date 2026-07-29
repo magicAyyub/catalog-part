@@ -2,43 +2,55 @@
 
 Auto parts catalog (Next.js, Drizzle ORM, SQLite, RapidAPI auto-parts-catalog).
 
-### Config
+### Setup
 
 Copy `.env.example` to `.env` and fill in the values.
 
 ```sh
 cp .env.example .env
-```
-
-Key variables:
-
-- `USE_MOCK_API` — set to `true` to use the local fixture server instead of RapidAPI (no key required)
-- `MOCK_BASE_URL` — fixture server address, default `http://localhost:4000`
-- `RAPIDAPI_KEY` — required only when `USE_MOCK_API=false`
-- `SQLITE_PATH` — path to the SQLite database file, default `./data/app.db`
-
-### First run
-
-```sh
 pnpm install
 cd fixture-server && npm install && cd ..
 pnpm db:generate
 pnpm db:migrate
 ```
 
+### Configuration
+
+All behavior is controlled via `.env`. No need to touch the source code.
+
+| Variable | Description | Default |
+|---|---|---|
+| `USE_MOCK_API` | `true` = fixture server local, `false` = RapidAPI production | `true` |
+| `RAPIDAPI_KEY` | Required when `USE_MOCK_API=false` | — |
+| `MOCK_BASE_URL` | Address of the fixture server | `http://localhost:4000` |
+| `SQLITE_PATH` | Path to the SQLite database file | `./data/app.db` |
+| `SYNC_TTL_DAYS` | How long a vehicle sync is kept before refresh | `30` |
+| `ALLOWED_CATEGORY_IDS` | Comma-separated TecDoc category IDs to sync | `100030,100032` |
+| `ALLOWED_SUPPLIER_IDS_PROD` | Supplier IDs to accept in production (real TecDoc IDs) | `7657,161,30,21,39` |
+| `ALLOWED_SUPPLIER_IDS_MOCK` | Supplier IDs to accept in mock mode (fixture server IDs) | `2,8,12` |
+
 ### Development
 
-- Run `pnpm dev:mock` to start the fixture server and Next.js together
-- The app is accessible at `http://localhost:3000`
-- The fixture server runs at `http://localhost:4000`
-- Run `pnpm sync:vehicle [vehicleId]` to populate the database for a given vehicle (fixture server must be running)
-- Run `pnpm dev` if the fixture server is already running separately
+```sh
+pnpm dev:mock   # starts the fixture server + Next.js together
+```
+
+- App: `http://localhost:3000`
+- Fixture server: `http://localhost:4000`
+
+To reset and re-sync a vehicle manually:
+
+```sh
+pnpm sync:vehicle [vehicleId]   # fixture server must be running
+```
 
 ### Database
 
-- Run `pnpm db:generate` to generate a migration from the schema
-- Run `pnpm db:migrate` to apply pending migrations to the SQLite file
-- Run `pnpm drizzle-kit studio` to browse the database in a web UI
+```sh
+pnpm db:generate    # generate a migration from the schema
+pnpm db:migrate     # apply pending migrations
+pnpm drizzle-kit studio  # browse the database in a web UI
+```
 
 ### Switching to production API
 
@@ -49,4 +61,4 @@ USE_MOCK_API=false
 RAPIDAPI_KEY=your_key_here
 ```
 
-Then use `pnpm dev` instead of `pnpm dev:mock`.
+Then run `pnpm dev` (no fixture server needed).

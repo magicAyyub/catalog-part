@@ -13,5 +13,7 @@ export function useModels(manufacturerId: number | null) {
     queryFn: () => fetchModels(manufacturerId!),
     enabled: !!manufacturerId, // ne s'exécute que si un fabricant est sélectionné
     staleTime: 1000 * 60 * 30, // 30min
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

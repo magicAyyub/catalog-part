@@ -13,5 +13,7 @@ export function useEngineTypes(modelId: number | null) {
     queryFn: () => fetchEngineTypes(modelId!),
     enabled: !!modelId, // ne s'exécute que si un modèle est sélectionné
     staleTime: 1000 * 60 * 30, // 30min
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

@@ -12,5 +12,7 @@ export function useManufacturers() {
     queryKey: ["manufacturers"],
     queryFn: fetchManufacturers,
     staleTime: 1000 * 60 * 60, // 1h — la liste des fabricants est très stable
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useArticleDetail } from "@/hooks/parts/use-article-detail";
 import { useArticleMedia } from "@/hooks/parts/use-article-media";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import type { ApiCompatibleCar } from "@/lib/rapidapi/types";
 
 interface ArticleDetailDrawerProps {
     articleId: number | null;
@@ -46,6 +47,46 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
     // Image active dans le visualiseur
     const [activeImage, setActiveImage] = useState<string | null>(null);
 
+    const [openManufacturers, setOpenManufacturers] = useState<Set<string>>(new Set());
+    const [openModels, setOpenModels] = useState<Set<string>>(new Set());
+
+    // Regroupe les voitures compatibles par constructeur puis par modèle
+    const groupedCompatibleCars = useMemo(() => {
+        if (!article?.compatibleCars) return {};
+        const groups: Record<string, Record<string, ApiCompatibleCar[]>> = {};
+
+        for (const car of article.compatibleCars) {
+            const manuf = car.manufacturerName;
+            const model = car.modelName;
+
+            if (!groups[manuf]) {
+                groups[manuf] = {};
+            }
+            if (!groups[manuf][model]) {
+                groups[manuf][model] = [];
+            }
+            groups[manuf][model].push(car);
+        }
+
+        return groups;
+    }, [article]);
+
+    function toggleManufacturer(manuf: string) {
+        setOpenManufacturers((prev) => {
+            const next = new Set(prev);
+            next.has(manuf) ? next.delete(manuf) : next.add(manuf);
+            return next;
+        });
+    }
+
+    function toggleModel(modelKey: string) {
+        setOpenModels((prev) => {
+            const next = new Set(prev);
+            next.has(modelKey) ? next.delete(modelKey) : next.add(modelKey);
+            return next;
+        });
+    }
+
     // Initialise/réinitialise l'image affichée au chargement d'un nouvel article
     useEffect(() => {
         if (article?.s3image) {
@@ -53,6 +94,9 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
         } else {
             setActiveImage(null);
         }
+        // Réinitialiser le pliage des accordéons à chaque changement de produit
+        setOpenManufacturers(new Set());
+        setOpenModels(new Set());
     }, [articleId, article]);
 
     if (!articleId) return null;
@@ -119,7 +163,17 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
 
                     {isError && (
                         <div className="flex flex-col items-center gap-3 py-16 text-center">
-                            <span className="text-4xl">⚠️</span>
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                className="size-10 text-destructive/60"
+                                aria-hidden="true"
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
                             <p className="text-sm text-destructive">Impossible de charger le détail.</p>
                         </div>
                     )}
@@ -236,26 +290,100 @@ export function ArticleDetailDrawer({ articleId, onClose }: ArticleDetailDrawerP
 
                             {/* Véhicules compatibles */}
                             {article.compatibleCars.length > 0 && (
-                                <div>
-                                    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                <div className="mt-6">
+                                    <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                         Véhicules compatibles ({article.compatibleCars.length})
                                     </p>
-                                    <ul className="flex flex-col gap-2">
-                                        {article.compatibleCars.slice(0, 10).map((car, i) => (
-                                            <li
-                                                key={i}
-                                                className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs"
-                                            >
-                                                <span className="font-medium">{car.manufacturerName} {car.modelName}</span>
-                                                <span className="ml-2 text-muted-foreground">{car.typeEngineName}</span>
-                                            </li>
-                                        ))}
-                                        {article.compatibleCars.length > 10 && (
-                                            <li className="text-center text-xs text-muted-foreground">
-                                                +{article.compatibleCars.length - 10} autres véhicules
-                                            </li>
-                                        )}
-                                    </ul>
+                                    <div className="flex flex-col gap-2">
+                                        {Object.entries(groupedCompatibleCars).map(([manuf, modelsMap]) => {
+                                            const isManufOpen = openManufacturers.has(manuf);
+                                            return (
+                                                <div key={manuf} className="rounded-lg border border-border bg-card overflow-hidden">
+                                                    {/* En-tête constructeur */}
+                                                    <button
+                                                        onClick={() => toggleManufacturer(manuf)}
+                                                        className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium hover:bg-muted/40 transition-colors"
+                                                    >
+                                                        <span>{manuf}</span>
+                                                        <svg
+                                                            className={cn("size-4 text-muted-foreground transition-transform duration-200", isManufOpen && "rotate-180")}
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                        >
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </button>
+
+                                                    {/* Liste des modèles */}
+                                                    {isManufOpen && (
+                                                        <div className="border-t border-border/60 bg-muted/10 divide-y divide-border/40">
+                                                            {Object.entries(modelsMap).map(([model, cars]) => {
+                                                                const modelKey = `${manuf}_${model}`;
+                                                                const isModelOpen = openModels.has(modelKey);
+                                                                return (
+                                                                    <div key={model} className="flex flex-col">
+                                                                        {/* En-tête modèle */}
+                                                                        <button
+                                                                            onClick={() => toggleModel(modelKey)}
+                                                                            className="flex w-full items-center justify-between pl-6 pr-4 py-2.5 text-xs font-medium hover:bg-muted/65 transition-colors text-left"
+                                                                        >
+                                                                            <span className="text-foreground/90">{model}</span>
+                                                                            <svg
+                                                                                className={cn("size-3.5 text-muted-foreground/85 transition-transform duration-200", isModelOpen && "rotate-180")}
+                                                                                fill="none"
+                                                                                viewBox="0 0 24 24"
+                                                                                stroke="currentColor"
+                                                                                strokeWidth="2"
+                                                                            >
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                                            </svg>
+                                                                        </button>
+
+                                                                        {/* Motorisations */}
+                                                                        {isModelOpen && (
+                                                                            <div className="bg-background border-t border-border/30 pl-8 pr-4 py-2 flex flex-col gap-2 divide-y divide-border/20">
+                                                                                {cars.map((car, index) => {
+                                                                                    // Formater proprement l'intervalle de dates en MM/AAAA
+                                                                                    const formatDate = (dateStr: string) => {
+                                                                                        if (!dateStr) return "";
+                                                                                        const parts = dateStr.split("-");
+                                                                                        if (parts.length < 2) return dateStr;
+                                                                                        return `${parts[1]}/${parts[0]}`;
+                                                                                    };
+                                                                                    const formattedDates = `${formatDate(car.constructionIntervalStart)} - ${car.constructionIntervalEnd ? formatDate(car.constructionIntervalEnd) : "aujourd'hui"}`;
+                                                                                    
+                                                                                    return (
+                                                                                        <div key={index} className="flex items-start gap-2.5 pt-2 first:pt-0 text-xs">
+                                                                                            <svg
+                                                                                                className="size-3.5 text-green-600 shrink-0 mt-0.5"
+                                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                                fill="none"
+                                                                                                viewBox="0 0 24 24"
+                                                                                                stroke="currentColor"
+                                                                                                strokeWidth="2.5"
+                                                                                            >
+                                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                                                            </svg>
+                                                                                            <div className="flex flex-col gap-0.5 min-w-0">
+                                                                                                <span className="font-medium text-foreground leading-snug">{car.typeEngineName}</span>
+                                                                                                <span className="text-[10px] text-muted-foreground leading-none">{formattedDates}</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
                         </div>

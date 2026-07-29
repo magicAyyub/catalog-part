@@ -8,18 +8,25 @@ export default function Home() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
+  const [syncError, setSyncError] = useState<Error | null>(null);
 
   function handleVehicleSelected(vehicleId: number) {
-    // Un nouveau véhicule est sélectionné : on reset l'état de sync
     setSelectedVehicleId(vehicleId);
     setIsSynced(false);
     setIsSyncing(true);
+    setSyncError(null);
   }
 
   function handleSyncComplete(vehicleId: number) {
     setSelectedVehicleId(vehicleId);
     setIsSyncing(false);
     setIsSynced(true);
+    setSyncError(null);
+  }
+
+  function handleSyncError(error: Error | null) {
+    setIsSyncing(false);
+    setSyncError(error);
   }
 
   return (
@@ -40,6 +47,7 @@ export default function Home() {
         <VehicleCascade
           onVehicleSelected={handleVehicleSelected}
           onSyncComplete={handleSyncComplete}
+          onSyncError={handleSyncError}
         />
       </section>
 
@@ -53,6 +61,7 @@ export default function Home() {
             vehicleId={selectedVehicleId}
             isSyncing={isSyncing}
             isSynced={isSynced}
+            syncError={syncError}
           />
         </>
       )}

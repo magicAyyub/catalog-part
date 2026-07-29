@@ -113,3 +113,9 @@ export const articleCompatibleCars = sqliteTable("article_compatible_cars", {
     constructionIntervalStart: text("construction_interval_start"),
     constructionIntervalEnd: text("construction_interval_end"),
 });
+
+export const apiCache = sqliteTable("api_cache", {
+    key: text("key").primaryKey(),
+    valueJson: text("value_json").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});

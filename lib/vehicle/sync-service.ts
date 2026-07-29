@@ -5,8 +5,8 @@
  *   - POST /api/vehicle/sync   (déclenchement depuis le client après sélection)
  *   - scripts/sync-vehicle.ts  (usage CLI standalone)
  *
- * Principe : cache-on-demand avec TTL 7 jours.
- * Si le véhicule est déjà en DB et synced_at < 7 jours, on ne rappelle pas l'API.
+ * Principe : cache-on-demand avec TTL configurable (défaut 30 jours).
+ * Si le véhicule est déjà en DB et synced_at < TTL, on ne rappelle pas l'API.
  */
 
 import { db } from "@/lib/db/client";
@@ -21,23 +21,19 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import type { ApiEngineType } from "@/lib/rapidapi/types";
+import {
+    SYNC_TTL_MS,
+    ALLOWED_SUPPLIER_IDS,
+    CATEGORIES as CONFIG_CATEGORIES,
+} from "@/lib/config";
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
-
-const SYNC_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
-
-export const CATEGORIES = [
-    { categoryId: 100030, labelFr: "Plaquettes de frein" },
-    { categoryId: 100032, labelFr: "Disques de frein" },
-] as const;
+export const CATEGORIES = CONFIG_CATEGORIES;
 
 // productId = même valeur que categoryId dans l'API TecDoc pour ces deux catégories
 const CATEGORY_TO_PRODUCT_ID: Record<number, number> = {
     100030: 100030,
     100032: 100032,
 };
-
-// ─── Helpers internes ─────────────────────────────────────────────────────────
 
 async function ensureCategories() {
     for (const c of CATEGORIES) {
@@ -74,7 +70,9 @@ async function syncArticlesForCategory(
     const { articles: apiArticles } = await rapidApi.listArticles(vehicleId, categoryId);
     const distinctSupplierIds = new Set<number>();
 
-    for (const a of apiArticles) {
+    const filteredArticles = apiArticles.filter((a) => ALLOWED_SUPPLIER_IDS.has(a.supplierId));
+
+    for (const a of filteredArticles) {
         distinctSupplierIds.add(a.supplierId);
         await db
             .insert(articles)
@@ -109,6 +107,8 @@ async function syncFacetsForCategory(
     const specsToInsert: { articleId: number; criteriaName: string; criteriaValue: string }[] = [];
 
     for (const supplierId of supplierIds) {
+        if (!ALLOWED_SUPPLIER_IDS.has(supplierId)) continue;
+
         // 1. Récupérer les articles réels de ce fournisseur en DB
         const dbArticles = await db
             .select({ articleId: articles.articleId })
@@ -123,11 +123,12 @@ async function syncFacetsForCategory(
         if (dbArticles.length === 0) continue;
 
         // 2. Récupérer les critères depuis l'API
-        const { articles: criteriaRows } = await rapidApi.getSparePartCriteria(
+        const criteriaRes = await rapidApi.getSparePartCriteria(
             productId,
             vehicleId,
             supplierId
         );
+        const criteriaRows = criteriaRes?.articles ?? [];
         if (criteriaRows.length === 0) continue;
 
         // 3. Grouper les critères de l'API par article fictif
@@ -153,7 +154,7 @@ async function syncFacetsForCategory(
             // En prod, on associe par ID direct. En dev/mock, on distribue séquentiellement.
             const directMatch = apiArticleSpecs.get(dbArt.articleId);
             const specs = directMatch ?? apiSpecsList[index % apiSpecsList.length];
-            
+
             if (specs) {
                 for (const spec of specs) {
                     specsToInsert.push({
@@ -209,8 +210,6 @@ async function syncFacetsForCategory(
         });
     }
 }
-
-// ─── API publique ─────────────────────────────────────────────────────────────
 
 /**
  * Vérifie si le véhicule a besoin d'une sync (absent de DB ou synced_at trop ancien).

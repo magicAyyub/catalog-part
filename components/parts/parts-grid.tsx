@@ -16,6 +16,14 @@ import {
     NativeSelect,
     NativeSelectOption,
 } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
+import {
+    Empty,
+    EmptyHeader,
+    EmptyTitle,
+    EmptyDescription,
+    EmptyMedia,
+} from "@/components/ui/empty";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
 // ─── Skeleton ────────────────────────────────────────────────────────────────
@@ -23,11 +31,11 @@ import type { PartItem } from "@/hooks/parts/use-parts";
 function SkeletonCard() {
     return (
         <Card className="gap-0 overflow-hidden">
-            <Skeleton className="h-40 w-full rounded-none" />
-            <CardHeader className="gap-2">
+            <CardHeader className="h-40 bg-muted/40" />
+            <CardContent className="flex flex-col gap-2 pt-3">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3 w-1/2" />
-            </CardHeader>
+            </CardContent>
             <CardContent>
                 <Skeleton className="h-7 w-full rounded-lg" />
             </CardContent>
@@ -47,38 +55,83 @@ function SkeletonGrid({ count = 12 }: { count?: number }) {
 
 // ─── États ───────────────────────────────────────────────────────────────────
 
+function SearchIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="size-5"
+            aria-hidden="true"
+        >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+    );
+}
+
+function AlertTriangleIcon() {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="size-5"
+            aria-hidden="true"
+        >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+    );
+}
+
 function EmptyState({ categoryLabel }: { categoryLabel: string }) {
     return (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 py-20 text-center">
-            <span className="text-5xl">🔍</span>
-            <p className="font-medium text-foreground">Aucune pièce trouvée</p>
-            <p className="text-sm text-muted-foreground">
-                Pas de {categoryLabel} disponibles pour ce véhicule.
-            </p>
-        </div>
+        <Empty className="py-20 bg-muted/5">
+            <EmptyMedia variant="icon">
+                <SearchIcon />
+            </EmptyMedia>
+            <EmptyHeader>
+                <EmptyTitle>Aucune pièce trouvée</EmptyTitle>
+                <EmptyDescription>
+                    Pas de {categoryLabel.toLowerCase()} disponibles pour ce véhicule.
+                </EmptyDescription>
+            </EmptyHeader>
+        </Empty>
     );
 }
 
 function SyncingState() {
     return (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted/20 py-20 text-center">
-            <span className="animate-spin text-5xl">⚙️</span>
-            <p className="font-medium text-foreground">Synchronisation du catalogue…</p>
-            <p className="text-sm text-muted-foreground">
-                Récupération des pièces disponibles pour ce véhicule.
-            </p>
-        </div>
+        <Empty className="py-20 bg-muted/5">
+            <EmptyMedia>
+                <Spinner className="size-8 text-muted-foreground" />
+            </EmptyMedia>
+            <EmptyHeader>
+                <EmptyTitle>Synchronisation du catalogue…</EmptyTitle>
+                <EmptyDescription>
+                    Récupération des pièces disponibles pour ce véhicule.
+                </EmptyDescription>
+            </EmptyHeader>
+        </Empty>
     );
 }
 
 function ErrorState() {
     return (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 py-20 text-center">
-            <span className="text-5xl">⚠️</span>
-            <p className="text-sm font-medium text-destructive">
-                Impossible de charger les pièces.
-            </p>
-        </div>
+        <Empty className="py-20 border-destructive/15 bg-destructive/5 text-destructive-foreground">
+            <EmptyMedia variant="icon" className="bg-destructive/10 text-destructive">
+                <AlertTriangleIcon />
+            </EmptyMedia>
+            <EmptyHeader>
+                <EmptyTitle className="text-destructive font-semibold">Impossible de charger les pièces</EmptyTitle>
+                <EmptyDescription>
+                    Une erreur s'est produite lors de la récupération des articles.
+                </EmptyDescription>
+            </EmptyHeader>
+        </Empty>
     );
 }
 
