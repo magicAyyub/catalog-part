@@ -119,3 +119,15 @@ export const apiCache = sqliteTable("api_cache", {
     valueJson: text("value_json").notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+/**
+ * Index pré-calculé hors-ligne (L2 Cache) pour la résolution instantanée O(log N) par véhicule/catégorie.
+ */
+export const etfLookupIndex = sqliteTable("etf_lookup_index", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    vehicleId: integer("vehicle_id").notNull(),
+    categoryId: integer("category_id").notNull(),
+    vehicleJson: text("vehicle_json").notNull(),
+    productsJson: text("products_json").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});

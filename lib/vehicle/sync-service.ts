@@ -67,7 +67,18 @@ async function syncArticlesForCategory(
     vehicleId: number,
     categoryId: number
 ): Promise<Set<number>> {
-    const { articles: apiArticles } = await rapidApi.listArticles(vehicleId, categoryId);
+    // Si des articles sont déjà présents (ex: synchronisés depuis l'API by-plate), réutiliser les supplierIds
+    const existing = await db
+        .select({ supplierId: articles.supplierId })
+        .from(articles)
+        .where(and(eq(articles.vehicleId, vehicleId), eq(articles.categoryId, categoryId)));
+
+    if (existing.length > 0) {
+        return new Set(existing.map((r) => r.supplierId));
+    }
+
+    const res = await rapidApi.listArticles(vehicleId, categoryId);
+    const apiArticles = Array.isArray(res?.articles) ? res.articles : [];
     const distinctSupplierIds = new Set<number>();
 
     const filteredArticles = apiArticles.filter((a) => ALLOWED_SUPPLIER_IDS.has(a.supplierId));

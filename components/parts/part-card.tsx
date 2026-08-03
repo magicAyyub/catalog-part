@@ -78,9 +78,9 @@ export function PartCard({ part, onDetail }: PartCardProps) {
                 {/* Specs clés (diamètre, épaisseur…) */}
                 {part.specs.length > 0 && (
                     <div className="mt-0.5 flex flex-wrap gap-1">
-                        {part.specs.slice(0, 3).map((s) => (
+                        {part.specs.slice(0, 3).map((s, idx) => (
                             <span
-                                key={s.criteriaName}
+                                key={`${s.criteriaName}-${s.criteriaValue}-${idx}`}
                                 className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
                                 title={s.criteriaName}
                             >

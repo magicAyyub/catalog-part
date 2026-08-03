@@ -1,0 +1,44 @@
+[
+  {
+    "vehicleId": 199512,
+    "manufacturerName": "FIAT",
+    "modelName": "PUNTO EVO (199_)",
+    "typeEngineName": "1.4"
+  },
+  {
+    "vehicleId": 101412,
+    "manufacturerName": "PEUGEOT",
+    "modelName": "307 (3A/C)",
+    "typeEngineName": "1.6 HDi 110"
+  },
+  {
+    "vehicleId": 100466,
+    "manufacturerName": "RENAULT",
+    "modelName": "CLIO IV (BH_)",
+    "typeEngineName": "1.5 dCi 90"
+  },
+  {
+    "vehicleId": 100860,
+    "manufacturerName": "CITROEN",
+    "modelName": "C3 III (SX)",
+    "typeEngineName": "1.2 PureTech 82"
+  },
+  {
+    "vehicleId": 76908,
+    "manufacturerName": "VW",
+    "modelName": "UP! (121, 122, BL1, BL2)",
+    "typeEngineName": "1.0"
+  },
+  {
+    "vehicleId": 58586,
+    "manufacturerName": "PEUGEOT",
+    "modelName": "208 I (CA_, CC_)",
+    "typeEngineName": "1.2 VTi"
+  },
+  {
+    "vehicleId": 58587,
+    "manufacturerName": "RENAULT",
+    "modelName": "MEGANE III (BZ0/1_)",
+    "typeEngineName": "1.5 dCi"
+  }
+]

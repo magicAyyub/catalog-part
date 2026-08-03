@@ -15,8 +15,7 @@ export async function GET(
     try {
         const media = await rapidApi.getArticleMedia(id);
         return NextResponse.json(media);
-    } catch (err) {
-        console.error("Erreur lors de la récupération des médias :", err);
-        return NextResponse.json({ error: "Impossible de charger les médias" }, { status: 500 });
+    } catch {
+        return NextResponse.json([]);
     }
 }

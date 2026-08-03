@@ -6,6 +6,7 @@ import { useModels } from "@/hooks/vehicle/use-models";
 import { useEngineTypes } from "@/hooks/vehicle/use-engine-types";
 import { useSyncVehicle } from "@/hooks/parts/use-sync-vehicle";
 import type { ApiManufacturer, ApiModel, ApiEngineType } from "@/lib/rapidapi/types";
+import { VehiclePlateSearch } from "./vehicle-plate-search";
 import { Button } from "@/components/ui/button";
 import {
     Combobox,
@@ -22,12 +23,15 @@ interface VehicleCascadeProps {
     /** Appelé dès qu'un vehicleId est sélectionné (avant sync) */
     onVehicleSelected?: (vehicleId: number) => void;
     /** Appelé quand la sync SQLite est terminée (status synced ou cached) */
-    onSyncComplete?: (vehicleId: number) => void;
+    onSyncComplete?: (
+        vehicleId: number,
+        details?: { label: string; plate?: string; vin?: string }
+    ) => void;
     /** Callback d'erreur de synchronisation pour le composant parent */
     onSyncError?: (error: Error | null) => void;
 }
 
-// ─── Icônes SVG sobres (remplaçant les émojis) ────────────────────────────────
+// ─── Icônes SVG sobres ───────────────────────────────────────────────────────
 
 function AlertTriangleIcon() {
     return (
@@ -100,7 +104,6 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
         reset: resetSync,
     } = useSyncVehicle();
 
-    // Déduplication des listes avec useMemo pour éviter le re-calcul et les changements de référence
     const uniqueManufacturers = useMemo(() => {
         if (!manufacturers) return [];
         return Array.from(new Map(manufacturers.map((m) => [m.manufacturerId, m])).values());
@@ -130,7 +133,9 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
             },
             {
                 onSuccess: (data) => {
-                    onSyncComplete?.(data.vehicleId);
+                    onSyncComplete?.(data.vehicleId, {
+                        label: `${manufacturer.manufacturerName} ${model.modelName} | ${selectedEngine.typeEngineName}`,
+                    });
                 },
                 onError: (err) => {
                     onSyncError?.(err);
@@ -138,8 +143,6 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
             }
         );
     }
-
-
 
     const [showMfErrorDetails, setShowMfErrorDetails] = useState(false);
 
@@ -184,13 +187,33 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
 
     return (
         <div className="flex flex-col gap-6">
-            {/* Sélecteurs en ligne avec min-w-0 pour éviter le dépassement flex */}
+            {/* 1. Recherche par plaque d'immatriculation */}
+            <VehiclePlateSearch
+                onVehicleSelected={onVehicleSelected}
+                onSyncComplete={onSyncComplete}
+                onSyncError={onSyncError}
+            />
+
+            {/* Séparateur "OU" */}
+            <div className="relative flex items-center justify-center my-1">
+                <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative bg-card px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    ou
+                </div>
+            </div>
+
+            {/* Titre de la section cascade */}
+            <h2 className="text-base font-bold text-center tracking-tight text-foreground">
+                Par modèle
+            </h2>
+
+            {/* 2. Recherche par cascade (Marque / Modèle / Motorisation) */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                 {/* Fabricant */}
                 <div className="flex flex-1 flex-col gap-1.5 min-w-0">
-                    <label className="text-sm font-medium">
-                        Fabricant
-                    </label>
+                    <label className="text-sm font-medium">Fabricant</label>
                     <Combobox
                         items={uniqueManufacturers}
                         value={manufacturer}
@@ -214,7 +237,11 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                             }
                         >
                             <ComboboxValue>
-                                {(m) => <span className="truncate">{m ? m.manufacturerName : (mfLoading ? "Chargement…" : "Sélectionner un fabricant")}</span>}
+                                {(m) => (
+                                    <span className="truncate">
+                                        {m ? m.manufacturerName : mfLoading ? "Chargement…" : "Sélectionner un fabricant"}
+                                    </span>
+                                )}
                             </ComboboxValue>
                         </ComboboxTrigger>
                         <ComboboxContent className="w-(--anchor-width)">
@@ -233,9 +260,7 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
 
                 {/* Modèle */}
                 <div className="flex flex-1 flex-col gap-1.5 min-w-0">
-                    <label className="text-sm font-medium">
-                        Modèle
-                    </label>
+                    <label className="text-sm font-medium">Modèle</label>
                     <Combobox
                         items={uniqueModels}
                         value={model}
@@ -245,7 +270,13 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                             resetSync();
                             onSyncError?.(null);
                         }}
-                        itemToStringValue={(m) => m ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})` : ""}
+                        itemToStringValue={(m) =>
+                            m
+                                ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${
+                                      m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"
+                                  })`
+                                : ""
+                        }
                         disabled={!manufacturer || mdLoading}
                     >
                         <ComboboxTrigger
@@ -258,7 +289,19 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                             }
                         >
                             <ComboboxValue>
-                                {(m) => <span className="truncate">{m ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})` : (!manufacturer ? "D'abord un fabricant" : (mdLoading ? "Chargement…" : "Sélectionner un modèle"))}</span>}
+                                {(m) => (
+                                    <span className="truncate">
+                                        {m
+                                            ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${
+                                                  m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"
+                                              })`
+                                            : !manufacturer
+                                            ? "D'abord un fabricant"
+                                            : mdLoading
+                                            ? "Chargement…"
+                                            : "Sélectionner un modèle"}
+                                    </span>
+                                )}
                             </ComboboxValue>
                         </ComboboxTrigger>
                         <ComboboxContent className="w-(--anchor-width)">
@@ -278,9 +321,7 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
 
                 {/* Motorisation */}
                 <div className="flex flex-1 flex-col gap-1.5 min-w-0">
-                    <label className="text-sm font-medium">
-                        Motorisation
-                    </label>
+                    <label className="text-sm font-medium">Motorisation</label>
                     <Combobox
                         items={uniqueEngineTypes}
                         value={engineType}
@@ -292,7 +333,7 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                                 triggerSync(et);
                             }
                         }}
-                        itemToStringValue={(et) => et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : ""}
+                        itemToStringValue={(et) => (et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : "")}
                         disabled={!model || etLoading}
                     >
                         <ComboboxTrigger
@@ -305,7 +346,17 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                             }
                         >
                             <ComboboxValue>
-                                {(et) => <span className="truncate">{et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : (!model ? "D'abord un modèle" : (etLoading ? "Chargement…" : "Sélectionner une motorisation"))}</span>}
+                                {(et) => (
+                                    <span className="truncate">
+                                        {et
+                                            ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})`
+                                            : !model
+                                            ? "D'abord un modèle"
+                                            : etLoading
+                                            ? "Chargement…"
+                                            : "Sélectionner une motorisation"}
+                                    </span>
+                                )}
                             </ComboboxValue>
                         </ComboboxTrigger>
                         <ComboboxContent className="w-(--anchor-width)">
@@ -329,7 +380,9 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                     {isSyncing && (
                         <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
                             <SpinnerIcon />
-                            <span className="text-muted-foreground">Synchronisation du catalogue en cours… (Cette opération peut prendre quelques secondes)</span>
+                            <span className="text-muted-foreground">
+                                Synchronisation du catalogue en cours… (Cette opération peut prendre quelques secondes)
+                            </span>
                         </div>
                     )}
 
