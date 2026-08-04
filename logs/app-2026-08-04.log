@@ -52,3 +52,20 @@
 {"timestamp":"2026-08-04T12:40:14.106Z","level":"info","message":"Vehicle record resolved","supplier":"preference","action":"parseVehicle","plate":"GD928ZR","carId":"101412","brand":"PEUGEOT","model":"307 (3A/C)"}
 {"timestamp":"2026-08-04T12:40:24.113Z","level":"info","message":"B2B Plate lookup completed successfully","supplier":"preference","action":"searchByPlate_complete","plate":"GD928ZR","brand":"PEUGEOT","partsFound":48,"durationMs":13445}
 {"timestamp":"2026-08-04T12:40:24.825Z","level":"info","message":"Plate lookup succeeded","action":"by-plate","plate":"GD928ZR","vehicleId":101412,"durationMs":14160}
+{"timestamp":"2026-08-04T13:01:39.984Z","level":"info","message":"Plate search started via TecDoc pipeline","action":"by-plate","plate":"GD928ZR"}
+{"timestamp":"2026-08-04T13:01:39.985Z","level":"info","message":"B2B Plate lookup process initiated","supplier":"preference","action":"searchByPlate","plate":"GD928ZR","category":"plaquette"}
+{"timestamp":"2026-08-04T13:01:39.987Z","level":"info","message":"Préférence active session reused from cache","supplier":"preference","action":"session_reuse","plate":"GD928ZR"}
+{"timestamp":"2026-08-04T13:01:40.912Z","level":"info","message":"Plate identification step completed","supplier":"preference","action":"plateSearchStep","plate":"GD928ZR","durationMs":925}
+{"timestamp":"2026-08-04T13:01:41.446Z","level":"info","message":"Vehicle record resolved","supplier":"preference","action":"parseVehicle","plate":"GD928ZR","carId":"101412","brand":"PEUGEOT","model":"307 (3A/C)"}
+{"timestamp":"2026-08-04T13:01:54.045Z","level":"info","message":"B2B Plate lookup completed successfully","supplier":"preference","action":"searchByPlate_complete","plate":"GD928ZR","brand":"PEUGEOT","partsFound":48,"durationMs":14060}
+{"timestamp":"2026-08-04T13:01:55.630Z","level":"info","message":"Plate lookup completed","action":"by-plate","plate":"GD928ZR","vehicleId":101412,"durationMs":15648}
+{"timestamp":"2026-08-04T13:01:55.724Z","level":"info","message":"B2B Plate lookup process initiated","supplier":"preference","action":"searchByPlate","plate":"101412","category":"plaquette"}
+{"timestamp":"2026-08-04T13:01:55.726Z","level":"info","message":"Préférence active session reused from cache","supplier":"preference","action":"session_reuse","plate":"101412"}
+{"timestamp":"2026-08-04T13:01:56.416Z","level":"info","message":"Plate identification step completed","supplier":"preference","action":"plateSearchStep","plate":"101412","durationMs":690}
+{"timestamp":"2026-08-04T13:01:56.892Z","level":"info","message":"Vehicle record resolved","supplier":"preference","action":"parseVehicle","plate":"101412","carId":"199512","brand":"PEUGEOT","model":"307 (3A/C)"}
+{"timestamp":"2026-08-04T13:02:06.043Z","level":"info","message":"B2B Plate lookup completed successfully","supplier":"preference","action":"searchByPlate_complete","plate":"101412","brand":"PEUGEOT","partsFound":48,"durationMs":10319}
+{"timestamp":"2026-08-04T13:11:14.203Z","level":"info","message":"B2B Plate lookup process initiated","supplier":"preference","action":"searchByPlate","plate":"101412","category":"disque"}
+{"timestamp":"2026-08-04T13:11:14.205Z","level":"info","message":"Préférence active session reused from cache","supplier":"preference","action":"session_reuse","plate":"101412"}
+{"timestamp":"2026-08-04T13:11:14.834Z","level":"info","message":"Plate identification step completed","supplier":"preference","action":"plateSearchStep","plate":"101412","durationMs":628}
+{"timestamp":"2026-08-04T13:11:15.291Z","level":"info","message":"Vehicle record resolved","supplier":"preference","action":"parseVehicle","plate":"101412","carId":"199512","brand":"PEUGEOT","model":"307 (3A/C)"}
+{"timestamp":"2026-08-04T13:11:24.336Z","level":"info","message":"B2B Plate lookup completed successfully","supplier":"preference","action":"searchByPlate_complete","plate":"101412","brand":"PEUGEOT","partsFound":43,"durationMs":10133}

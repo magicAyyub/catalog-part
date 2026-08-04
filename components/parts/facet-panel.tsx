@@ -1,14 +1,16 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { useState } from "react";
+import { CheckIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortSupplierNames } from "@/lib/parts/suppliers";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
-// Nombre max de groupes critères affichés
-const MAX_CRITERIA_GROUPS = 5;
-// Nombre max de valeurs par groupe avant "afficher plus"
-const MAX_VALUES_SHOWN = 6;
+interface FacetOption {
+    label: string;
+    count: number;
+    checked: boolean;
+}
 
 interface FacetPanelProps {
     parts: PartItem[] | undefined;
@@ -36,6 +38,11 @@ export function FacetPanel({
     }
     const presentNames = Array.from(supplierIdMap.keys());
     const sortedSuppliers = sortSupplierNames(presentNames, supplierIdMap);
+    const supplierOptions: FacetOption[] = sortedSuppliers.map((name) => ({
+        label: name,
+        count: (parts ?? []).filter((p) => p.supplierName === name).length,
+        checked: activeSuppliers.has(name),
+    }));
 
     // ── Critères dynamiques ───────────────────────────────────────────────────
     // Dérive les groupes de critères directement depuis les specs des articles présents
@@ -48,11 +55,7 @@ export function FacetPanel({
         }
     }
     // Ne garder que les groupes avec >1 valeur distincte (filtrer serait inutile sinon)
-    // Trier par nombre de valeurs descendant, limiter à MAX_CRITERIA_GROUPS
-    const criteriaGroups = [...criteriaGroupsMap.entries()]
-        .filter(([, values]) => values.size > 1)
-        .sort((a, b) => b[1].size - a[1].size)
-        .slice(0, MAX_CRITERIA_GROUPS);
+    const criteriaGroups = [...criteriaGroupsMap.entries()].filter(([, values]) => values.size > 1);
 
     const hasActiveFilter =
         activeSuppliers.size > 0 ||
@@ -74,27 +77,13 @@ export function FacetPanel({
             </div>
 
             {/* Section Fournisseur */}
-            <FilterSection title="Fournisseur" first>
-                {sortedSuppliers.length === 0 ? (
-                    <p className="py-1.5 text-sm italic text-txt2">
-                        {parts === undefined ? "Chargement…" : "Aucun fournisseur"}
-                    </p>
-                ) : (
-                    sortedSuppliers.map((name) => {
-                        const isChecked = activeSuppliers.has(name);
-                        const count = (parts ?? []).filter((p) => p.supplierName === name).length;
-                        return (
-                            <CheckRow
-                                key={name}
-                                label={name}
-                                count={count}
-                                checked={isChecked}
-                                onToggle={() => onToggleSupplier(name)}
-                            />
-                        );
-                    })
-                )}
-            </FilterSection>
+            <FilterSection
+                title="Marques"
+                options={supplierOptions}
+                onToggle={onToggleSupplier}
+                emptyLabel={parts === undefined ? "Chargement…" : "Aucun fournisseur"}
+                first
+            />
 
             {/* Sections critères dynamiques */}
             {criteriaGroups.map(([criteriaName, values]) => {
@@ -106,27 +95,22 @@ export function FacetPanel({
                     if (!isNaN(na) && !isNaN(nb)) return na - nb;
                     return a.localeCompare(b);
                 });
-                const shown = sortedValues.slice(0, MAX_VALUES_SHOWN);
+                const options: FacetOption[] = sortedValues.map((value) => ({
+                    label: value,
+                    count: (parts ?? []).filter((p) =>
+                        p.specs.some((s) => s.criteriaName === criteriaName && s.criteriaValue === value)
+                    ).length,
+                    checked: active.has(value),
+                }));
 
                 return (
-                    <FilterSection key={criteriaName} title={criteriaName}>
-                        {shown.map((value) => {
-                            const count = (parts ?? []).filter((p) =>
-                                p.specs.some(
-                                    (s) => s.criteriaName === criteriaName && s.criteriaValue === value
-                                )
-                            ).length;
-                            return (
-                                <CheckRow
-                                    key={value}
-                                    label={value}
-                                    count={count}
-                                    checked={active.has(value)}
-                                    onToggle={() => onToggleCriteria(criteriaName, value)}
-                                />
-                            );
-                        })}
-                    </FilterSection>
+                    <FilterSection
+                        key={criteriaName}
+                        title={criteriaName}
+                        options={options}
+                        onToggle={(value) => onToggleCriteria(criteriaName, value)}
+                        emptyLabel="Aucune valeur"
+                    />
                 );
             })}
         </aside>
@@ -135,19 +119,73 @@ export function FacetPanel({
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+/** Bloc de filtre repliable : recherche + liste défilante, comme sur la référence. */
 function FilterSection({
     title,
+    options,
+    onToggle,
+    emptyLabel,
     first = false,
-    children,
 }: {
     title: string;
+    options: FacetOption[];
+    onToggle: (label: string) => void;
+    emptyLabel: string;
     first?: boolean;
-    children: React.ReactNode;
 }) {
+    const [open, setOpen] = useState(true);
+    const [query, setQuery] = useState("");
+
+    const q = query.trim().toLowerCase();
+    // Les options cochées restent toujours visibles, même si la recherche les masquerait.
+    const checkedFirst = [...options].sort((a, b) => Number(b.checked) - Number(a.checked));
+    const visible = q
+        ? checkedFirst.filter((o) => o.checked || o.label.toLowerCase().includes(q))
+        : checkedFirst;
+
     return (
-        <div className={cn("flex flex-col py-3", !first && "border-t border-stroke")}>
-            <p className="mb-1 font-heading text-sm font-semibold text-navy">{title}</p>
-            {children}
+        <div className={cn("py-3", !first && "border-t border-stroke")}>
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex w-full items-center justify-between rounded-md bg-muted px-3 py-2.5 font-heading text-sm font-bold uppercase tracking-wide text-navy"
+            >
+                {title}
+                {open ? <MinusIcon size={14} /> : <PlusIcon size={14} />}
+            </button>
+
+            {open && (
+                <div className="mt-3 flex flex-col gap-2">
+                    {options.length > 0 && (
+                        <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Recherche"
+                            className="h-9 w-full rounded-md border border-stroke px-3 text-sm text-navy outline-none placeholder:text-txt2 focus:border-royal"
+                        />
+                    )}
+
+                    {options.length === 0 ? (
+                        <p className="py-1 text-sm italic text-txt2">{emptyLabel}</p>
+                    ) : (
+                        <div className="flex max-h-56 flex-col overflow-y-auto">
+                            {visible.length === 0 ? (
+                                <p className="py-1 text-sm italic text-txt2">Aucun résultat</p>
+                            ) : (
+                                visible.map((o) => (
+                                    <CheckRow
+                                        key={o.label}
+                                        label={o.label}
+                                        count={o.count}
+                                        checked={o.checked}
+                                        onToggle={() => onToggle(o.label)}
+                                    />
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -168,7 +206,7 @@ function CheckRow({
             type="button"
             onClick={onToggle}
             aria-pressed={checked}
-            className="flex w-full items-center gap-2.5 rounded-md px-1 py-2 text-sm text-navy transition-colors hover:bg-muted"
+            className="flex w-full shrink-0 items-center gap-2.5 rounded-md px-1 py-2 text-sm text-navy transition-colors hover:bg-muted"
         >
             <span
                 className={cn(

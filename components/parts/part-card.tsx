@@ -34,7 +34,7 @@ export function PartCard({ part, onDetail }: PartCardProps) {
     const hasDiscount = part.priceBase !== null && part.priceNet !== null && part.priceBase > part.priceNet;
 
     return (
-        <article className="flex w-full flex-col justify-between rounded-lg border border-stroke bg-card py-4 pr-5 max-md:p-4 sm:flex-row">
+        <article className="flex w-full flex-col gap-y-4 rounded-lg border border-stroke bg-card p-4 sm:flex-row sm:items-start sm:justify-between sm:py-4 sm:pr-5 sm:pl-4">
             {/* Marque + image + stock */}
             <div className="flex w-full shrink-0 flex-col items-center gap-3 sm:w-27.5">
                 <div className="font-heading text-base font-bold text-navy">
@@ -72,7 +72,7 @@ export function PartCard({ part, onDetail }: PartCardProps) {
             </div>
 
             {/* Titre + specs, séparé par un trait vertical */}
-            <div className="w-full flex-1 border-stroke pl-0 sm:border-l sm:pl-5 max-md:mt-4 max-md:border-l-0 max-md:pl-0">
+            <div className="w-full min-w-0 flex-1 border-stroke sm:border-l sm:pl-5 sm:pr-6">
                 <div className="font-heading text-lg font-bold leading-tight text-navy">
                     {part.articleProductName}
                 </div>
@@ -85,7 +85,7 @@ export function PartCard({ part, onDetail }: PartCardProps) {
                         <div className="mb-2 flex items-center gap-3 font-heading text-sm font-semibold text-navy after:h-px after:flex-1 after:bg-stroke after:content-['']">
                             Caractéristiques
                         </div>
-                        <dl className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-6">
+                        <dl className="flex flex-col">
                             {part.specs.map((s, idx) => (
                                 <div
                                     key={`${s.criteriaName}-${s.criteriaValue}-${idx}`}
@@ -101,7 +101,7 @@ export function PartCard({ part, onDetail }: PartCardProps) {
             </div>
 
             {/* Prix + action */}
-            <div className="flex w-full shrink-0 flex-row items-center justify-between gap-4 border-stroke pl-0 sm:w-47.5 sm:flex-col sm:items-end sm:border-l sm:pl-4 sm:text-right max-md:mt-4 max-md:border-t max-md:pt-4 sm:max-md:border-l-0 sm:max-md:pt-0">
+            <div className="flex w-full shrink-0 flex-row items-center justify-between gap-4 border-t border-stroke pt-4 sm:w-47.5 sm:flex-col sm:items-end sm:border-l sm:border-t-0 sm:pt-0 sm:pl-4 sm:text-right">
                 <div className="flex flex-col items-end gap-0.5">
                     {hasDiscount && part.priceBase !== null && (
                         <div className="flex items-center gap-2 text-sm text-txt2">

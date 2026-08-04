@@ -9,13 +9,12 @@ import type {
     ApiSupplier,
     ApiMediaItem,
 } from "./types";
+import { logger } from "@/lib/logger";
 
 const LANG_ID = process.env.LANG_ID;
 const COUNTRY_FILTER_ID = process.env.COUNTRY_FILTER_ID;
 const TYPE_ID = process.env.TYPE_ID;
 
-// USE_MOCK_API=true  → fixture server local (aucune clé requise)
-// USE_MOCK_API=false → RapidAPI production (RAPIDAPI_KEY obligatoire)
 const USE_MOCK = process.env.USE_MOCK_API === "true";
 
 const MOCK_BASE_URL = process.env.MOCK_BASE_URL ?? "http://localhost:4000";
@@ -52,6 +51,8 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
         throw new Error("RAPIDAPI_KEY manquante dans les variables d'environnement.");
     }
 
+    logger.info("RapidAPI HTTP call executed", { action: "rapidapi_call", path });
+
     for (let attempt = 1; attempt <= retries; attempt++) {
         const res = await fetch(`${RAPIDAPI_BASE_URL}${path}`, {
             method: "GET",
@@ -67,18 +68,18 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
             const body = await res.text().catch(() => "");
             const lowerBody = body.toLowerCase();
 
-            // Si c'est le quota mensuel qui est épuisé, aucun retry ne résoudra le problème de suite.
             if (lowerBody.includes("monthly") || lowerBody.includes("quota")) {
                 throw new Error(`RapidAPI ${path} -> 429 Too Many Requests : ${body}`);
             }
 
             if (attempt < retries) {
                 const sleepTime = backoff * Math.pow(2, attempt) + Math.random() * 100;
-                console.warn(
-                    `[RapidAPI] Rate limit 429 pour ${path}. Tentative ${attempt}/${retries}. Attente de ${Math.round(
-                        sleepTime
-                    )}ms...`
-                );
+                logger.warn("RapidAPI 429 rate limit hit, retrying", {
+                    action: "rapidapi_retry",
+                    path,
+                    attempt,
+                    sleepMs: Math.round(sleepTime),
+                });
                 await delay(sleepTime);
                 continue;
             }
@@ -114,7 +115,6 @@ export const rapidApi = {
             `/types/type-id/${TYPE_ID}/list-vehicles-types/${modelId}/lang-id/${LANG_ID}/country-filter-id/${COUNTRY_FILTER_ID}`
         ),
 
-    // Appelé une seule fois par la synchro pour retrouver l'arbre complet (on filtre ensuite sur 100030/100032).
     listCategoriesForVehicle: (vehicleId: number) =>
         callApi<ApiCategoriesResponse>(
             `/category/type-id/${TYPE_ID}/products-groups-variant-3/${vehicleId}/lang-id/${LANG_ID}`
@@ -125,7 +125,6 @@ export const rapidApi = {
             `/articles/list/type-id/${TYPE_ID}/vehicle-id/${vehicleId}/category-id/${categoryId}/lang-id/${LANG_ID}`
         ),
 
-    // Appelé en live (pas caché en base à l'avance) quand l'utilisateur ouvre une fiche produit.
     getArticleDetails: (articleId: number) =>
         callApi<ApiArticleDetails>(
             `/articles/article-complete-details/type-id/${TYPE_ID}?langId=${LANG_ID}&countryFilterId=${COUNTRY_FILTER_ID}&articleId=${articleId}`
@@ -134,7 +133,6 @@ export const rapidApi = {
     getArticleMedia: (articleId: number) =>
         callApi<ApiMediaItem[]>(`/articles/article-all-media-info?articleId=${articleId}&langId=${LANG_ID}`),
 
-    // Scopé par supplier : il faut boucler sur chaque supplierId distinct pour agréger les facettes.
     getSparePartCriteria: (productId: number, vehicleId: number, supplierId: number) =>
         callApi<ApiSparePartCriteriaResponse>(
             `/articles/selection-of-the-criteria-for-articles-and-vehicle/type-id/${TYPE_ID}/product-id/${productId}/vehicle-id/${vehicleId}/supplier-id/${supplierId}/lang-id/${LANG_ID}/country-filter-id/${COUNTRY_FILTER_ID}`
