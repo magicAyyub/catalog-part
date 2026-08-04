@@ -11,6 +11,7 @@
 
 import { db } from "@/lib/db/client";
 import { rapidApi } from "@/lib/rapidapi/client";
+import { getTecDocSpecsForRef } from "@/lib/catalog/tecdoc-specs";
 import {
     articles,
     articleCriteriaFacets,
@@ -29,7 +30,6 @@ import {
 
 export const CATEGORIES = CONFIG_CATEGORIES;
 
-// productId = même valeur que categoryId dans l'API TecDoc pour ces deux catégories
 const CATEGORY_TO_PRODUCT_ID: Record<number, number> = {
     100030: 100030,
     100032: 100032,
@@ -45,29 +45,29 @@ async function ensureCategories() {
 }
 
 async function ensureSuppliersOnce() {
-    const existing = await db.select().from(suppliers).limit(1);
-    if (existing.length > 0) return;
-
-    const all = await rapidApi.listAllSuppliers();
-    for (const s of all) {
-        await db
-            .insert(suppliers)
-            .values({
-                supplierId: s.supplierId,
-                supplierName: s.supplierName,
-                supplierMatchCode: s.supplierMatchCode ?? null,
-                supplierLogoName: s.supplierLogoName ?? null,
-                s3image: null,
-            })
-            .onConflictDoNothing();
-    }
+    try {
+        const all = await rapidApi.listAllSuppliers();
+        if (Array.isArray(all)) {
+            for (const s of all) {
+                await db
+                    .insert(suppliers)
+                    .values({
+                        supplierId: s.supplierId,
+                        supplierName: s.supplierName,
+                        supplierMatchCode: s.supplierMatchCode ?? null,
+                        supplierLogoName: s.supplierLogoName ?? null,
+                        s3image: null,
+                    })
+                    .onConflictDoNothing();
+            }
+        }
+    } catch {}
 }
 
 async function syncArticlesForCategory(
     vehicleId: number,
     categoryId: number
 ): Promise<Set<number>> {
-    // Si des articles sont déjà présents (ex: synchronisés depuis l'API by-plate), réutiliser les supplierIds
     const existing = await db
         .select({ supplierId: articles.supplierId })
         .from(articles)
@@ -85,6 +85,19 @@ async function syncArticlesForCategory(
 
     for (const a of filteredArticles) {
         distinctSupplierIds.add(a.supplierId);
+
+        // Garantir l'existence du supplierId pour éviter SqliteError: FOREIGN KEY constraint failed
+        await db
+            .insert(suppliers)
+            .values({
+                supplierId: a.supplierId,
+                supplierName: a.supplierName || "Inconnu",
+                supplierMatchCode: a.supplierName || null,
+                supplierLogoName: null,
+                s3image: null,
+            })
+            .onConflictDoNothing();
+
         await db
             .insert(articles)
             .values({
@@ -113,16 +126,14 @@ async function syncFacetsForCategory(
     const productId = CATEGORY_TO_PRODUCT_ID[categoryId];
     if (!productId) return;
 
-    // criteriaName -> { type, values: Set<string> }
     const aggregated = new Map<string, { type: string; values: Set<string> }>();
     const specsToInsert: { articleId: number; criteriaName: string; criteriaValue: string }[] = [];
 
     for (const supplierId of supplierIds) {
         if (!ALLOWED_SUPPLIER_IDS.has(supplierId)) continue;
 
-        // 1. Récupérer les articles réels de ce fournisseur en DB
         const dbArticles = await db
-            .select({ articleId: articles.articleId })
+            .select({ articleId: articles.articleId, articleNo: articles.articleNo })
             .from(articles)
             .where(
                 and(
@@ -133,52 +144,59 @@ async function syncFacetsForCategory(
             );
         if (dbArticles.length === 0) continue;
 
-        // 2. Récupérer les critères depuis l'API
-        const criteriaRes = await rapidApi.getSparePartCriteria(
-            productId,
-            vehicleId,
-            supplierId
-        );
-        const criteriaRows = criteriaRes?.articles ?? [];
-        if (criteriaRows.length === 0) continue;
-
-        // 3. Grouper les critères de l'API par article fictif
-        const apiArticleSpecs = new Map<number, { criteriaName: string; criteriaValue: string; type: string }[]>();
-        for (const row of criteriaRows) {
-            // Agrégation globale pour les filtres
-            const entry = aggregated.get(row.criteriaName) ?? {
-                type: row.type,
-                values: new Set<string>(),
-            };
-            entry.values.add(row.criteriaValue);
-            aggregated.set(row.criteriaName, entry);
-
-            // Groupement par article fictif
-            const list = apiArticleSpecs.get(row.articleId) ?? [];
-            list.push({ criteriaName: row.criteriaName, criteriaValue: row.criteriaValue, type: row.type });
-            apiArticleSpecs.set(row.articleId, list);
+        // Enrichissement avec les specs TecDoc locales
+        for (const art of dbArticles) {
+            const tecdocSpec = getTecDocSpecsForRef(art.articleNo);
+            if (tecdocSpec) {
+                if (tecdocSpec.outerDiameter) specsToInsert.push({ articleId: art.articleId, criteriaName: "Diamètre extérieur [mm]", criteriaValue: `${tecdocSpec.outerDiameter} Mm` });
+                if (tecdocSpec.thickness) specsToInsert.push({ articleId: art.articleId, criteriaName: categoryId === 100032 ? "Épaisseur du disque [mm]" : "Épaisseur [mm]", criteriaValue: `${tecdocSpec.thickness} Mm` });
+                if (tecdocSpec.discType) specsToInsert.push({ articleId: art.articleId, criteriaName: "Type de disque de frein", criteriaValue: tecdocSpec.discType });
+                if (tecdocSpec.numberOfHoles) specsToInsert.push({ articleId: art.articleId, criteriaName: "Nombre de trous", criteriaValue: `${tecdocSpec.numberOfHoles}` });
+                if (tecdocSpec.centerDiameter) specsToInsert.push({ articleId: art.articleId, criteriaName: "Diamètre du centrage [mm]", criteriaValue: `${tecdocSpec.centerDiameter} Mm` });
+            }
         }
 
-        // 4. Associer les spécifications aux articles réels de notre DB
-        const apiSpecsList = Array.from(apiArticleSpecs.values());
-        dbArticles.forEach((dbArt, index) => {
-            // En prod, on associe par ID direct. En dev/mock, on distribue séquentiellement.
-            const directMatch = apiArticleSpecs.get(dbArt.articleId);
-            const specs = directMatch ?? apiSpecsList[index % apiSpecsList.length];
+        try {
+            const criteriaRes = await rapidApi.getSparePartCriteria(
+                productId,
+                vehicleId,
+                supplierId
+            );
+            const criteriaRows = criteriaRes?.articles ?? [];
+            if (criteriaRows.length > 0) {
+                const apiArticleSpecs = new Map<number, { criteriaName: string; criteriaValue: string; type: string }[]>();
+                for (const row of criteriaRows) {
+                    const entry = aggregated.get(row.criteriaName) ?? {
+                        type: row.type,
+                        values: new Set<string>(),
+                    };
+                    entry.values.add(row.criteriaValue);
+                    aggregated.set(row.criteriaName, entry);
 
-            if (specs) {
-                for (const spec of specs) {
-                    specsToInsert.push({
-                        articleId: dbArt.articleId,
-                        criteriaName: spec.criteriaName,
-                        criteriaValue: spec.criteriaValue,
-                    });
+                    const list = apiArticleSpecs.get(row.articleId) ?? [];
+                    list.push({ criteriaName: row.criteriaName, criteriaValue: row.criteriaValue, type: row.type });
+                    apiArticleSpecs.set(row.articleId, list);
                 }
+
+                const apiSpecsList = Array.from(apiArticleSpecs.values());
+                dbArticles.forEach((dbArt, index) => {
+                    const directMatch = apiArticleSpecs.get(dbArt.articleId);
+                    const specs = directMatch ?? apiSpecsList[index % apiSpecsList.length];
+
+                    if (specs) {
+                        for (const spec of specs) {
+                            specsToInsert.push({
+                                articleId: dbArt.articleId,
+                                criteriaName: spec.criteriaName,
+                                criteriaValue: spec.criteriaValue,
+                            });
+                        }
+                    }
+                });
             }
-        });
+        } catch {}
     }
 
-    // Supprimer les anciennes specs des articles de cette catégorie+véhicule
     const articleIdsInCategory = (
         await db
             .select({ articleId: articles.articleId })
@@ -192,16 +210,14 @@ async function syncFacetsForCategory(
             .where(inArray(articleSpecifications.articleId, articleIdsInCategory));
     }
 
-    // Insérer les specs
     for (const spec of specsToInsert) {
         await db.insert(articleSpecifications).values({
             articleId: spec.articleId,
             criteriaName: spec.criteriaName,
             criteriaValue: spec.criteriaValue,
-        });
+        }).onConflictDoNothing();
     }
 
-    // Repart de zéro pour cette paire (vehicleId, categoryId) à chaque sync
     await db
         .delete(articleCriteriaFacets)
         .where(
@@ -222,9 +238,6 @@ async function syncFacetsForCategory(
     }
 }
 
-/**
- * Vérifie si le véhicule a besoin d'une sync (absent de DB ou synced_at trop ancien).
- */
 export async function needsSync(vehicleId: number): Promise<boolean> {
     const [row] = await db
         .select({ syncedAt: vehicles.syncedAt })
@@ -236,10 +249,6 @@ export async function needsSync(vehicleId: number): Promise<boolean> {
     return Date.now() - row.syncedAt.getTime() > SYNC_TTL_MS;
 }
 
-/**
- * Synchronise le véhicule + ses articles + ses facettes vers SQLite.
- * À appeler uniquement si needsSync() retourne true.
- */
 export async function syncVehicle(
     engineType: ApiEngineType,
     manufacturerId: number,
@@ -250,7 +259,6 @@ export async function syncVehicle(
     await ensureCategories();
     await ensureSuppliersOnce();
 
-    // Upsert du véhicule
     await db
         .insert(vehicles)
         .values({
@@ -275,13 +283,11 @@ export async function syncVehicle(
             },
         });
 
-    // Sync articles + facettes par catégorie
     for (const cat of CATEGORIES) {
         const supplierIds = await syncArticlesForCategory(vehicleId, cat.categoryId);
         await syncFacetsForCategory(vehicleId, cat.categoryId, supplierIds);
     }
 
-    // Mise à jour du timestamp de sync
     await db
         .update(vehicles)
         .set({ syncedAt: new Date() })

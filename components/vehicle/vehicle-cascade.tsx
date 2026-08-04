@@ -186,237 +186,247 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
         : null;
 
     return (
-        <div className="flex flex-col gap-6">
-            {/* 1. Recherche par plaque d'immatriculation */}
-            <VehiclePlateSearch
-                onVehicleSelected={onVehicleSelected}
-                onSyncComplete={onSyncComplete}
-                onSyncError={onSyncError}
-            />
-
-            {/* Séparateur "OU" */}
-            <div className="relative flex items-center justify-center my-1">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative bg-card px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    ou
-                </div>
-            </div>
-
-            {/* Titre de la section cascade */}
-            <h2 className="text-base font-bold text-center tracking-tight text-foreground">
-                Par modèle
-            </h2>
-
-            {/* 2. Recherche par cascade (Marque / Modèle / Motorisation) */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-                {/* Fabricant */}
-                <div className="flex flex-1 flex-col gap-1.5 min-w-0">
-                    <label className="text-sm font-medium">Fabricant</label>
-                    <Combobox
-                        items={uniqueManufacturers}
-                        value={manufacturer}
-                        onValueChange={(m) => {
-                            setManufacturer(m);
-                            setModel(null);
-                            setEngineType(null);
-                            resetSync();
-                            onSyncError?.(null);
-                        }}
-                        itemToStringValue={(m) => m?.manufacturerName ?? ""}
-                        disabled={mfLoading}
-                    >
-                        <ComboboxTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-between font-normal text-left min-w-0 overflow-hidden border-input shadow-xs"
-                                    disabled={mfLoading}
-                                />
-                            }
-                        >
-                            <ComboboxValue>
-                                {(m) => (
-                                    <span className="truncate">
-                                        {m ? m.manufacturerName : mfLoading ? "Chargement…" : "Sélectionner un fabricant"}
-                                    </span>
-                                )}
-                            </ComboboxValue>
-                        </ComboboxTrigger>
-                        <ComboboxContent className="w-(--anchor-width)">
-                            <ComboboxInput showTrigger={false} placeholder="Rechercher un fabricant..." />
-                            <ComboboxEmpty>Aucun fabricant trouvé.</ComboboxEmpty>
-                            <ComboboxList>
-                                {(m) => (
-                                    <ComboboxItem key={m.manufacturerId} value={m}>
-                                        {m.manufacturerName}
-                                    </ComboboxItem>
-                                )}
-                            </ComboboxList>
-                        </ComboboxContent>
-                    </Combobox>
+        <div className="rounded-lg bg-banner-navy p-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-0">
+                {/* 1. Recherche par plaque d'immatriculation */}
+                <div className="flex-1">
+                    <p className="mb-3.5 font-heading text-base font-semibold text-white">
+                        Recherche par plaque d&apos;immatriculation
+                    </p>
+                    <VehiclePlateSearch
+                        onVehicleSelected={onVehicleSelected}
+                        onSyncComplete={onSyncComplete}
+                        onSyncError={onSyncError}
+                    />
                 </div>
 
-                {/* Modèle */}
-                <div className="flex flex-1 flex-col gap-1.5 min-w-0">
-                    <label className="text-sm font-medium">Modèle</label>
-                    <Combobox
-                        items={uniqueModels}
-                        value={model}
-                        onValueChange={(m) => {
-                            setModel(m);
-                            setEngineType(null);
-                            resetSync();
-                            onSyncError?.(null);
-                        }}
-                        itemToStringValue={(m) =>
-                            m
-                                ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${
-                                      m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"
-                                  })`
-                                : ""
-                        }
-                        disabled={!manufacturer || mdLoading}
-                    >
-                        <ComboboxTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-between font-normal text-left min-w-0 overflow-hidden border-input shadow-xs"
-                                    disabled={!manufacturer || mdLoading}
-                                />
-                            }
-                        >
-                            <ComboboxValue>
-                                {(m) => (
-                                    <span className="truncate">
-                                        {m
-                                            ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${
-                                                  m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"
-                                              })`
-                                            : !manufacturer
-                                            ? "D'abord un fabricant"
-                                            : mdLoading
-                                            ? "Chargement…"
-                                            : "Sélectionner un modèle"}
-                                    </span>
-                                )}
-                            </ComboboxValue>
-                        </ComboboxTrigger>
-                        <ComboboxContent className="w-(--anchor-width)">
-                            <ComboboxInput showTrigger={false} placeholder="Rechercher un modèle..." />
-                            <ComboboxEmpty>Aucun modèle trouvé.</ComboboxEmpty>
-                            <ComboboxList>
-                                {(m) => (
-                                    <ComboboxItem key={m.modelId} value={m}>
-                                        {m.modelName} ({m.modelYearFrom.slice(0, 4)}
-                                        {m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})
-                                    </ComboboxItem>
-                                )}
-                            </ComboboxList>
-                        </ComboboxContent>
-                    </Combobox>
+                {/* Séparateur "OU" */}
+                <div className="flex items-center justify-center py-2 lg:px-6 lg:py-0">
+                    <div className="flex w-full items-center gap-3 lg:hidden">
+                        <div className="h-px flex-1 bg-white/20" />
+                        <span className="text-xs font-bold text-white/50">OU</span>
+                        <div className="h-px flex-1 bg-white/20" />
+                    </div>
+                    <div className="hidden lg:flex lg:h-full lg:flex-col lg:items-center">
+                        <div className="w-px flex-1 bg-white/20" />
+                        <span className="my-3 flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 text-xs font-bold text-white">
+                            OU
+                        </span>
+                        <div className="w-px flex-1 bg-white/20" />
+                    </div>
                 </div>
 
-                {/* Motorisation */}
-                <div className="flex flex-1 flex-col gap-1.5 min-w-0">
-                    <label className="text-sm font-medium">Motorisation</label>
-                    <Combobox
-                        items={uniqueEngineTypes}
-                        value={engineType}
-                        onValueChange={(et) => {
-                            setEngineType(et);
-                            resetSync();
-                            if (et && manufacturer && model) {
-                                onVehicleSelected?.(et.vehicleId);
-                                triggerSync(et);
-                            }
-                        }}
-                        itemToStringValue={(et) => (et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : "")}
-                        disabled={!model || etLoading}
-                    >
-                        <ComboboxTrigger
-                            render={
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-between font-normal text-left min-w-0 overflow-hidden border-input shadow-xs"
-                                    disabled={!model || etLoading}
-                                />
-                            }
-                        >
-                            <ComboboxValue>
-                                {(et) => (
-                                    <span className="truncate">
-                                        {et
-                                            ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})`
-                                            : !model
-                                            ? "D'abord un modèle"
-                                            : etLoading
-                                            ? "Chargement…"
-                                            : "Sélectionner une motorisation"}
-                                    </span>
-                                )}
-                            </ComboboxValue>
-                        </ComboboxTrigger>
-                        <ComboboxContent className="w-(--anchor-width)">
-                            <ComboboxInput showTrigger={false} placeholder="Rechercher une motorisation..." />
-                            <ComboboxEmpty>Aucune motorisation trouvée.</ComboboxEmpty>
-                            <ComboboxList>
-                                {(et) => (
-                                    <ComboboxItem key={et.vehicleId} value={et}>
-                                        {et.typeEngineName} | {et.powerKw} kW ({et.fuelType})
-                                    </ComboboxItem>
-                                )}
-                            </ComboboxList>
-                        </ComboboxContent>
-                    </Combobox>
+                {/* 2. Recherche par cascade (Marque / Modèle / Motorisation) */}
+                <div className="flex-1">
+                    <p className="mb-3.5 font-heading text-base font-semibold text-white">
+                        Recherche par modèle
+                    </p>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        {/* Fabricant */}
+                        <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+                            <Combobox
+                                items={uniqueManufacturers}
+                                value={manufacturer}
+                                onValueChange={(m) => {
+                                    setManufacturer(m);
+                                    setModel(null);
+                                    setEngineType(null);
+                                    resetSync();
+                                    onSyncError?.(null);
+                                }}
+                                itemToStringValue={(m) => m?.manufacturerName ?? ""}
+                                disabled={mfLoading}
+                            >
+                                <ComboboxTrigger
+                                    render={
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-navy shadow-sm hover:bg-white/90"
+                                            disabled={mfLoading}
+                                        />
+                                    }
+                                >
+                                    <ComboboxValue>
+                                        {(m) => (
+                                            <span className="truncate">
+                                                {m ? m.manufacturerName : mfLoading ? "Chargement…" : "Fabricant"}
+                                            </span>
+                                        )}
+                                    </ComboboxValue>
+                                </ComboboxTrigger>
+                                <ComboboxContent className="w-(--anchor-width)">
+                                    <ComboboxInput showTrigger={false} placeholder="Rechercher un fabricant..." />
+                                    <ComboboxEmpty>Aucun fabricant trouvé.</ComboboxEmpty>
+                                    <ComboboxList>
+                                        {(m) => (
+                                            <ComboboxItem key={m.manufacturerId} value={m}>
+                                                {m.manufacturerName}
+                                            </ComboboxItem>
+                                        )}
+                                    </ComboboxList>
+                                </ComboboxContent>
+                            </Combobox>
+                        </div>
+
+                        {/* Modèle */}
+                        <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+                            <Combobox
+                                items={uniqueModels}
+                                value={model}
+                                onValueChange={(m) => {
+                                    setModel(m);
+                                    setEngineType(null);
+                                    resetSync();
+                                    onSyncError?.(null);
+                                }}
+                                itemToStringValue={(m) =>
+                                    m
+                                        ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${
+                                              m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"
+                                          })`
+                                        : ""
+                                }
+                                disabled={!manufacturer || mdLoading}
+                            >
+                                <ComboboxTrigger
+                                    render={
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-navy shadow-sm hover:bg-white/90"
+                                            disabled={!manufacturer || mdLoading}
+                                        />
+                                    }
+                                >
+                                    <ComboboxValue>
+                                        {(m) => (
+                                            <span className="truncate">
+                                                {m
+                                                    ? `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${
+                                                          m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"
+                                                      })`
+                                                    : !manufacturer
+                                                    ? "D'abord un fabricant"
+                                                    : mdLoading
+                                                    ? "Chargement…"
+                                                    : "Modèle"}
+                                            </span>
+                                        )}
+                                    </ComboboxValue>
+                                </ComboboxTrigger>
+                                <ComboboxContent className="w-(--anchor-width)">
+                                    <ComboboxInput showTrigger={false} placeholder="Rechercher un modèle..." />
+                                    <ComboboxEmpty>Aucun modèle trouvé.</ComboboxEmpty>
+                                    <ComboboxList>
+                                        {(m) => (
+                                            <ComboboxItem key={m.modelId} value={m}>
+                                                {m.modelName} ({m.modelYearFrom.slice(0, 4)}
+                                                {m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})
+                                            </ComboboxItem>
+                                        )}
+                                    </ComboboxList>
+                                </ComboboxContent>
+                            </Combobox>
+                        </div>
+
+                        {/* Motorisation */}
+                        <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+                            <Combobox
+                                items={uniqueEngineTypes}
+                                value={engineType}
+                                onValueChange={(et) => {
+                                    setEngineType(et);
+                                    resetSync();
+                                    if (et && manufacturer && model) {
+                                        onVehicleSelected?.(et.vehicleId);
+                                        triggerSync(et);
+                                    }
+                                }}
+                                itemToStringValue={(et) => (et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : "")}
+                                disabled={!model || etLoading}
+                            >
+                                <ComboboxTrigger
+                                    render={
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-navy shadow-sm hover:bg-white/90"
+                                            disabled={!model || etLoading}
+                                        />
+                                    }
+                                >
+                                    <ComboboxValue>
+                                        {(et) => (
+                                            <span className="truncate">
+                                                {et
+                                                    ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})`
+                                                    : !model
+                                                    ? "D'abord un modèle"
+                                                    : etLoading
+                                                    ? "Chargement…"
+                                                    : "Motorisation"}
+                                            </span>
+                                        )}
+                                    </ComboboxValue>
+                                </ComboboxTrigger>
+                                <ComboboxContent className="w-(--anchor-width)">
+                                    <ComboboxInput showTrigger={false} placeholder="Rechercher une motorisation..." />
+                                    <ComboboxEmpty>Aucune motorisation trouvée.</ComboboxEmpty>
+                                    <ComboboxList>
+                                        {(et) => (
+                                            <ComboboxItem key={et.vehicleId} value={et}>
+                                                {et.typeEngineName} | {et.powerKw} kW ({et.fuelType})
+                                            </ComboboxItem>
+                                        )}
+                                    </ComboboxList>
+                                </ComboboxContent>
+                            </Combobox>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Bandeau de statut ou d'erreur */}
             {engineType && (
-                <div className="flex flex-col gap-3">
+                <div className="mt-6 flex flex-col gap-3">
                     {isSyncing && (
-                        <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+                        <div className="flex items-center gap-3 rounded-md bg-white/10 px-4 py-3 text-sm">
                             <SpinnerIcon />
-                            <span className="text-muted-foreground">
+                            <span className="text-white/80">
                                 Synchronisation du catalogue en cours… (Cette opération peut prendre quelques secondes)
                             </span>
                         </div>
                     )}
 
                     {isSynced && !isSyncing && (
-                        <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3 text-sm text-green-700 dark:text-green-400">
+                        <div className="flex items-center gap-2 rounded-md bg-white/10 px-4 py-3 text-sm text-white">
                             <CheckIcon />
                             <span className="font-medium">{vehicleLabel} prêt</span>
                         </div>
                     )}
 
                     {syncError && !isSyncing && (
-                        <div className="flex flex-col gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-foreground">
+                        <div className="flex flex-col gap-2 rounded-md bg-white/10 p-4 text-sm text-white">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 font-medium text-destructive">
+                                <div className="flex items-center gap-2 font-medium">
                                     <AlertTriangleIcon />
                                     <span>Erreur lors du chargement des pièces</span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={() => setShowErrorDetails(!showErrorDetails)}
-                                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                                        className="text-xs text-white/70 hover:text-white underline underline-offset-2"
                                     >
                                         {showErrorDetails ? "Masquer les détails" : "Afficher les détails"}
                                     </button>
                                     <button
                                         onClick={() => triggerSync(engineType)}
-                                        className="rounded bg-destructive/10 px-2.5 py-1 text-xs font-semibold hover:bg-destructive/20 text-destructive transition-colors"
+                                        className="rounded bg-white/10 px-2.5 py-1 text-xs font-semibold hover:bg-white/20 transition-colors"
                                     >
                                         Réessayer
                                     </button>
                                 </div>
                             </div>
                             {showErrorDetails && (
-                                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-muted/50 border border-border/40 p-3 font-mono text-xs text-muted-foreground leading-relaxed">
+                                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-white/10 p-3 font-mono text-xs text-white/70 leading-relaxed">
                                     {syncError.message}
                                 </pre>
                             )}

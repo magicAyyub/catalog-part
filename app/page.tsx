@@ -94,33 +94,28 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-[1600px] w-full px-4 py-10 sm:px-6 lg:px-8">
       {/* En-tête */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+      <div className="mb-8">
+        <h1 className="font-heading text-2xl font-bold text-navy">
           Catalogue de pièces auto
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-txt2">
           Identifiez votre véhicule pour trouver les pièces compatibles.
         </p>
       </div>
 
       {/* Zone Sélection / Véhicule Actif */}
-      <section className="mb-10 max-w-4xl">
+      <section className="mb-10 max-w-6xl">
         {isVehicleActive ? (
           <ActiveVehicleCard
             vehicle={activeVehicleData}
             onReset={handleResetVehicle}
           />
         ) : (
-          <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-            <h2 className="mb-5 text-base font-bold text-center tracking-tight text-foreground">
-              Par plaque d'immatriculation
-            </h2>
-            <VehicleCascade
-              onVehicleSelected={handleVehicleSelected}
-              onSyncComplete={handleSyncComplete}
-              onSyncError={handleSyncError}
-            />
-          </div>
+          <VehicleCascade
+            onVehicleSelected={handleVehicleSelected}
+            onSyncComplete={handleSyncComplete}
+            onSyncError={handleSyncError}
+          />
         )}
       </section>
 

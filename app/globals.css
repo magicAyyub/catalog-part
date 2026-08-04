@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -57,31 +57,48 @@
   --color-destructive-foreground: var(--destructive-foreground);
 }
 
+/* Palette statique (nommée), inspirée de l'interface app-etf : cartes plates,
+ * bleu marine pour le texte/les en-têtes, bleu "royal" pour les CTA. */
+@theme {
+  --color-navy: #0a2463;
+  --color-navy-deep: #1f317a;
+  --color-banner-navy: #07205d;
+  --color-royal: #164fda;
+  --color-royal-hover: #154bd0;
+  --color-sky: #3498ff;
+  --color-flame: #fb5736;
+  --color-leaf: #4caf50;
+  --color-gold: #ffb300;
+  --color-txt2: #677198;
+  --color-txt3: #727690;
+  --color-stroke: #c6c7cf;
+}
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: #f2f2f4;
+  --foreground: #0a2463;
+  --card: #fbfbfb;
+  --card-foreground: #0a2463;
+  --popover: #fbfbfb;
+  --popover-foreground: #0a2463;
+  --primary: #164fda;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f2f5;
+  --secondary-foreground: #0a2463;
+  --muted: #f7f7fa;
+  --muted-foreground: #677198;
+  --accent: #ffb300;
+  --accent-foreground: #0a2463;
+  --destructive: #f44336;
+  --border: #c6c7cf;
+  --input: #c6c7cf;
+  --ring: #164fda;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -90,9 +107,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  --destructive-foreground: var(--color-red-800);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-900);
+  --destructive-foreground: #ffffff;
+  --success: var(--color-leaf);
+  --success-foreground: #ffffff;
   --info: var(--color-violet-500);
   --info-foreground: var(--color-violet-900);
   --warning: var(--color-yellow-500);
@@ -108,18 +125,18 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: var(--color-green-400);
+  --primary-foreground: var(--color-green-950);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: var(--color-amber-400);
+  --accent-foreground: var(--color-zinc-900);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: var(--color-green-600);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -127,7 +144,7 @@
   --chart-5: oklch(0.269 0 0);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: var(--color-green-400);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
@@ -155,5 +172,18 @@
 
   html {
     @apply font-sans;
+  }
+}
+
+/* Barre de progression indéterminée du loader (WheelSpinner). */
+@keyframes buffer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(300%);
+  }
+  100% {
+    transform: translateX(-100%);
   }
 }

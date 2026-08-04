@@ -2,7 +2,6 @@
 
 import { PartCard } from "./part-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
     Pagination,
     PaginationContent,
@@ -16,7 +15,7 @@ import {
     NativeSelect,
     NativeSelectOption,
 } from "@/components/ui/native-select";
-import { Spinner } from "@/components/ui/spinner";
+import { WheelSpinner, IndeterminateBar } from "@/components/ui/wheel-spinner";
 import {
     Empty,
     EmptyHeader,
@@ -30,22 +29,29 @@ import type { PartItem } from "@/hooks/parts/use-parts";
 
 function SkeletonCard() {
     return (
-        <Card className="gap-0 overflow-hidden">
-            <CardHeader className="h-40 bg-muted/40" />
-            <CardContent className="flex flex-col gap-2 pt-3">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-            </CardContent>
-            <CardContent>
-                <Skeleton className="h-7 w-full rounded-lg" />
-            </CardContent>
-        </Card>
+        <div className="flex w-full rounded-lg border border-stroke bg-card py-4 pr-5">
+            <div className="flex w-27.5 shrink-0 flex-col items-center gap-3">
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="size-21.25 rounded" />
+            </div>
+            <div className="flex flex-1 flex-col gap-2 border-l border-stroke pl-5">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3.5 w-1/3" />
+                <Skeleton className="mt-2 h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-2/3" />
+            </div>
+            <div className="flex w-47.5 shrink-0 flex-col items-end justify-center gap-3 border-l border-stroke pl-4">
+                <Skeleton className="h-7 w-24" />
+                <Skeleton className="h-11 w-full rounded-md" />
+            </div>
+        </div>
     );
 }
 
-function SkeletonGrid({ count = 12 }: { count?: number }) {
+function SkeletonGrid({ count = 5 }: { count?: number }) {
     return (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="flex flex-col gap-4">
             {Array.from({ length: count }).map((_, i) => (
                 <SkeletonCard key={i} />
             ))}
@@ -105,17 +111,21 @@ function EmptyState({ categoryLabel }: { categoryLabel: string }) {
 
 function SyncingState() {
     return (
-        <Empty className="py-20 bg-muted/5">
-            <EmptyMedia>
-                <Spinner className="size-8 text-muted-foreground" />
-            </EmptyMedia>
-            <EmptyHeader>
-                <EmptyTitle>Synchronisation du catalogue…</EmptyTitle>
-                <EmptyDescription>
-                    Récupération des pièces disponibles pour ce véhicule.
-                </EmptyDescription>
-            </EmptyHeader>
-        </Empty>
+        <div
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            className="flex flex-col items-center gap-5 rounded-lg border border-stroke bg-card p-10"
+        >
+            <WheelSpinner className="size-16" />
+            <p className="font-heading text-base font-semibold text-navy">
+                Synchronisation du catalogue…
+            </p>
+            <p className="max-w-100 text-center text-sm text-txt2">
+                Récupération des pièces disponibles pour ce véhicule.
+            </p>
+            <IndeterminateBar />
+        </div>
     );
 }
 
@@ -137,7 +147,7 @@ function ErrorState() {
 
 // ─── Pagination bar ───────────────────────────────────────────────────────────
 
-const PAGE_SIZES = [12, 24, 48] as const;
+const PAGE_SIZES = [5, 10, 20] as const;
 
 interface PaginationBarProps {
     currentPage: number;
@@ -261,7 +271,8 @@ export function PartsGrid({
     onPageSizeChange,
     onDetail,
 }: PartsGridProps) {
-    if (isSyncing || isLoading) return <SkeletonGrid />;
+    if (isSyncing) return <SyncingState />;
+    if (isLoading) return <SkeletonGrid />;
     if (isError) return <ErrorState />;
     if (!parts || parts.length === 0) return <EmptyState categoryLabel={categoryLabel} />;
 
@@ -272,7 +283,7 @@ export function PartsGrid({
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="flex flex-col gap-4">
                 {pageParts.map((part) => (
                     <PartCard
                         key={`${part.articleId}-${part.supplierId}`}

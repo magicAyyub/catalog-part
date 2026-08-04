@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { ArrowRightIcon } from "lucide-react";
 
 export interface ActiveVehicleData {
     vehicleId: number;
@@ -16,79 +16,41 @@ interface ActiveVehicleCardProps {
 
 function CarIcon() {
     return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="size-5"
-            aria-hidden="true"
-        >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 17a1 1 0 100 2 1 1 0 000-2zm8 0a1 1 0 100 2 1 1 0 000-2zM3 9l2-4h14l2 4M3 9v8a1 1 0 001 1h1m16-9v8a1 1 0 01-1 1h-1M3 9h18" />
-        </svg>
-    );
-}
-
-function RefreshIcon() {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="size-4"
-            aria-hidden="true"
-        >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        <svg viewBox="0 0 46 30" fill="#fff" className="h-6.5 w-10 flex-none">
+            <path d="M3 20c0-4 4-9 9-10l6-5c2-1 5-2 9-2h7c4 0 7 2 9 5l2 6c1 1 1 4 0 6H3z" />
+            <circle cx="13" cy="23" r="4" fill="var(--color-banner-navy)" stroke="#fff" strokeWidth="2" />
+            <circle cx="35" cy="23" r="4" fill="var(--color-banner-navy)" stroke="#fff" strokeWidth="2" />
         </svg>
     );
 }
 
 export function ActiveVehicleCard({ vehicle, onReset }: ActiveVehicleCardProps) {
     return (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5 shadow-xs">
-            <div className="flex items-center gap-3.5">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-600/10 text-emerald-600 dark:text-emerald-400">
-                    <CarIcon />
-                </div>
+        <div className="flex flex-wrap items-center gap-4 rounded-lg bg-banner-navy px-5 py-4">
+            <CarIcon />
 
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                        <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                            Véhicule actif
-                        </span>
-
-                        {vehicle.plate && (
-                            <span className="ml-1 rounded bg-emerald-600/10 px-2 py-0.5 font-mono text-xs font-bold text-emerald-800 dark:text-emerald-200">
-                                {vehicle.plate}
-                            </span>
-                        )}
-                    </div>
-
-                    <h3 className="text-base font-bold text-foreground">
-                        {vehicle.label}
-                    </h3>
-
-                    {vehicle.vin && (
-                        <span className="font-mono text-xs text-muted-foreground">
-                            VIN : {vehicle.vin}
+            <div className="flex flex-col gap-0.5">
+                <h3 className="font-heading text-lg font-bold leading-tight text-white">
+                    {vehicle.label}
+                </h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-white/70">
+                    {vehicle.plate && (
+                        <span>
+                            Plaque : <span className="font-mono font-semibold text-white">{vehicle.plate}</span>
                         </span>
                     )}
+                    {vehicle.vin && <span className="font-mono">VIN : {vehicle.vin}</span>}
                 </div>
             </div>
 
-            <Button
+            <button
                 type="button"
-                variant="outline"
                 onClick={onReset}
-                className="h-10 border-emerald-600/20 text-emerald-700 hover:bg-emerald-600/10 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-100 shrink-0 gap-2"
+                className="ml-auto flex h-11 shrink-0 items-center gap-2 rounded-md bg-white px-4 font-heading text-sm font-bold text-royal transition-colors hover:bg-white/90"
             >
-                <RefreshIcon />
-                <span>Changer de véhicule</span>
-            </Button>
+                Changer de véhicule
+                <ArrowRightIcon className="size-4" />
+            </button>
         </div>
     );
 }

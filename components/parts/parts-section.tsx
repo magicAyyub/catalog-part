@@ -15,7 +15,7 @@ import {
     EmptyMedia,
 } from "@/components/ui/empty";
 
-const DEFAULT_PAGE_SIZE = 24;
+const DEFAULT_PAGE_SIZE = 10;
 
 interface PartsSectionProps {
     vehicleId: number;
@@ -161,7 +161,7 @@ export function PartsSection({
             <section className="flex flex-col gap-6">
                 {/* En-tête */}
                 <div className="flex flex-col gap-1">
-                    <h2 className="text-xl font-bold text-foreground">Pièces de frein</h2>
+                    <h2 className="font-heading text-xl font-bold text-foreground">Pièces de frein</h2>
                     {vehicleLabel && (
                         <p className="text-sm text-muted-foreground">
                             Résultats pour :{" "}

@@ -113,12 +113,12 @@ export function VehiclePlateSearch({
     const isDev = process.env.NODE_ENV === "development";
 
     return (
-        <div className="flex flex-col gap-4">
-            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch gap-3">
+        <div className="flex flex-col gap-3">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch gap-2.5">
                 {/* Plaque d'immatriculation */}
-                <div className="relative flex flex-1 items-center rounded-lg border border-input bg-background p-1 shadow-xs transition-shadow focus-within:ring-2 focus-within:ring-primary/40">
-                    <div className="flex h-10 w-9 flex-col items-center justify-between rounded-l bg-blue-700 py-1 text-[9px] font-bold text-white select-none">
-                        <div className="flex gap-0.5 text-[7px] text-yellow-300">★</div>
+                <div className="relative flex flex-1 items-center rounded-md bg-white p-1 shadow-sm">
+                    <div className="flex h-10 w-9 flex-col items-center justify-between rounded-l bg-royal py-1 text-[9px] font-bold text-white select-none">
+                        <div className="flex gap-0.5 text-[7px] text-gold">★</div>
                         <span className="font-sans tracking-tight">F</span>
                     </div>
 
@@ -129,7 +129,7 @@ export function VehiclePlateSearch({
                         onPaste={handlePaste}
                         placeholder="AA-123-BB"
                         maxLength={9}
-                        className="w-full bg-transparent px-3 text-center font-mono text-lg font-bold tracking-widest text-foreground placeholder:text-muted-foreground/40 focus:outline-none uppercase"
+                        className="w-full bg-transparent px-3 text-center font-mono text-lg font-bold tracking-widest text-navy placeholder:text-navy/30 focus:outline-none uppercase"
                         disabled={isLoadingPlate || isSyncing}
                     />
                 </div>
@@ -137,22 +137,22 @@ export function VehiclePlateSearch({
                 <Button
                     type="submit"
                     disabled={isLoadingPlate || isSyncing || !rawInput.trim()}
-                    className="h-12 px-6 font-semibold"
+                    className="h-12 shrink-0 bg-royal px-6 font-heading font-bold text-white hover:bg-royal-hover"
                 >
-                    {isLoadingPlate || isSyncing ? "Identification…" : "Rechercher par plaque"}
+                    {isLoadingPlate || isSyncing ? "Identification…" : "Rechercher"}
                 </Button>
             </form>
 
             {/* Raccourcis de plaques de test (visibles uniquement en mode développement) */}
             {isDev && (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
                     <span>Exemples de plaques :</span>
                     {["AA-123-BB", "AB-123-CD", "GH-456-JK"].map((testPlate) => (
                         <button
                             key={testPlate}
                             type="button"
                             onClick={() => handleTestPlate(testPlate)}
-                            className="rounded bg-muted px-2 py-1 font-mono text-xs hover:bg-muted/80 text-foreground transition-colors"
+                            className="rounded bg-white/10 px-2 py-1 font-mono text-xs text-white hover:bg-white/20 transition-colors"
                         >
                             {testPlate}
                         </button>
@@ -162,35 +162,29 @@ export function VehiclePlateSearch({
 
             {/* Erreur */}
             {plateError && (
-                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs font-medium text-destructive">
+                <div className="rounded-md bg-white/10 p-2.5 text-xs font-medium text-white">
                     {plateError}
                 </div>
             )}
 
             {/* Véhicule trouvé */}
             {foundVehicle && (
-                <div className="flex flex-col gap-2 rounded-lg border border-green-500/20 bg-green-500/5 p-4 text-sm text-green-700 dark:text-green-400">
-                    <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-1.5 rounded-md bg-white/10 p-3 text-sm text-white">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 font-medium">
-                            <span className="flex size-5 items-center justify-center rounded-full bg-green-600 text-xs text-white">✓</span>
+                            <span className="flex size-5 items-center justify-center rounded-full bg-white/20 text-xs">✓</span>
                             <span>
                                 {foundVehicle.manufacturerName} {foundVehicle.modelName} | {foundVehicle.typeEngineName}
                             </span>
                         </div>
-                        <span className="font-mono text-xs bg-green-600/10 px-2 py-0.5 rounded text-green-700 dark:text-green-300">
-                            Plaque : {foundVehicle.plate}
+                        <span className="font-mono text-xs rounded bg-white/10 px-2 py-0.5">
+                            {foundVehicle.plate}
                         </span>
                     </div>
 
-                    {foundVehicle.vin && (
-                        <p className="text-xs opacity-80 font-mono">
-                            VIN : {foundVehicle.vin}
-                        </p>
-                    )}
-
                     {isSyncing && (
-                        <p className="text-xs text-muted-foreground animate-pulse">
-                            Chargement du catalogue de pièces pour ce véhicule...
+                        <p className="text-xs text-white/70 animate-pulse">
+                            Chargement du catalogue de pièces pour ce véhicule…
                         </p>
                     )}
                 </div>

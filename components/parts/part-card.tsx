@@ -1,7 +1,7 @@
 "use client";
 
+import { ArrowRightIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/reui/badge";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
 interface PartCardProps {
@@ -17,7 +17,7 @@ function BrakeIcon() {
             fill="none"
             stroke="currentColor"
             strokeWidth="0.8"
-            className="size-14 text-muted-foreground/20"
+            className="size-10 text-ink-300"
         >
             <circle cx="12" cy="12" r="10" />
             <circle cx="12" cy="12" r="4" />
@@ -26,83 +26,119 @@ function BrakeIcon() {
     );
 }
 
-export function PartCard({ part, onDetail }: PartCardProps) {
-    return (
-        <article
-            className={cn(
-                "group flex flex-col overflow-hidden rounded-xl bg-card",
-                "ring-1 ring-border transition-all duration-200",
-                "hover:ring-primary/50 hover:shadow-md"
-            )}
-        >
-            {/* Zone image */}
-            <div className="relative flex h-36 items-center justify-center overflow-hidden bg-muted/30">
-                {part.s3image && (
-                    <img
-                        src={part.s3image}
-                        alt={part.articleProductName}
-                        className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                        }}
-                    />
-                )}
-                {/* Fallback toujours présent en arrière-plan */}
-                <BrakeIcon />
+function formatPrice(value: number): string {
+    return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+}
 
-                {/* Badge fournisseur ancré sur l'image */}
-                {part.supplierName && (
-                    <Badge
-                        variant="secondary"
-                        size="xs"
-                        radius="full"
-                        className="absolute top-2 right-2 shadow-sm font-semibold backdrop-blur-sm"
+export function PartCard({ part, onDetail }: PartCardProps) {
+    const hasDiscount = part.priceBase !== null && part.priceNet !== null && part.priceBase > part.priceNet;
+
+    return (
+        <article className="flex w-full flex-col justify-between rounded-lg border border-stroke bg-card py-4 pr-5 max-md:p-4 sm:flex-row">
+            {/* Marque + image + stock */}
+            <div className="flex w-full shrink-0 flex-col items-center gap-3 sm:w-27.5">
+                <div className="font-heading text-base font-bold text-navy">
+                    {part.supplierName ?? "—"}
+                </div>
+                <div className="flex size-21.25 items-center justify-center rounded bg-ink-50">
+                    {part.s3image ? (
+                        <img
+                            src={part.s3image}
+                            alt={part.articleProductName}
+                            className="max-h-full max-w-full object-contain"
+                            onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = "none";
+                            }}
+                        />
+                    ) : (
+                        <BrakeIcon />
+                    )}
+                </div>
+                {part.stockLabel && (
+                    <span
+                        className={cn(
+                            "flex items-center gap-1.5 text-xs font-semibold",
+                            part.inStock ? "text-leaf" : "text-txt2"
+                        )}
                     >
-                        {part.supplierName}
-                    </Badge>
+                        {part.inStock ? (
+                            <CheckCircle2Icon className="size-3.5" />
+                        ) : (
+                            <XCircleIcon className="size-3.5" />
+                        )}
+                        {part.stockLabel}
+                    </span>
                 )}
             </div>
 
-            {/* Contenu */}
-            <div className="flex flex-1 flex-col gap-2 p-3">
-                {/* Nom produit */}
-                <h3 className="line-clamp-2 text-sm font-medium leading-snug text-card-foreground">
+            {/* Titre + specs, séparé par un trait vertical */}
+            <div className="w-full flex-1 border-stroke pl-0 sm:border-l sm:pl-5 max-md:mt-4 max-md:border-l-0 max-md:pl-0">
+                <div className="font-heading text-lg font-bold leading-tight text-navy">
                     {part.articleProductName}
-                </h3>
+                </div>
+                <div className="mt-0.5 mb-3.5 font-heading text-sm font-medium text-navy">
+                    Réf : {part.articleNo}
+                </div>
 
-                {/* Référence */}
-                <p className="font-mono text-xs text-muted-foreground">
-                    Réf.&nbsp;{part.articleNo}
-                </p>
-
-                {/* Specs clés (diamètre, épaisseur…) */}
                 {part.specs.length > 0 && (
-                    <div className="mt-0.5 flex flex-wrap gap-1">
-                        {part.specs.slice(0, 3).map((s, idx) => (
-                            <span
-                                key={`${s.criteriaName}-${s.criteriaValue}-${idx}`}
-                                className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                                title={s.criteriaName}
-                            >
-                                {s.criteriaValue}
-                            </span>
-                        ))}
-                    </div>
+                    <>
+                        <div className="mb-2 flex items-center gap-3 font-heading text-sm font-semibold text-navy after:h-px after:flex-1 after:bg-stroke after:content-['']">
+                            Caractéristiques
+                        </div>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-6">
+                            {part.specs.map((s, idx) => (
+                                <div
+                                    key={`${s.criteriaName}-${s.criteriaValue}-${idx}`}
+                                    className="flex items-baseline justify-between gap-3 border-b border-stroke/60 py-1.5 text-sm"
+                                >
+                                    <dt className="font-bold text-navy">{s.criteriaName}</dt>
+                                    <dd className="text-right text-txt2">{s.criteriaValue}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </>
                 )}
+            </div>
 
-                {/* CTA */}
+            {/* Prix + action */}
+            <div className="flex w-full shrink-0 flex-row items-center justify-between gap-4 border-stroke pl-0 sm:w-47.5 sm:flex-col sm:items-end sm:border-l sm:pl-4 sm:text-right max-md:mt-4 max-md:border-t max-md:pt-4 sm:max-md:border-l-0 sm:max-md:pt-0">
+                <div className="flex flex-col items-end gap-0.5">
+                    {hasDiscount && part.priceBase !== null && (
+                        <div className="flex items-center gap-2 text-sm text-txt2">
+                            <span className="line-through">{formatPrice(part.priceBase)} €</span>
+                            {part.discountLabel && (
+                                <span className="rounded bg-flame px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white">
+                                    {part.discountLabel}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {part.priceNet !== null ? (
+                        <>
+                            <span className="text-xs text-txt2">Prix unitaire</span>
+                            <span className="font-heading text-[28px] font-semibold leading-none text-navy">
+                                {formatPrice(part.priceNet)} €
+                            </span>
+                        </>
+                    ) : (
+                        <span className="text-sm text-txt2">Prix sur devis</span>
+                    )}
+                </div>
+
                 <button
                     id={`part-detail-${part.articleId}`}
                     onClick={() => onDetail(part.articleId)}
                     className={cn(
-                        "mt-auto w-full rounded-lg border border-border bg-background",
-                        "px-3 py-1.5 text-xs font-medium text-foreground",
-                        "transition-all duration-150",
-                        "hover:border-primary/60 hover:bg-primary hover:text-primary-foreground",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        "flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-royal",
+                        "px-4 font-heading text-sm font-bold text-white",
+                        "transition-colors hover:bg-royal-hover",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "w-auto sm:w-full"
                     )}
                 >
-                    Voir le détail →
+                    Voir le détail
+                    <ArrowRightIcon className="size-4" />
                 </button>
             </div>
         </article>

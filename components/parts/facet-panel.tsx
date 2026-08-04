@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortSupplierNames } from "@/lib/parts/suppliers";
 import type { PartItem } from "@/hooks/parts/use-parts";
@@ -58,14 +59,14 @@ export function FacetPanel({
         Object.values(activeCriteria).some((s) => s.size > 0);
 
     return (
-        <aside className="flex flex-col gap-5 rounded-xl border border-border bg-card p-4">
+        <aside className="flex flex-col rounded-lg border border-stroke bg-card p-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-foreground">Filtres</h2>
+            <div className="flex items-center justify-between pb-3">
+                <h2 className="font-heading text-base font-bold text-navy">Filtres</h2>
                 {hasActiveFilter && (
                     <button
                         onClick={onReset}
-                        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                        className="text-sm font-medium text-royal hover:text-royal-hover"
                     >
                         Réinitialiser
                     </button>
@@ -73,28 +74,25 @@ export function FacetPanel({
             </div>
 
             {/* Section Fournisseur */}
-            <FilterSection title="Fournisseur">
+            <FilterSection title="Fournisseur" first>
                 {sortedSuppliers.length === 0 ? (
-                    <p className="text-xs italic text-muted-foreground">
+                    <p className="py-1.5 text-sm italic text-txt2">
                         {parts === undefined ? "Chargement…" : "Aucun fournisseur"}
                     </p>
                 ) : (
-                    <ul className="flex flex-col gap-0.5">
-                        {sortedSuppliers.map((name, idx) => {
-                            const isChecked = activeSuppliers.has(name);
-                            const count = (parts ?? []).filter((p) => p.supplierName === name).length;
-                            return (
-                                <CheckboxItem
-                                    key={name}
-                                    label={name}
-                                    count={count}
-                                    checked={isChecked}
-                                    onChange={() => onToggleSupplier(name)}
-                                    separator={idx === 0}
-                                />
-                            );
-                        })}
-                    </ul>
+                    sortedSuppliers.map((name) => {
+                        const isChecked = activeSuppliers.has(name);
+                        const count = (parts ?? []).filter((p) => p.supplierName === name).length;
+                        return (
+                            <CheckRow
+                                key={name}
+                                label={name}
+                                count={count}
+                                checked={isChecked}
+                                onToggle={() => onToggleSupplier(name)}
+                            />
+                        );
+                    })
                 )}
             </FilterSection>
 
@@ -112,24 +110,22 @@ export function FacetPanel({
 
                 return (
                     <FilterSection key={criteriaName} title={criteriaName}>
-                        <ul className="flex flex-col gap-0.5">
-                            {shown.map((value) => {
-                                const count = (parts ?? []).filter((p) =>
-                                    p.specs.some(
-                                        (s) => s.criteriaName === criteriaName && s.criteriaValue === value
-                                    )
-                                ).length;
-                                return (
-                                    <CheckboxItem
-                                        key={value}
-                                        label={value}
-                                        count={count}
-                                        checked={active.has(value)}
-                                        onChange={() => onToggleCriteria(criteriaName, value)}
-                                    />
-                                );
-                            })}
-                        </ul>
+                        {shown.map((value) => {
+                            const count = (parts ?? []).filter((p) =>
+                                p.specs.some(
+                                    (s) => s.criteriaName === criteriaName && s.criteriaValue === value
+                                )
+                            ).length;
+                            return (
+                                <CheckRow
+                                    key={value}
+                                    label={value}
+                                    count={count}
+                                    checked={active.has(value)}
+                                    onToggle={() => onToggleCriteria(criteriaName, value)}
+                                />
+                            );
+                        })}
                     </FilterSection>
                 );
             })}
@@ -139,47 +135,53 @@ export function FacetPanel({
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
+function FilterSection({
+    title,
+    first = false,
+    children,
+}: {
+    title: string;
+    first?: boolean;
+    children: React.ReactNode;
+}) {
     return (
-        <div className="flex flex-col gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {title}
-            </p>
+        <div className={cn("flex flex-col py-3", !first && "border-t border-stroke")}>
+            <p className="mb-1 font-heading text-sm font-semibold text-navy">{title}</p>
             {children}
         </div>
     );
 }
 
-function CheckboxItem({
+function CheckRow({
     label,
     count,
     checked,
-    onChange,
-    separator = false,
+    onToggle,
 }: {
     label: string;
-    count: number;
+    count?: number;
     checked: boolean;
-    onChange: () => void;
-    separator?: boolean;
+    onToggle: () => void;
 }) {
     return (
-        <li className={cn(separator && "border-b border-border pb-2 mb-1")}>
-            <label
+        <button
+            type="button"
+            onClick={onToggle}
+            aria-pressed={checked}
+            className="flex w-full items-center gap-2.5 rounded-md px-1 py-2 text-sm text-navy transition-colors hover:bg-muted"
+        >
+            <span
                 className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors",
-                    checked ? "bg-primary/10 font-medium text-foreground" : "hover:bg-muted"
+                    "flex size-4 flex-none items-center justify-center rounded-sm border",
+                    checked ? "border-navy bg-navy text-white" : "border-stroke bg-white"
                 )}
             >
-                <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={onChange}
-                    className="accent-primary"
-                />
-                <span className="flex-1 truncate">{label}</span>
-                <span className="tabular-nums text-xs text-muted-foreground">{count}</span>
-            </label>
-        </li>
+                {checked && <CheckIcon size={11} strokeWidth={3} />}
+            </span>
+            <span className="flex-1 truncate text-left">{label}</span>
+            {count !== undefined && (
+                <span className="tabular-nums text-xs text-txt2">{count}</span>
+            )}
+        </button>
     );
 }

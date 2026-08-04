@@ -21,7 +21,7 @@ function PadIcon() {
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
-            className="size-4"
+            className="size-5"
             aria-hidden="true"
         >
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 9h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2z" />
@@ -38,7 +38,7 @@ function DiscIcon() {
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
-            className="size-4"
+            className="size-5"
             aria-hidden="true"
         >
             <circle cx="12" cy="12" r="9" />
@@ -61,7 +61,7 @@ export function CategoryTabs({ activeCategoryId, onChange, counts }: CategoryTab
                         key={categoryId}
                         onClick={() => onChange(categoryId)}
                         className={cn(
-                            "flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all duration-150",
+                            "flex items-center gap-2.5 rounded-lg border px-5 py-3 text-base font-semibold transition-all duration-150",
                             isActive
                                 ? "border-primary bg-primary text-primary-foreground shadow-sm"
                                 : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-muted hover:text-foreground"
@@ -72,7 +72,7 @@ export function CategoryTabs({ activeCategoryId, onChange, counts }: CategoryTab
                         {count !== undefined && (
                             <span
                                 className={cn(
-                                    "rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
+                                    "rounded-full px-2 py-0.5 text-sm font-semibold tabular-nums",
                                     isActive
                                         ? "bg-primary-foreground/20 text-primary-foreground"
                                         : "bg-muted text-muted-foreground"

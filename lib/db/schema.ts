@@ -66,6 +66,11 @@ export const articles = sqliteTable(
         articleMediaType: text("article_media_type"),
         articleMediaFileName: text("article_media_file_name"),
         s3image: text("s3image"),
+        priceNet: real("price_net"),
+        priceBase: real("price_base"),
+        discountLabel: text("discount_label"),
+        inStock: integer("in_stock", { mode: "boolean" }),
+        stockLabel: text("stock_label"),
     },
     (table) => ({
         pk: primaryKey({ columns: [table.articleId, table.vehicleId, table.categoryId] }),
