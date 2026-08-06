@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...sauf l'exemple, qui doit être partagé
+!.env.example
 
 # vercel
 .vercel
@@ -46,3 +48,7 @@ data/*.db-wal
 data/*.db-shm
 
 backup
+
+# sessions fournisseur (cookies) + logs applicatifs (plaques = données personnelles)
+.cache/
+logs/

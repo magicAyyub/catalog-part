@@ -1,9 +1,42 @@
 import { NextResponse } from "next/server";
 import { rapidApi } from "@/lib/rapidapi/client";
+import { getWithCompressedCache } from "@/lib/vehicle/api-cache";
 import { db } from "@/lib/db/client";
-import { articles, suppliers, articleSpecifications, vehicles, articleCompatibleCars } from "@/lib/db/schema";
+import { articles, suppliers, articleSpecifications } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { eq } from "drizzle-orm";
+import type { ApiArticleDetails } from "@/lib/rapidapi/types";
+
+/**
+ * GET /api/parts/[articleId]
+ *
+ * Détail d'une pièce. Composé de deux sources :
+ *   - la base locale pour le prix, le stock et les caractéristiques déjà
+ *     synchronisées (aucun appel réseau) ;
+ *   - `article-complete-details` pour les références OEM, les codes EAN et les
+ *     véhicules compatibles, qui ne sont pas rapatriés à la synchronisation.
+ *
+ * Le second est mis en cache **définitivement et compressé** : ce sont des
+ * données immuables (les OEM d'une référence BOSCH ne changent pas), la réponse
+ * pèse ~274 Ko, et une même référence revient sur des dizaines de véhicules.
+ * Sans ce cache, chaque clic sur « Voir le détail » coûtait un appel facturé.
+ */
+async function fetchArticleDetails(articleId: number): Promise<ApiArticleDetails | null> {
+    try {
+        return await getWithCompressedCache(`article_details_${articleId}`, () =>
+            rapidApi.getArticleDetails(articleId)
+        );
+    } catch (error) {
+        // Enrichissement optionnel : une indisponibilité n'empêche pas
+        // d'afficher la fiche avec ce que la base contient déjà.
+        logger.warn("Article details enrichment failed", {
+            action: "article-detail",
+            articleId,
+            error,
+        });
+        return null;
+    }
+}
 
 export async function GET(
     _request: Request,
@@ -17,138 +50,78 @@ export async function GET(
     }
 
     try {
-        // 1. Chercher dans la base SQLite locale
-        const dbArticles = await db.select().from(articles).where(eq(articles.articleId, id)).limit(1);
+        const [art] = await db.select().from(articles).where(eq(articles.articleId, id)).limit(1);
 
-        if (dbArticles.length > 0) {
-            const art = dbArticles[0];
-            const dbSuppliers = await db.select().from(suppliers).where(eq(suppliers.supplierId, art.supplierId)).limit(1);
-            const dbSpecs = await db.select().from(articleSpecifications).where(eq(articleSpecifications.articleId, id));
-            const dbVehicles = await db.select().from(vehicles).where(eq(vehicles.vehicleId, art.vehicleId)).limit(1);
-            const existingCompCars = await db.select().from(articleCompatibleCars).where(eq(articleCompatibleCars.articleId, id));
-
-            const supplierName = dbSuppliers[0]?.supplierName || "Marque Inconnue";
-            const veh = dbVehicles[0];
-
-            let compatibleCarsList: any[] = [];
-            let oemList: { oemBrand: string; oemDisplayNo: string }[] = [];
-            let eanNo: { eanNumbers: string } | null = null;
-
-            // Tentative d'enrichissement via TecDoc RapidAPI si clé disponible
-            if (process.env.RAPIDAPI_KEY) {
-                try {
-                    const rapidDetails = await rapidApi.getArticleDetails(id);
-                    if (rapidDetails?.article) {
-                        if (rapidDetails.article.compatibleCars?.length > 0) {
-                            compatibleCarsList = rapidDetails.article.compatibleCars;
-                        }
-                        if (rapidDetails.article.oemNo?.length > 0) {
-                            oemList = rapidDetails.article.oemNo;
-                        }
-                        if (rapidDetails.article.eanNo) {
-                            eanNo = rapidDetails.article.eanNo;
-                        }
-                    }
-                } catch {}
+        // Article inconnu localement : on sert la fiche TecDoc telle quelle.
+        if (!art) {
+            const data = await fetchArticleDetails(id);
+            if (!data) {
+                return NextResponse.json({ error: "Article introuvable." }, { status: 404 });
             }
-
-            // Récupérer les véhicules compatibles sauvegardés en base SQLite
-            if (compatibleCarsList.length === 0 && existingCompCars.length > 0) {
-                compatibleCarsList = existingCompCars.map((c) => ({
-                    vehicleId: c.vehicleId,
-                    modelId: c.modelId || 0,
-                    manufacturerName: c.manufacturerName,
-                    modelName: c.modelName,
-                    typeEngineName: c.typeEngineName,
-                    constructionIntervalStart: c.constructionIntervalStart || "",
-                    constructionIntervalEnd: c.constructionIntervalEnd || null,
-                }));
-            }
-
-            // Génération dynamique des équivalences de modèles de la même marque si liste restreinte
-            if (veh && compatibleCarsList.length <= 1) {
-                const sameManufVehicles = await db
-                    .select()
-                    .from(vehicles)
-                    .where(eq(vehicles.manufacturerName, veh.manufacturerName))
-                    .limit(20);
-
-                const compMap = new Map<string, any>();
-                compMap.set(`${veh.manufacturerName}_${veh.modelName}_${veh.typeEngineName}`, {
-                    vehicleId: veh.vehicleId,
-                    modelId: veh.modelId || 0,
-                    manufacturerName: veh.manufacturerName,
-                    modelName: veh.modelName,
-                    typeEngineName: veh.typeEngineName,
-                    constructionIntervalStart: veh.constructionIntervalStart || "",
-                    constructionIntervalEnd: veh.constructionIntervalEnd || null,
-                });
-
-                for (const v of sameManufVehicles) {
-                    const key = `${v.manufacturerName}_${v.modelName}_${v.typeEngineName}`;
-                    if (!compMap.has(key)) {
-                        compMap.set(key, {
-                            vehicleId: v.vehicleId,
-                            modelId: v.modelId || 0,
-                            manufacturerName: v.manufacturerName,
-                            modelName: v.modelName,
-                            typeEngineName: v.typeEngineName,
-                            constructionIntervalStart: v.constructionIntervalStart || "",
-                            constructionIntervalEnd: v.constructionIntervalEnd || null,
-                        });
-                    }
-                }
-
-                compatibleCarsList = Array.from(compMap.values());
-            }
-
-            // Générer des équivalences OEM constructeurs si non fournies
-            if (oemList.length === 0 && veh) {
-                const manuf = veh.manufacturerName.toUpperCase();
-                const cleanRef = art.articleNo.replace(/[^A-Z0-9]/gi, "");
-                oemList = [
-                    { oemBrand: manuf, oemDisplayNo: `${cleanRef}-OEM1` },
-                    { oemBrand: manuf, oemDisplayNo: `${cleanRef}-OEM2` },
-                ];
-            }
-
-            return NextResponse.json({
-                article: {
-                    articleId: art.articleId,
-                    articleNo: art.articleNo,
-                    articleProductName: art.articleProductName,
-                    supplierName,
-                    supplierId: art.supplierId,
-                    articleMediaType: art.articleMediaType || "",
-                    articleMediaFileName: art.articleMediaFileName || "",
-                    priceNet: art.priceNet,
-                    priceBase: art.priceBase,
-                    discountLabel: art.discountLabel,
-                    inStock: art.inStock,
-                    stockLabel: art.stockLabel,
-                    articleInfo: {
-                        articleId: art.articleId,
-                        articleNo: art.articleNo,
-                        supplierId: art.supplierId,
-                        supplierName,
-                        isAccessory: 0,
-                        articleProductName: art.articleProductName,
-                    },
-                    allSpecifications: dbSpecs.map((s) => ({
-                        criteriaName: s.criteriaName,
-                        criteriaValue: s.criteriaValue,
-                    })),
-                    eanNo,
-                    oemNo: oemList,
-                    s3image: art.s3image || "",
-                    compatibleCars: compatibleCarsList,
-                },
-            });
+            return NextResponse.json(data);
         }
 
-        // 2. Fallback vers RapidAPI direct si l'article n'est pas en base SQLite locale
-        const data = await rapidApi.getArticleDetails(id);
-        return NextResponse.json(data);
+        const [supplier] = await db
+            .select()
+            .from(suppliers)
+            .where(eq(suppliers.supplierId, art.supplierId))
+            .limit(1);
+        const dbSpecs = await db
+            .select()
+            .from(articleSpecifications)
+            .where(eq(articleSpecifications.articleId, id));
+
+        const supplierName = supplier?.supplierName || "Marque inconnue";
+        const details = await fetchArticleDetails(id);
+        const remote = details?.article;
+
+        /**
+         * Aucune donnée n'est inventée ici. La version précédente fabriquait
+         * deux références OEM (`<REF>-OEM1`, `<REF>-OEM2`) et jusqu'à 20
+         * « véhicules compatibles » piochés parmi les véhicules de la même
+         * marque présents en base, dès que TecDoc ne répondait pas. C'était
+         * affiché à des clients comme de la donnée constructeur — et le mettre
+         * en cache définitivement aurait figé ce mensonge. Un champ vide se
+         * masque tout seul dans le tiroir.
+         */
+        return NextResponse.json({
+            article: {
+                articleId: art.articleId,
+                articleNo: art.articleNo,
+                articleProductName: art.articleProductName,
+                supplierName,
+                supplierId: art.supplierId,
+                articleMediaType: art.articleMediaType || "",
+                articleMediaFileName: art.articleMediaFileName || "",
+                priceNet: art.priceNet,
+                priceBase: art.priceBase,
+                discountLabel: art.discountLabel,
+                inStock: art.inStock,
+                stockLabel: art.stockLabel,
+                articleInfo: {
+                    articleId: art.articleId,
+                    articleNo: art.articleNo,
+                    supplierId: art.supplierId,
+                    supplierName,
+                    isAccessory: 0,
+                    articleProductName: art.articleProductName,
+                },
+                // Les caractéristiques locales viennent de la synchronisation des
+                // critères ; on retombe sur celles de la fiche TecDoc si la
+                // synchronisation n'a rien trouvé pour cet article.
+                allSpecifications:
+                    dbSpecs.length > 0
+                        ? dbSpecs.map((s) => ({
+                              criteriaName: s.criteriaName,
+                              criteriaValue: s.criteriaValue,
+                          }))
+                        : remote?.allSpecifications ?? [],
+                eanNo: remote?.eanNo ?? null,
+                oemNo: remote?.oemNo ?? [],
+                s3image: art.s3image || remote?.s3image || "",
+                compatibleCars: remote?.compatibleCars ?? [],
+            },
+        });
     } catch (error: unknown) {
         logger.warn("Article detail lookup error", { action: "article-detail", articleId: id, error });
         return NextResponse.json(
