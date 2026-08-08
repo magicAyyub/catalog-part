@@ -1,21 +1,14 @@
 /**
- * lib/vehicle/ktype-resolver.ts
+ * Rebuilds the full vehicle record from a K-Type alone.
  *
- * Reconstitue, à partir d'un K-Type, la fiche véhicule complète que produisait
- * la cascade manuelle marque → modèle → motorisation.
+ * RapidAPI has no reverse endpoint, and engine data only comes from
+ * `Engine_Types_by_Model` which needs a `modelId`. So the chain is walked back
+ * through labels, which app-etf reports identically to RapidAPI, then verified
+ * by finding the K-Type among the candidate model's engine types. No label match
+ * is accepted without that confirmation.
  *
- * Pourquoi ce détour : il n'existe aucun endpoint RapidAPI inverse
- * (K-Type → marque/modèle/motorisation). Les seules données de motorisation
- * viennent de `Engine_Types_by_Model`, qui exige un `modelId`. On remonte donc
- * la chaîne par les libellés — ceux d'app-etf sont identiques à ceux de RapidAPI
- * ("307 (3A/C)", "PUNTO EVO (199_)") — puis on VÉRIFIE en cherchant le K-Type
- * dans les motorisations du modèle candidat. Aucun rapprochement par nom n'est
- * donc jamais accepté sans confirmation par l'identifiant.
- *
- * Les trois listes consultées passent par `getWithCache`, avec les mêmes clés
- * que les routes de la cascade (`manufacturers`, `models_<id>`,
- * `engine_types_<id>`) : le cache est donc partagé avec l'UI, et un véhicule
- * déjà exploré ne coûte aucun appel.
+ * The lists reuse the cascade cache keys, so an already explored vehicle costs
+ * nothing.
  */
 
 import { rapidApi } from "@/lib/rapidapi/client";
@@ -28,11 +21,11 @@ export interface ResolvedVehicle {
     manufacturerId: number;
     modelId: number;
     engineType: ApiEngineType;
-    /** true si la motorisation a été confirmée dans le référentiel TecDoc. */
+    /** True when the engine line was confirmed against the TecDoc referential. */
     confirmed: boolean;
 }
 
-/** Comparaison de libellés tolérante : casse, accents, ponctuation, espaces. */
+/** Lenient label comparison: case, accents, punctuation, whitespace. */
 function normalizeLabel(s: string): string {
     return s
         .normalize("NFD")
@@ -43,8 +36,8 @@ function normalizeLabel(s: string): string {
 }
 
 /**
- * Écarts de dénomination entre le portail fournisseur et TecDoc.
- * À compléter au fil des marques rencontrées.
+ * Naming gaps between the supplier portal and TecDoc.
+ * Extend as brands are encountered.
  */
 const BRAND_ALIASES: Record<string, string[]> = {
     VW: ["VOLKSWAGEN"],
@@ -75,12 +68,8 @@ function findManufacturer(list: ApiManufacturer[], brand: string): ApiManufactur
 }
 
 /**
- * Modèles candidats, du plus probable au moins probable.
- *
- * L'ordre compte : « 307 (3A/C) » doit être essayé avant « 307 SW (3H) » et
- * « 307 CC (3B) », sinon on paie des appels inutiles. La confirmation par
- * K-Type garantit qu'un mauvais ordre ne donne jamais un mauvais résultat, il
- * coûte juste un appel de plus.
+ * Candidate models, most likely first. Order only affects cost: confirmation by
+ * K-Type guarantees a bad order never yields a wrong result.
  */
 function rankModelCandidates(models: ApiModel[], modelLabel: string): ApiModel[] {
     const target = normalizeLabel(modelLabel);
@@ -100,7 +89,7 @@ function rankModelCandidates(models: ApiModel[], modelLabel: string): ApiModel[]
     return [...exact, ...prefix, ...contains];
 }
 
-/** Fiche minimale, utilisée quand TecDoc ne confirme pas la motorisation. */
+/** Minimal record, used when TecDoc does not confirm the engine line. */
 function fallbackEngineType(kType: number, brand: string, model: string): ApiEngineType {
     return {
         vehicleId: kType,
@@ -123,12 +112,9 @@ function fallbackEngineType(kType: number, brand: string, model: string): ApiEng
 }
 
 /**
- * K-Type + libellés → fiche véhicule complète.
- *
- * Ne échoue jamais : si la remontée par libellés n'aboutit pas, on renvoie une
- * fiche dégradée avec `confirmed: false`. C'est volontaire — la suite du
- * pipeline (articles, critères, détails) ne consomme que `vehicleId`, et le
- * K-Type est déjà certain. Le reste n'est que de l'affichage.
+ * K-Type plus labels to a full vehicle record. Never fails: an unresolved label
+ * walk returns a degraded record with `confirmed: false`, which is safe because
+ * the rest of the pipeline consumes only `vehicleId`.
  */
 export async function resolveVehicleFromKType(
     kType: number,
@@ -198,7 +184,7 @@ export async function resolveVehicleFromKType(
             }
         }
 
-        logger.warn("K-Type not found in any candidate model — degraded vehicle record", {
+        logger.warn("K-Type not found in any candidate model, degraded vehicle record", {
             module: "ktype-resolver",
             action: "unconfirmed",
             kType,
@@ -218,7 +204,7 @@ export async function resolveVehicleFromKType(
         };
     } catch (error: unknown) {
         // Quota RapidAPI dépassé, réseau, etc. : le K-Type reste exploitable.
-        logger.warn("K-Type enrichment failed — falling back to labels", {
+        logger.warn("K-Type enrichment failed, falling back to labels", {
             module: "ktype-resolver",
             action: "enrichment_error",
             kType,

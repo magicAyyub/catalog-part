@@ -1,18 +1,17 @@
 /**
- * scripts/warm-vehicles.ts — pré-chauffage du cache véhicules.
+ * Vehicle cache warm-up.
  *
- * Intention : les franchisés voient très largement le même parc. Synchroniser
- * de nuit les véhicules déjà connus et ceux dont le cache approche de
- * l'expiration rend les recherches de la journée instantanées, sans un seul
- * appel facturé en heure de pointe.
+ * Intent: the franchisees browse very largely the same fleet. Synchronizing at
+ * night the vehicles already known, and those whose cache nears expiry, makes
+ * daytime searches instant without a single billed call at peak hours.
  *
- * Usage :
- *   pnpm warm:vehicles                 # véhicules proches de l'expiration
- *   pnpm warm:vehicles 15901 32251     # K-Type explicites (doivent être connus)
+ * Usage:
+ *   pnpm warm:vehicles                 # vehicles nearing expiry
+ *   pnpm warm:vehicles 15901 32251     # explicit K-Types, must already be known
  *   WARM_REFRESH_DAYS=30 pnpm warm:vehicles
  *
- * Idempotent : sur un véhicule déjà complet et non expiré, les gardes de
- * `syncVehicle` sortent immédiatement et l'exécution ne coûte aucun appel.
+ * Idempotent: on a vehicle already complete and not expired, the `syncVehicle`
+ * guards return immediately and the run costs no call at all.
  */
 
 import { existsSync } from "fs";
@@ -31,11 +30,11 @@ if (existsSync(".env")) {
     }
 }
 
-/** Fenêtre avant expiration à partir de laquelle on renouvelle. */
+/** Window before expiry within which a vehicle gets renewed. */
 const REFRESH_DAYS = Number(process.env.WARM_REFRESH_DAYS ?? "30");
-/** Plafond d'appels pour ne jamais épuiser le quota d'un coup. */
+/** Ceiling per run, so the monthly quota is never drained at once. */
 const MAX_VEHICLES = Number(process.env.WARM_MAX_VEHICLES ?? "50");
-/** Pause entre véhicules : l'API limite le nombre de requêtes par seconde. */
+/** Pause between vehicles: the API rate-limits requests per second. */
 const DELAY_MS = Number(process.env.WARM_DELAY_MS ?? "1500");
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -101,7 +100,7 @@ async function main() {
 
             // Quota mensuel épuisé : insister ne sert qu'à générer des erreurs.
             if (message.includes("MONTHLY quota")) {
-                console.error("Quota mensuel RapidAPI atteint — arrêt du pré-chauffage.");
+                console.error("Quota mensuel RapidAPI atteint, arrêt du pré-chauffage.");
                 break;
             }
         }

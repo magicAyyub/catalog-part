@@ -86,7 +86,7 @@ export function formatPlateInput(input: string): string {
     return `${truncated.slice(0, 2)}-${truncated.slice(2, 5)}-${truncated.slice(5)}`;
 }
 
-// ─── Pool de véhicules de démonstration pour le mode Mock ─────────────────────
+// Pool de véhicules de démonstration pour le mode Mock.
 
 const MOCK_VEHICLES: Omit<PlateLookupResult, "plate">[] = [
     {

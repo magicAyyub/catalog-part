@@ -1,12 +1,12 @@
 /**
- * sync-service.ts : Logique de synchronisation véhicule → SQLite.
+ * Vehicle synchronization into SQLite.
  *
- * Utilisé par :
- *   - POST /api/vehicle/sync   (déclenchement depuis le client après sélection)
- *   - scripts/sync-vehicle.ts  (usage CLI standalone)
+ * Used by POST /api/vehicle/sync, triggered from the client after a selection,
+ * and by the warm-up script.
  *
- * Principe : cache-on-demand avec TTL configurable (défaut 30 jours).
- * Si le véhicule est déjà en DB et synced_at < TTL, on ne rappelle pas l'API.
+ * Cache on demand with a configurable TTL, 30 days by default: when the vehicle
+ * is already stored and `synced_at` is within the TTL, the API is not called
+ * again.
  */
 
 import { db } from "@/lib/db/client";
@@ -40,14 +40,14 @@ async function ensureCategories() {
 }
 
 /**
- * `ensureSuppliersOnce` a été retirée.
+ * `ensureSuppliersOnce` was removed.
  *
- * Elle appelait `suppliers/list` à CHAQUE synchronisation de véhicule — malgré
- * son nom — pour télécharger 338 Ko de référentiel figé et l'insérer en 1 269
- * requêtes unitaires. Or `syncArticlesForCategory` enregistre déjà chaque
- * équipementier qu'il rencontre, avec son nom. Le seul champ supplémentaire
- * qu'apportait ce référentiel est `supplierLogoName`, que l'interface n'utilise
- * pas : `part-card.tsx` affiche la marque en texte.
+ * Despite its name it called `suppliers/list` on EVERY vehicle sync, downloading
+ * 338 KB of frozen referential and inserting it through 1269 single statements.
+ * `syncArticlesForCategory` already records each supplier it encounters, with
+ * its name. The only extra field that referential provided was
+ * `supplierLogoName`, which the interface does not use: `part-card.tsx` renders
+ * the brand as text.
  */
 
 async function syncArticlesForCategory(
@@ -111,21 +111,19 @@ async function syncArticlesForCategory(
 }
 
 /**
- * Récupère les caractéristiques techniques (critères TecDoc) des articles d'une
- * catégorie, et en agrège les facettes.
+ * Fetches the technical criteria of a category's articles and aggregates its
+ * facets.
  *
- * L'endpoint `Vehicle_Spare_Part_Criteria` s'interroge par triplet
- * (productId, vehicleId, supplierId). Le `productId` est l'identifiant d'article
- * générique TecDoc — PAS l'identifiant de catégorie. La version précédente
- * envoyait la catégorie (100030 / 100032) : l'API répondait
- * `{"articles": null}`, l'échec était avalé par un `catch {}` vide, et aucune
- * caractéristique n'était jamais enregistrée.
+ * `Vehicle_Spare_Part_Criteria` is queried by (productId, vehicleId,
+ * supplierId). `productId` is the TecDoc generic article identifier, NOT the
+ * category identifier. The previous version sent the category (100030 or
+ * 100032): the API answered `{"articles": null}`, the failure was swallowed by an
+ * empty `catch {}`, and no criteria were ever stored.
  *
- * Les vrais `productId` arrivent avec la liste d'articles et sont déjà stockés
- * dans `articles.product_id` (ex. sur FIAT PUNTO EVO : 402 pour les plaquettes,
- * 82 pour les disques). On part donc des couples (productId, supplierId)
- * réellement présents en base, ce qui rend la fonction indépendante de toute
- * table de correspondance à maintenir.
+ * Real `productId` values arrive with the article list and are already stored in
+ * `articles.product_id` (on the FIAT PUNTO EVO: 402 for pads, 82 for discs), so
+ * the pairs actually present in the database are used and no mapping table needs
+ * maintaining.
  */
 async function syncFacetsForCategory(vehicleId: number, categoryId: number, force: boolean) {
     const dbArticles = await db
@@ -143,7 +141,7 @@ async function syncFacetsForCategory(vehicleId: number, categoryId: number, forc
 
     // Garde symétrique de celle des articles : si les caractéristiques sont déjà
     // en base, ne pas racheter les critères. Sans elle, toute resynchronisation
-    // repayait 8 à 10 appels — c'est ce qui a consommé 17 des 34 appels criteria
+    // repayait 8 à 10 appels, c'est ce qui a consommé 17 des 34 appels criteria
     // de la journée de mise au point.
     if (!force) {
         const existing = await db
@@ -153,7 +151,7 @@ async function syncFacetsForCategory(vehicleId: number, categoryId: number, forc
             .limit(1);
 
         if (existing.length > 0) {
-            logger.info("Criteria already cached for category — skipped", {
+            logger.info("Criteria already cached for category, skipped", {
                 module: "sync-service",
                 action: "criteria_skipped",
                 vehicleId,
@@ -282,9 +280,8 @@ export async function needsSync(vehicleId: number): Promise<boolean> {
 
 export interface SyncOptions {
     /**
-     * Rafraîchit même si articles et caractéristiques sont déjà en base.
-     * Réservé au pré-chauffage, qui renouvelle les véhicules approchant de
-     * l'expiration du TTL.
+     * Refreshes even when articles and criteria are already stored. Reserved for
+     * the warm-up, which renews vehicles approaching TTL expiry.
      */
     force?: boolean;
 }
@@ -338,13 +335,12 @@ export async function syncVehicle(
 }
 
 /**
- * Resynchronise un véhicule déjà connu, à partir de sa fiche en base.
+ * Resynchronizes an already known vehicle from its stored record.
  *
- * Utilisé par le pré-chauffage nocturne : celui-ci ne dispose que d'un
- * vehicleId, alors que `syncVehicle` attend un `ApiEngineType`. On le
- * reconstitue depuis la ligne `vehicles` — il ne sert de toute façon qu'à
- * l'enregistrement de la fiche, la récupération des pièces ne dépendant que du
- * vehicleId.
+ * Used by the nightly warm-up, which only holds a vehicleId while `syncVehicle`
+ * expects an `ApiEngineType`. The latter is rebuilt from the `vehicles` row; it
+ * only feeds the record upsert anyway, since fetching parts depends solely on
+ * the vehicleId.
  */
 export async function resyncVehicle(
     vehicleId: number,
@@ -381,7 +377,7 @@ export async function resyncVehicle(
     return true;
 }
 
-/** Véhicules dont le cache arrive à expiration, les plus anciens d'abord. */
+/** Vehicles whose cache is nearing expiry, oldest first. */
 export async function listVehiclesNeedingRefresh(
     withinMs: number
 ): Promise<{ vehicleId: number; label: string; syncedAt: Date | null }[]> {

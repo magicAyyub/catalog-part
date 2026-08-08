@@ -5,11 +5,10 @@ import { gzipSync, gunzipSync } from "zlib";
 import { logger } from "@/lib/logger";
 
 /**
- * Encapsule un appel API avec persistance SQLite locale.
- * Si la clé est déjà en base, retourne la valeur immédiatement.
- * Sinon, appelle l'API, l'enregistre en base et la renvoie.
+ * Wraps an API call with local SQLite persistence. Returns the stored value when
+ * the key is present, otherwise calls the API, stores the result and returns it.
  *
- * Sans expiration : réservé aux données stables (référentiels, fiches article).
+ * No expiry: reserved for stable data such as referentials and article records.
  */
 export async function getWithCache<T>(key: string, fetchFn: () => Promise<T>): Promise<T> {
     const [cached] = await db
@@ -50,20 +49,15 @@ export async function getWithCache<T>(key: string, fetchFn: () => Promise<T>): P
     return freshData;
 }
 
-/** Marqueur de préfixe : distingue une valeur compressée d'un JSON en clair. */
+/** Prefix marker telling a compressed value from plain JSON. */
 const GZIP_PREFIX = "gz:";
 
 /**
- * Même contrat que `getWithCache`, mais la valeur est stockée compressée.
+ * Same contract as `getWithCache`, value stored compressed.
  *
- * Destiné aux réponses volumineuses : une fiche `article-complete-details` pèse
- * ~274 Ko (302 références OEM, 1 203 véhicules compatibles). Sur plusieurs
- * milliers d'articles consultés, la base atteindrait le gigaoctet. Le JSON,
- * très répétitif, se compresse d'environ 8 à 10 fois — ce qui rend le cache
- * viable dans la durée sans rien retirer à l'affichage.
- *
- * Les valeurs écrites par `getWithCache` restent lisibles ici : l'absence de
- * préfixe indique du JSON en clair.
+ * An `article-complete-details` record weighs about 274 KB and compresses
+ * roughly ten times, which keeps the cache viable across thousands of articles.
+ * Values written by `getWithCache` stay readable: no prefix means plain JSON.
  */
 export async function getWithCompressedCache<T>(
     key: string,
@@ -83,7 +77,7 @@ export async function getWithCompressedCache<T>(
             return JSON.parse(raw) as T;
         } catch (error) {
             // Entrée illisible : on la traite comme absente et on la réécrira.
-            logger.warn("Unreadable compressed cache entry — refetching", {
+            logger.warn("Unreadable compressed cache entry, refetching", {
                 module: "api-cache",
                 action: "decode_error",
                 key,

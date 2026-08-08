@@ -48,7 +48,7 @@ export const CATEGORIES: { categoryId: number; labelFr: string }[] = [
     { categoryId: 100032, labelFr: "Disques de frein" },
 ];
 
-// ─── Service app-etf : traduction plaque → K-Type ─────────────────────────────
+// Service app-etf : traduction plaque vers K-Type.
 // app-etf (déployé, maintenu séparément) sert uniquement à identifier le
 // véhicule à partir d'une immatriculation. Il rend le K-Type TecDoc, qui est
 // exactement le `vehicleId` attendu par les endpoints RapidAPI.

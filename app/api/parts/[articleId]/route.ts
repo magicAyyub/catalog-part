@@ -10,16 +10,15 @@ import type { ApiArticleDetails } from "@/lib/rapidapi/types";
 /**
  * GET /api/parts/[articleId]
  *
- * Détail d'une pièce. Composé de deux sources :
- *   - la base locale pour le prix, le stock et les caractéristiques déjà
- *     synchronisées (aucun appel réseau) ;
- *   - `article-complete-details` pour les références OEM, les codes EAN et les
- *     véhicules compatibles, qui ne sont pas rapatriés à la synchronisation.
+ * Part detail, built from two sources: the local database for price, stock and
+ * already synchronized criteria, with no network call, and
+ * `article-complete-details` for OEM references, EAN codes and compatible
+ * vehicles, which the sync does not bring back.
  *
- * Le second est mis en cache **définitivement et compressé** : ce sont des
- * données immuables (les OEM d'une référence BOSCH ne changent pas), la réponse
- * pèse ~274 Ko, et une même référence revient sur des dizaines de véhicules.
- * Sans ce cache, chaque clic sur « Voir le détail » coûtait un appel facturé.
+ * The second is cached permanently and compressed. The data is immutable, the
+ * OEM references of a BOSCH part do not change, the response weighs about
+ * 274 KB, and one reference recurs across dozens of vehicles. Without that
+ * cache, every click on the detail button cost a billed call.
  */
 async function fetchArticleDetails(articleId: number): Promise<ApiArticleDetails | null> {
     try {
@@ -76,13 +75,12 @@ export async function GET(
         const remote = details?.article;
 
         /**
-         * Aucune donnée n'est inventée ici. La version précédente fabriquait
-         * deux références OEM (`<REF>-OEM1`, `<REF>-OEM2`) et jusqu'à 20
-         * « véhicules compatibles » piochés parmi les véhicules de la même
-         * marque présents en base, dès que TecDoc ne répondait pas. C'était
-         * affiché à des clients comme de la donnée constructeur — et le mettre
-         * en cache définitivement aurait figé ce mensonge. Un champ vide se
-         * masque tout seul dans le tiroir.
+         * Nothing is invented here. The previous version fabricated two OEM
+         * references (`<REF>-OEM1`, `<REF>-OEM2`) and up to 20 compatible
+         * vehicles taken from same-brand vehicles in the database whenever
+         * TecDoc did not answer. That was shown to customers as manufacturer
+         * data, and caching it permanently would have frozen the lie. An empty
+         * field hides itself in the drawer.
          */
         return NextResponse.json({
             article: {
@@ -106,9 +104,9 @@ export async function GET(
                     isAccessory: 0,
                     articleProductName: art.articleProductName,
                 },
-                // Les caractéristiques locales viennent de la synchronisation des
-                // critères ; on retombe sur celles de la fiche TecDoc si la
-                // synchronisation n'a rien trouvé pour cet article.
+                // Les caractéristiques locales viennent de la synchronisation
+                // des critères ; repli sur la fiche TecDoc si la synchronisation
+                // n'a rien trouvé pour cet article.
                 allSpecifications:
                     dbSpecs.length > 0
                         ? dbSpecs.map((s) => ({

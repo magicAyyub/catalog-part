@@ -1,24 +1,12 @@
 /**
- * lib/catalog/indexer.ts
+ * Braking catalog acquisition, from TecDoc into the `td_*` tables.
  *
- * Acquisition du catalogue freinage depuis TecDoc vers les tables `td_*`.
+ * RapidAPI is an acquisition channel, not a runtime dependency: a
+ * (vehicle, category) pair is paid for once, then served free.
  *
- * Principe : RapidAPI est un canal d'acquisition ponctuel, pas une dépendance
- * d'exécution. Un couple (véhicule, catégorie) est payé une fois, puis servi
- * gratuitement pour toujours. Comme une référence n'est stockée qu'une seule
- * fois — `td_article` est clé sur `articleId` seul —, ses caractéristiques
- * profitent à tous les véhicules qu'elle équipe : le coût marginal décroît à
- * mesure que le catalogue grandit.
- *
- * Deux passes, séparées parce que leur coût diffère d'un ordre de grandeur :
- *
- *   Passe 1 (« fitment »)   ~10 appels par véhicule
- *                           articles + critères + WVA
- *   Passe 2 (« details »)   1 appel par ARTICLE, sur demande explicite
- *                           références OEM, EAN, compatibilités
- *
- * Les numéros WVA n’exigent pas la passe 2 : ils figurent parmi les 40 critères
- * (« numéro WVA »), donc la passe 1 les récupère sans appel supplémentaire.
+ * The fitment pass costs about 10 calls per vehicle and brings articles,
+ * criteria and WVA numbers. The details pass costs one call per article and
+ * brings OEM references, so it stays opt-in.
  */
 
 import { db } from "@/lib/db/client";
@@ -40,7 +28,7 @@ import { ALLOWED_SUPPLIER_IDS, CATEGORIES } from "@/lib/config";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { articleNoKey, brandKey, isAccessoryRef, isBlockedBrand, refKeyRaw } from "./normalize";
 
-/** Nom de critère portant le numéro WVA (orthographe TecDoc, minuscule). */
+/** Criteria name carrying the WVA number, TecDoc spelling, lowercased. */
 const WVA_CRITERIA = "numéro wva";
 
 export interface IndexResult {
@@ -56,12 +44,10 @@ export interface IndexResult {
 }
 
 /**
- * Garantit une ligne `td_vehicle`, requise par la clé étrangère de `td_fitment`.
+ * Guarantees the `td_vehicle` row that `td_fitment` references.
  *
- * Reprend les libellés de l'ancienne table `vehicles` quand le véhicule y est
- * déjà connu. Sinon, crée une fiche minimale : l'indexation des pièces ne dépend
- * que du K-Type, les libellés peuvent être enrichis plus tard sans repayer les
- * appels.
+ * Labels come from the legacy `vehicles` table when known, otherwise a minimal
+ * record: indexing depends only on the K-Type, labels can be enriched later.
  */
 async function ensureVehicle(vehicleId: number): Promise<boolean> {
     const [existing] = await db
@@ -99,7 +85,7 @@ async function ensureVehicle(vehicleId: number): Promise<boolean> {
     return legacy != null;
 }
 
-/** A-t-on déjà payé ce couple (véhicule, catégorie) ? */
+/** Has this (vehicle, category) pair already been paid for? */
 export async function alreadyIndexed(vehicleId: number, categoryId: number): Promise<boolean> {
     const [row] = await db
         .select({ status: indexJob.status })
@@ -139,10 +125,7 @@ async function recordJob(r: IndexResult): Promise<void> {
         });
 }
 
-/**
- * Passe 1 : articles, applicabilité, critères et WVA d'un couple
- * (véhicule, catégorie).
- */
+/** Fitment pass: articles, applicability, criteria and WVA for one pair. */
 export async function indexVehicleCategory(
     vehicleId: number,
     categoryId: number,
@@ -220,17 +203,12 @@ export async function indexVehicleCategory(
         const keptIds = new Set(kept.map((a) => a.articleId));
 
         /**
-         * Les caractéristiques appartiennent à la RÉFÉRENCE, pas au véhicule.
+         * Criteria belong to the reference, not to the vehicle. Verified: the
+         * 307 2.0 HDi indexed after the 307 1.6 16V processed 879 criteria rows
+         * to produce 10, those of its 2 new references out of 93.
          *
-         * Vérifié sur données réelles : indexer la 307 2.0 HDi après la 307
-         * 1.6 16V a traité 879 lignes de critères pour n'en apporter que 10 —
-         * exactement celles des 2 seules références nouvelles sur 93. Les 869
-         * autres étaient identiques au triplet près.
-         *
-         * On n'interroge donc que les couples (article générique, équipementier)
-         * qui couvrent au moins une référence encore dépourvue de
-         * caractéristiques. Sur un véhicule frère, le coût marginal tombe de
-         * ~11 appels à 1 seul : la liste d'articles.
+         * Only pairs covering a reference still lacking criteria are queried,
+         * which drops a sibling vehicle from about 11 calls to one.
          */
         const withCriteria = new Set(
             (
@@ -342,11 +320,8 @@ export async function indexVehicleCategory(
 }
 
 /**
- * Passe 2 : références OEM d'un article, depuis sa fiche complète.
- *
- * Un appel par article, contre ~10 par véhicule pour la passe 1 : c'est le poste
- * coûteux, donc explicitement optionnel. Il passe par le cache compressé, donc
- * un article déjà consulté dans l'application ne coûte rien.
+ * OEM references of an article, from its complete record. One billed call each,
+ * through the compressed cache, so an article already consulted costs nothing.
  */
 export async function indexArticleDetails(
     articleId: number
@@ -389,7 +364,7 @@ export async function indexArticleDetails(
     return { oemRows, apiCalls };
 }
 
-/** Articles dont la fiche complète n'a pas encore été récupérée. */
+/** Articles whose complete record has not been fetched yet. */
 export async function articlesMissingDetails(limit: number): Promise<number[]> {
     const rows = await db
         .select({ articleId: tdArticle.articleId })

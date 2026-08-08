@@ -1,11 +1,10 @@
 /**
- * scripts/coverage-report.ts — rapport de couverture du catalogue freinage.
+ * Braking catalog coverage report.
  *
- * Produit les chiffres qui démontrent que servir le catalogue localement vaut
- * l'appel facturé : ce qui a été acquis, ce que ça a coûté, ce que ça économise,
- * et à quelle vitesse ça répond.
+ * Produces the figures showing that serving the catalog locally beats the billed
+ * call: what was acquired, what it cost, what it saves, and how fast it answers.
  *
- * Usage :  pnpm catalog:report
+ * Usage: pnpm catalog:report
  */
 
 import { existsSync } from "fs";
@@ -20,7 +19,7 @@ if (existsSync(".env")) {
     }
 }
 
-/** Repères de latence RapidAPI mesurés le 2026-08-06 sur ce même catalogue. */
+/** RapidAPI latency baselines measured on 2026-08-06 against this catalog. */
 const RAPIDAPI_BASELINE = {
     articleListMs: 6654,
     articleDetailsMs: 1240,
@@ -49,10 +48,10 @@ function section(title: string) {
 }
 
 async function main() {
-    console.info("\n═══ Rapport de couverture — catalogue freinage ═══");
+    console.info("\nRapport de couverture, catalogue freinage\n");
 
-    // ─── 1. Acquisition ────────────────────────────────────────────────────
-    section("1. Ce qui a été acquis");
+    // Acquisition
+    section("Ce qui a été acquis");
 
     const jobs = await q(`
         select status, count(*) as n, sum(api_calls) as calls, sum(duration_ms) as ms
@@ -81,8 +80,8 @@ async function main() {
     bar("numéros WVA", String(wva));
     bar("références OEM", oem ? String(oem) : "0  (passe 2 non lancée)");
 
-    // ─── 2. Amortissement ──────────────────────────────────────────────────
-    section("2. Amortissement — l'effet du stockage unique");
+    // Amortissement
+    section("Amortissement, effet du stockage unique");
 
     const shared = await q(`
         select vehicles_per_article, count(*) as n from (
@@ -121,8 +120,8 @@ async function main() {
         `${criteria}  au lieu de ${perVehicleRows} (× ${(Number(perVehicleRows) / Math.max(Number(criteria), 1)).toFixed(1)} de moins)`
     );
 
-    // ─── 3. Complétude ─────────────────────────────────────────────────────
-    section("3. Complétude — le niveau de détail atteint");
+    // Complétude
+    section("Complétude, niveau de détail atteint");
 
     const distinctCriteria = one(await q(`select count(distinct criteria_name) as v from td_criteria`));
     const avgCriteria = one<number>(
@@ -140,7 +139,7 @@ async function main() {
         `${noCriteria} / ${articles}` +
             (Number(articles) ? ` (${Math.round((100 * Number(noCriteria)) / Number(articles))} %)` : "")
     );
-    bar("pour mémoire — portail Préférence scrapé", "11 champs physiques seulement");
+    bar("pour mémoire, portail Préférence scrapé", "11 champs physiques seulement");
 
     const byBrand = await q(`
         select s.supplier_name as brand, count(distinct a.article_id) as arts,
@@ -154,8 +153,8 @@ async function main() {
         bar(`  ${b.brand}`, `${b.arts} réfs · ${b.crit} critères`);
     }
 
-    // ─── 4. Jointure avec les prix ─────────────────────────────────────────
-    section("4. Prêt pour les prix — la clé de jointure");
+    // Jointure avec les prix
+    section("Prêt pour les prix, la clé de jointure");
 
     const offers = one(await q(`select count(*) as v from supplier_offer`));
     const dupKeys = one(
@@ -166,7 +165,7 @@ async function main() {
     bar("clés (marque, référence) en collision", `${dupKeys}  (0 attendu)`);
 
     if (Number(offers) === 0) {
-        bar("offres grossistes enregistrées", "0  — scraping des prix à brancher");
+        bar("offres grossistes enregistrées", "0 , scraping des prix à brancher");
     } else {
         const matched = one(await q(`
             select count(*) as v from td_article a
@@ -178,8 +177,8 @@ async function main() {
         );
     }
 
-    // ─── 5. Latence et coût ────────────────────────────────────────────────
-    section("5. Latence et coût du service");
+    // Latence et coût
+    section("Latence et coût du service");
 
     const sampleVehicle = one(
         await q(`select vehicle_id as v from td_fitment group by vehicle_id
@@ -222,14 +221,14 @@ async function main() {
     const speedup = RAPIDAPI_BASELINE.articleListMs / Math.max(p50, 0.01);
     bar("accélération", `× ${Math.round(speedup).toLocaleString("fr-FR")}`);
 
-    section("6. Bilan");
+    section("Bilan");
     bar("coût d'acquisition consommé", `${totalCalls} appels facturés`);
     bar("coût par recherche en régime établi", "0 appel");
     bar(
         "amortissement",
         okCouples > 0
             ? `${(totalCalls / okCouples).toFixed(1)} appels par couple indexé, payés une fois`
-            : "—"
+            : "n/a"
     );
     console.info("");
 }

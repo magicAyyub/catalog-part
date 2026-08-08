@@ -7,19 +7,19 @@ import { logger } from "@/lib/logger";
 import type { PlateVehicle } from "@/lib/etf/plate-client";
 
 /**
- * POST /api/vehicle/by-plate  { plate }
+ * POST /api/vehicle/by-plate with { plate }
  *
- * Traduit une immatriculation en fiche véhicule exploitable par le pipeline
- * TecDoc existant. Cette route ne fait QUE de l'identification :
+ * Translates a licence plate into a vehicle record the existing TecDoc pipeline
+ * can consume. This route ONLY identifies:
  *
- *   plaque ──► app-etf ──► K-Type ──► référentiel RapidAPI ──► ApiEngineType
+ *   plate -> app-etf -> K-Type -> RapidAPI referential -> ApiEngineType
  *
- * Elle ne récupère aucune pièce. Le client enchaîne comme après la cascade
- * manuelle, avec POST /api/vehicle/sync, qui déclenche la synchronisation
- * TecDoc habituelle — désormais avec le bon `vehicleId`.
+ * It fetches no parts. The client then proceeds exactly as after the manual
+ * cascade, with POST /api/vehicle/sync, which runs the usual TecDoc sync, now
+ * with the correct `vehicleId`.
  *
- * La résolution est mise en cache définitivement : une plaque désigne toujours
- * le même véhicule, et l'appel amont coûte 8 à 18 s.
+ * The resolution is cached with no expiry: a plate always designates the same
+ * vehicle, and the upstream call costs 8 to 18 seconds.
  */
 export async function POST(req: Request) {
     const startTime = Date.now();
@@ -74,9 +74,9 @@ export async function POST(req: Request) {
                 powerKw: engineType.powerKw,
                 fuelType: engineType.fuelType,
                 /**
-                 * false = le K-Type est certain mais sa motorisation n'a pas été
-                 * retrouvée dans le référentiel TecDoc, donc les libellés
-                 * affichés sont ceux du fournisseur. Les pièces restent justes.
+                 * False means the K-Type is certain but its engine line was not
+                 * found in the TecDoc referential, so the displayed labels are
+                 * the supplier's. The parts themselves remain correct.
                  */
                 confirmed: resolved.confirmed,
                 engineType,

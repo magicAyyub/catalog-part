@@ -136,9 +136,7 @@ export const etfLookupIndex = sqliteTable("etf_lookup_index", {
     productsJson: text("products_json").notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
-// ═══════════════════════════════════════════════════════════════════════════
-//  CATALOGUE FREINAGE — modèle en trois natures de données
-// ═══════════════════════════════════════════════════════════════════════════
+// Braking catalog: four natures of data, deliberately kept apart.
 //
 // Les tables ci-dessus (articles, article_specifications, article_criteria_facets)
 // mélangeaient trois choses de durées de vie très différentes dans une même
@@ -146,28 +144,26 @@ export const etfLookupIndex = sqliteTable("etf_lookup_index", {
 // stockaient aussi une référence BOSCH autant de fois qu'elle équipe de
 // véhicules, ce qui interdit de partager ses caractéristiques.
 //
-// Le découpage retenu :
+//   REFERENCE      immutable      one row per reference, never duplicated
+//   APPLICABILITY  semi-stable    which reference fits which vehicle
+//   OFFER          volatile       price and stock, per wholesaler
+//   EQUIVALENCE    derived        rebuildable at any time
 //
-//   RÉFÉRENTIEL   immuable        une ligne par référence, jamais dupliquée
-//   APPLICABILITÉ semi-stable     quelle référence va sur quel véhicule
-//   OFFRE         volatile        prix et stock, par grossiste
-//   ÉQUIVALENCE   dérivé          reconstructible à tout moment
-//
-// Conséquence voulue : ajouter un équipementier plus tard ne demande d'indexer
-// que ses articles, pas de rebalayer le parc.
+// Intended consequence: adding a supplier later only requires indexing its
+// articles, not rescanning the fleet.
 
-/** RÉFÉRENTIEL — un équipementier TecDoc (BOSCH, TRW, ETF…). */
+/** REFERENCE: a TecDoc supplier (BOSCH, TRW, ETF and so on). */
 export const tdSupplier = sqliteTable("td_supplier", {
     supplierId: integer("supplier_id").primaryKey(),
     supplierName: text("supplier_name").notNull(),
 });
 
 /**
- * RÉFÉRENTIEL — une référence, stockée UNE seule fois.
+ * REFERENCE: one article, stored ONCE.
  *
- * `articleNoKey` est la référence normalisée (majuscules, sans séparateurs ni
- * suffixe d'entrepôt) : c'est la clé de jointure avec les offres des grossistes,
- * qui ne connaissent pas les articleId TecDoc.
+ * `articleNoKey` is the normalized reference (uppercase, no separators, no
+ * warehouse suffix). It is the join key with wholesaler offers, which know
+ * nothing of TecDoc article ids.
  */
 export const tdArticle = sqliteTable(
     "td_article",
@@ -179,11 +175,11 @@ export const tdArticle = sqliteTable(
             .notNull()
             .references(() => tdSupplier.supplierId),
         brandKey: text("brand_key").notNull(),
-        /** Article générique TecDoc : c'est lui qui détermine le jeu de critères. */
+        /** TecDoc generic article, which determines the set of criteria. */
         productId: integer("product_id"),
         productName: text("product_name"),
         imageUrl: text("image_url"),
-        /** Renseigné dès que la fiche complète a été récupérée. */
+        /** Set once the complete record has been fetched. */
         detailsFetchedAt: integer("details_fetched_at", { mode: "timestamp" }),
     },
     (t) => ({
@@ -192,7 +188,7 @@ export const tdArticle = sqliteTable(
     })
 );
 
-/** RÉFÉRENTIEL — caractéristiques techniques d'une référence (46 critères observés). */
+/** REFERENCE: technical criteria of an article, 40 distinct names observed. */
 export const tdCriteria = sqliteTable(
     "td_criteria",
     {
@@ -205,12 +201,12 @@ export const tdCriteria = sqliteTable(
     (t) => ({
         pk: primaryKey({ columns: [t.articleId, t.criteriaName, t.criteriaValue] }),
         byArticle: index("td_criteria_article_idx").on(t.articleId),
-        // Sert l'index inversé des facettes quand le filtrage passera côté serveur.
+        // Sert d'index inversé pour les facettes quand le filtrage passera côté serveur.
         byValue: index("td_criteria_value_idx").on(t.criteriaName, t.criteriaValue),
     })
 );
 
-/** RÉFÉRENTIEL — références constructeur, arêtes d'équivalence de type « oem ». */
+/** REFERENCE: manufacturer references, source of "oem" equivalence edges. */
 export const tdOem = sqliteTable(
     "td_oem",
     {
@@ -227,7 +223,7 @@ export const tdOem = sqliteTable(
     })
 );
 
-/** RÉFÉRENTIEL — numéros WVA, arêtes d'équivalence de type « wva ». */
+/** REFERENCE: WVA numbers, source of "wva" equivalence edges. */
 export const tdWva = sqliteTable(
     "td_wva",
     {
@@ -242,7 +238,7 @@ export const tdWva = sqliteTable(
     })
 );
 
-/** APPLICABILITÉ — un véhicule, identifié par son K-Type TecDoc. */
+/** APPLICABILITY: a vehicle, identified by its TecDoc K-Type. */
 export const tdVehicle = sqliteTable(
     "td_vehicle",
     {
@@ -257,7 +253,7 @@ export const tdVehicle = sqliteTable(
         fuelType: text("fuel_type"),
         bodyType: text("body_type"),
         engineCodes: text("engine_codes"),
-        /** Bornes de production, pour les requêtes d'applicabilité par millésime. */
+        /** Production bounds, for model-year applicability queries. */
         ctorStart: text("ctor_start"),
         ctorEnd: text("ctor_end"),
     },
@@ -268,11 +264,11 @@ export const tdVehicle = sqliteTable(
 );
 
 /**
- * APPLICABILITÉ — quelle référence équipe quel véhicule, pour quelle catégorie.
+ * APPLICABILITY: which reference fits which vehicle, in which category.
  *
- * C'est la table many-to-many qui remplace la duplication d'articles par
- * véhicule. Elle porte le `productId` observé, parce que le même article peut
- * relever d'articles génériques différents selon la catégorie.
+ * The many-to-many table replacing per-vehicle article duplication. It carries
+ * the observed `productId`, because one article can belong to different generic
+ * articles depending on the category.
  */
 export const tdFitment = sqliteTable(
     "td_fitment",
@@ -288,18 +284,18 @@ export const tdFitment = sqliteTable(
     },
     (t) => ({
         pk: primaryKey({ columns: [t.vehicleId, t.articleId, t.categoryId] }),
-        // L'accès principal de l'application : les pièces d'un véhicule pour un onglet.
+        // Accès principal de l'application : les pièces d'un véhicule pour un onglet.
         byVehicleCategory: index("td_fitment_vehicle_cat_idx").on(t.vehicleId, t.categoryId),
         byArticle: index("td_fitment_article_idx").on(t.articleId),
     })
 );
 
 /**
- * OFFRE — prix et stock chez un grossiste.
+ * OFFER: price and stock at a wholesaler.
  *
- * Volontairement clé sur (marque, référence normalisée, grossiste) et non sur
- * articleId : les portails ne connaissent pas les identifiants TecDoc. C'est ce
- * couple qui fait le pont entre le référentiel et le commerce.
+ * Deliberately keyed on (brand, normalized reference, source) rather than on
+ * articleId: portals know nothing of TecDoc identifiers. That pair is the bridge
+ * between the reference data and the commercial side.
  */
 export const supplierOffer = sqliteTable(
     "supplier_offer",
@@ -322,14 +318,14 @@ export const supplierOffer = sqliteTable(
 );
 
 /**
- * ÉQUIVALENCE — arêtes typées entre références.
+ * EQUIVALENCE: typed edges between references.
  *
- * `kind` porte la force du lien : 'curated' (affirmé par le catalogue ETF),
- * 'wva' (même numéro WVA), 'oem' (même référence constructeur). Le regroupement
- * en grappes ne fusionne que sur les arêtes fortes et refuse toute fusion qui
- * violerait la compatibilité dimensionnelle — de sorte que la contamination
- * observée chez app-etf (un ETF destiné à une autre voiture remontant par
- * WVA) devient impossible par construction, au lieu d'être signalée après coup.
+ * `kind` carries the strength of the link: 'curated' as asserted by the ETF
+ * catalog, 'wva' for a shared WVA number, 'oem' for a shared manufacturer
+ * reference. Clustering merges only on strong edges and refuses any merge that
+ * would violate dimensional compatibility, so the contamination observed in
+ * app-etf, where an ETF meant for another car surfaced through WVA, becomes
+ * impossible by construction rather than flagged after the fact.
  */
 export const equivalenceEdge = sqliteTable(
     "equivalence_edge",
@@ -345,7 +341,7 @@ export const equivalenceEdge = sqliteTable(
     })
 );
 
-/** ÉQUIVALENCE — grappes matérialisées (sortie de l'union-find, recalculable). */
+/** EQUIVALENCE: materialized clusters, the union-find output, recomputable. */
 export const equivalenceCluster = sqliteTable(
     "equivalence_cluster",
     {
@@ -358,11 +354,10 @@ export const equivalenceCluster = sqliteTable(
 );
 
 /**
- * SUIVI — une ligne par (véhicule, catégorie) indexé.
+ * TRACKING: one row per indexed (vehicle, category) pair.
  *
- * Rend l'indexation reprenable et, surtout, auditable : c'est cette table qui
- * alimentera le rapport de couverture, et qui permet de savoir ce que le
- * catalogue a réellement coûté en appels facturés.
+ * Makes indexing resumable and, above all, auditable: this table feeds the
+ * coverage report and tells what the catalog actually cost in billed calls.
  */
 export const indexJob = sqliteTable(
     "index_job",

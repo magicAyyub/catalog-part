@@ -1,16 +1,11 @@
 /**
- * lib/etf/plate-client.ts
+ * Licence plate to TecDoc K-Type translation, through the deployed app-etf
+ * service. That is its only role here: returning the `vehicleId` the RapidAPI
+ * pipeline expects.
  *
- * Traduction immatriculation → K-Type TecDoc, via le service app-etf déployé
- * (https://etf.jumbopneus.shop/api/external/by-plate).
- *
- * C'est le seul rôle d'app-etf ici : rendre le `vehicleId` que tout le pipeline
- * RapidAPI attend. Il obtient ce K-Type auprès d'Exadis (RPC #4) ; Préférence,
- * lui, ne fournit qu'un `carId` interne au portail — c'est précisément la
- * confusion entre les deux qui faisait que les appels TecDoc ne renvoyaient
- * rien d'exploitable.
- *
- * Réservé au serveur : le token ne doit jamais atteindre le bundle navigateur.
+ * app-etf gets the K-Type from Exadis (RPC #4). Preference only exposes a portal
+ * internal `carId`, and confusing the two is why TecDoc calls used to return
+ * nothing usable. Server only: the token must never reach the browser bundle.
  */
 
 import { ETF_API_BASE_URL, ETF_API_TOKEN, ETF_API_TIMEOUT_MS } from "@/lib/config";
@@ -27,17 +22,17 @@ export class PlateLookupError extends Error {
     }
 }
 
-/** Ce qu'on retient de la réponse app-etf : l'identité du véhicule, rien d'autre. */
+/** What we keep from the app-etf response: vehicle identity, nothing else. */
 export interface PlateVehicle {
-    /** K-Type TecDoc = le `vehicleId` des endpoints RapidAPI. */
+    /** TecDoc K-Type, i.e. the `vehicleId` of the RapidAPI endpoints. */
     kType: number;
-    /** Libellé constructeur, aligné sur celui de RapidAPI ("PEUGEOT"). */
+    /** Manufacturer label, aligned with RapidAPI's ("PEUGEOT"). */
     brand: string;
-    /** Libellé modèle, aligné sur celui de RapidAPI ("307 (3A/C)"). */
+    /** Model label, aligned with RapidAPI's ("307 (3A/C)"). */
     model: string;
-    /** Motorisation si le service la donne — absente sur le build actuellement déployé. */
+    /** Engine line when the service provides it; absent on the deployed build. */
     version: string | null;
-    /** Identifiant interne Préférence, conservé pour le diagnostic uniquement. */
+    /** Preference internal id, kept for diagnostics only. */
     carId: string | null;
 }
 
@@ -62,22 +57,16 @@ function errorInfo(body: ByPlateResponse): { code?: string; message: string } {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * `vehicle_not_found` est retentable, et c'est contre-intuitif : app-etf renvoie
- * ce code aussi bien pour une plaque réellement inconnue que pour un échec
- * passager de son scraper (session fournisseur périmée, timeout du portail). Sa
- * branche 404 ne remonte pas le détail des erreurs, les deux cas sont donc
- * indiscernables de l'extérieur. Constaté le 2026-08-06 : GD928ZR répond 404
- * puis 200 dans la même minute.
+ * `vehicle_not_found` is retryable: app-etf returns it both for an unknown plate
+ * and for a transient scraper failure, and its 404 branch hides the error
+ * details. Observed on 2026-08-06, GD928ZR answered 404 then 200 within a minute.
  */
 const RETRYABLE = new Set(["vehicle_not_found", "internal"]);
 
 /**
- * Résout une plaque en identité véhicule.
- *
- * Coût : app-etf déclenche un scrape produits complet (8 à 18 s) alors qu'on ne
- * garde que l'en-tête véhicule. C'est le seul endpoint public dont on dispose ;
- * l'appelant est censé mettre le résultat en cache (une plaque désigne toujours
- * le même véhicule).
+ * Resolves a plate into a vehicle identity. app-etf runs a full product scrape
+ * (8 to 18 s) although only the vehicle header is kept, so callers are expected
+ * to cache: a plate always designates the same vehicle.
  */
 export async function fetchVehicleByPlate(plate: string, attempts = 2): Promise<PlateVehicle> {
     if (typeof window !== "undefined") {
@@ -196,7 +185,7 @@ export async function fetchVehicleByPlate(plate: string, attempts = 2): Promise<
     throw last ?? new PlateLookupError("Échec inconnu du service d'identification.", 500);
 }
 
-/** Message utilisateur en français pour une erreur de résolution de plaque. */
+/** French end-user message for a plate resolution failure. */
 export function friendlyPlateError(error: unknown): string {
     if (!(error instanceof PlateLookupError)) {
         return "Une erreur est survenue lors de l'identification du véhicule.";

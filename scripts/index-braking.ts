@@ -1,23 +1,19 @@
 /**
- * scripts/index-braking.ts — acquisition du catalogue freinage.
+ * Braking catalog acquisition.
  *
- * Usage :
- *   pnpm index:braking                    # véhicules connus, pas encore indexés
- *   pnpm index:braking 15901 32251        # K-Type explicites
- *   pnpm index:braking --file seeds.txt   # un K-Type par ligne
- *   pnpm index:braking --force 15901      # réindexe même si déjà payé
- *   pnpm index:braking --details 200      # passe 2 : OEM, 1 appel par article
- *   pnpm index:braking --dry-run          # affiche le plan et le coût estimé
+ * Usage:
+ *   pnpm index:braking                    # known vehicles not indexed yet
+ *   pnpm index:braking 15901 32251        # explicit K-Types
+ *   pnpm index:braking --file seeds.txt   # one K-Type per line
+ *   pnpm index:braking --force 15901      # reindex even if already paid for
+ *   pnpm index:braking --details 200      # OEM pass, one call per article
+ *   pnpm index:braking --dry-run          # print the plan and estimated cost
  *
- * Deux propriétés voulues :
+ * Resumable: a lock prevents concurrent runs and each pair is committed on its
+ * own in `index_job`, so an interruption only loses the pair in flight.
  *
- *   REPRENABLE   un verrou empêche deux exécutions concurrentes, et chaque
- *                couple (véhicule, catégorie) est validé unitairement dans
- *                `index_job`. Une coupure au milieu d'un lot ne fait perdre que
- *                le couple en cours ; la reprise saute tout ce qui est payé.
- *
- *   AUDITABLE    chaque couple enregistre son nombre d'appels facturés. Le coût
- *                réel du catalogue est donc une requête SQL, pas une estimation.
+ * Auditable: each pair records its billed calls, so the real cost of the catalog
+ * is a SQL query rather than an estimate.
  */
 
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
@@ -42,9 +38,9 @@ if (existsSync(".env")) {
 }
 
 const LOCK_FILE = join(process.cwd(), ".cache", "indexer.lock");
-/** Au-delà, un verrou est considéré comme abandonné par un process mort. */
+/** Beyond this age, a lock is treated as abandoned by a dead process. */
 const LOCK_STALE_MS = 6 * 60 * 60 * 1000;
-/** Pause entre appels : l'API limite le nombre de requêtes par seconde. */
+/** Pause between calls: the API rate-limits requests per second. */
 const DELAY_MS = Number(process.env.INDEX_DELAY_MS ?? "300");
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -67,9 +63,9 @@ function acquireLock(): boolean {
                 console.error(`Si c'est faux, supprimez ${LOCK_FILE}.`);
                 return false;
             }
-            console.warn("Verrou abandonné détecté — reprise.");
+            console.warn("Verrou abandonné détecté, reprise.");
         } catch {
-            console.warn("Verrou illisible — reprise.");
+            console.warn("Verrou illisible, reprise.");
         }
     }
 
@@ -114,11 +110,9 @@ function parseArgs(argv: string[]): Args {
 }
 
 /**
- * Cibles par défaut : tous les véhicules déjà connus, ancienne table incluse.
- *
- * L'ancienne table `vehicles` est la trace des recherches réellement faites par
- * les franchisés — c'est donc le meilleur échantillon de départ qui existe :
- * le parc consulté, pas un parc théorique.
+ * Default targets: every vehicle already known, legacy table included. That
+ * table traces the searches franchisees actually ran, so it is the best starting
+ * sample: the fleet consulted, not a theoretical one.
  */
 async function defaultTargets(): Promise<number[]> {
     const fromNew = await db.select({ id: tdVehicle.vehicleId }).from(tdVehicle);
@@ -136,7 +130,7 @@ async function runFitmentPass(kTypes: number[], force: boolean, dryRun: boolean)
     }
 
     console.info(
-        `\nPasse 1 — applicabilité et critères\n` +
+        `\nPasse 1, applicabilité et critères\n` +
             `  ${kTypes.length} véhicules, ${plan.length} couples à indexer` +
             ` (${kTypes.length * BRAKING_CATEGORIES.length - plan.length} déjà payés)\n` +
             `  coût estimé : ~${plan.length * 5} appels facturés\n`
@@ -168,7 +162,7 @@ async function runFitmentPass(kTypes: number[], force: boolean, dryRun: boolean)
         // Le quota mensuel épuisé rend toute suite inutile : on s'arrête pour
         // garder l'état cohérent plutôt que d'accumuler des lignes en erreur.
         if (r.error?.includes("MONTHLY quota")) {
-            console.error("\nQuota mensuel RapidAPI atteint — arrêt propre.");
+            console.error("\nQuota mensuel RapidAPI atteint, arrêt propre.");
             break;
         }
         if (i < plan.length - 1) await delay(DELAY_MS);
@@ -189,7 +183,7 @@ async function runFitmentPass(kTypes: number[], force: boolean, dryRun: boolean)
 async function runDetailsPass(limit: number, dryRun: boolean) {
     const ids = await articlesMissingDetails(limit);
     console.info(
-        `\nPasse 2 — références OEM\n` +
+        `\nPasse 2, références OEM\n` +
             `  ${ids.length} articles sans fiche complète\n` +
             `  coût estimé : ~${ids.length} appels facturés (1 par article)\n`
     );
@@ -203,13 +197,13 @@ async function runDetailsPass(limit: number, dryRun: boolean) {
             oemRows += r.oemRows;
             calls += r.apiCalls;
             if ((i + 1) % 25 === 0 || i === ids.length - 1) {
-                console.info(`  ${i + 1}/${ids.length} — ${oemRows} réfs OEM, ${calls} appels`);
+                console.info(`  ${i + 1}/${ids.length}, ${oemRows} réfs OEM, ${calls} appels`);
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
             console.error(`  article ${articleId} → ${msg.slice(0, 70)}`);
             if (msg.includes("MONTHLY quota")) {
-                console.error("Quota mensuel atteint — arrêt propre.");
+                console.error("Quota mensuel atteint, arrêt propre.");
                 break;
             }
         }

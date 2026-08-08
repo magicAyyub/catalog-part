@@ -6,9 +6,9 @@ import { logger } from "@/lib/logger";
 /**
  * GET /api/parts/[articleId]/media
  *
- * Galerie d'images d'une référence. Mise en cache définitivement : la liste des
- * visuels d'un article ne change pas, et cette route était appelée à chaque
- * ouverture du tiroir sans aucun cache — un appel facturé par clic.
+ * Image gallery of a reference. Cached with no expiry: the visuals of an article
+ * do not change, and this route used to be called on every drawer opening with
+ * no cache at all, one billed call per click.
  */
 export async function GET(
     _request: Request,
