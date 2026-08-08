@@ -11,7 +11,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "sync:vehicle": "tsx --env-file=.env scripts/sync-vehicle.ts",
-    "warm:vehicles": "tsx --env-file=.env scripts/warm-vehicles.ts"
+    "warm:vehicles": "tsx --env-file=.env scripts/warm-vehicles.ts",
+    "index:braking": "tsx --env-file=.env scripts/index-braking.ts",
+    "catalog:report": "tsx --env-file=.env scripts/coverage-report.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
