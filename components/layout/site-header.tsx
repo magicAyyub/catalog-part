@@ -1,3 +1,6 @@
+import { getCurrentUser } from "@/lib/auth/session";
+import { UserMenu } from "./user-menu";
+
 function BrandMark() {
     return (
         <div className="flex items-center gap-2.5">
@@ -14,11 +17,19 @@ function BrandMark() {
     );
 }
 
-export function SiteHeader() {
+export async function SiteHeader() {
+    const user = await getCurrentUser();
+
     return (
         <header className="sticky top-0 z-30 border-b border-stroke bg-white/85 backdrop-blur-md">
             <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-4 px-4 sm:px-6 lg:px-8">
                 <BrandMark />
+                {user && (
+                    <UserMenu
+                        label={user.displayName || user.username}
+                        franchise={user.franchise}
+                    />
+                )}
             </div>
         </header>
     );

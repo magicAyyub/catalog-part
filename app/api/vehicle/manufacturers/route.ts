@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { rapidApi } from "@/lib/rapidapi/client";
 import { getWithCache } from "@/lib/vehicle/api-cache";
 
 export async function GET() {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     try {
         const sorted = await getWithCache("manufacturers", async () => {
             const { manufacturers } = await rapidApi.listManufacturers();

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { formatDisplayPlate, normalizePlate } from "@/lib/vehicle/plate-resolver";
 import { fetchVehicleByPlate, friendlyPlateError, PlateLookupError } from "@/lib/etf/plate-client";
 import { resolveVehicleFromKType } from "@/lib/vehicle/ktype-resolver";
@@ -22,6 +23,9 @@ import type { PlateVehicle } from "@/lib/etf/plate-client";
  * vehicle, and the upstream call costs 8 to 18 seconds.
  */
 export async function POST(req: Request) {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     const startTime = Date.now();
 
     const body = await req.json().catch(() => ({}));

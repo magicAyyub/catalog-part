@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { needsSync, syncVehicle } from "@/lib/vehicle/sync-service";
 import type { ApiEngineType } from "@/lib/rapidapi/types";
 
@@ -10,6 +11,9 @@ export interface SyncRequestBody {
 }
 
 export async function POST(request: Request) {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     let body: SyncRequestBody;
 
     try {

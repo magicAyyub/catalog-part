@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { rapidApi } from "@/lib/rapidapi/client";
 import { getWithCache } from "@/lib/vehicle/api-cache";
 
 export async function GET(request: Request) {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     const manufacturerId = Number(new URL(request.url).searchParams.get("manufacturerId"));
 
     if (!manufacturerId) {

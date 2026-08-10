@@ -26,6 +26,10 @@ npx drizzle-kit studio    # browse the database
 pnpm warm:vehicles              # refresh vehicles whose cache nears TTL expiry
 pnpm warm:vehicles 15901 32251  # explicit K-Types
 
+pnpm auth:user list             # accounts allowed into the catalog
+pnpm auth:user create dupont --franchise "Lyon Est"   # prints a generated password once
+pnpm auth:user disable dupont   # revoke, effective immediately
+
 pnpm index:braking              # acquire catalog for known vehicles
 pnpm index:braking --dry-run    # print the plan and the estimated billed calls
 pnpm index:braking 15901        # explicit K-Types
@@ -172,12 +176,38 @@ not treat that source as the API contract. Confirm shapes against the live
 endpoint. Its scrapers (`lib/suppliers/exadis` for the K-Type, `lib/suppliers/preference`
 for prices) are the material to salvage when wiring prices into `supplier_offer`.
 
+## Authentication, and the one mistake not to repeat
+
+Closed by default, in two layers that answer different questions.
+
+`proxy.ts` (Next 16's rename of the middleware convention) checks that the
+session cookie is signed with `AUTH_SECRET` and unexpired. It touches no
+database, so it runs on every request for free, and a route is reachable without
+a session only if it is listed there. That is enough to redirect a browser to
+`/login`. It is **not** enough to serve data.
+
+The mistake worth remembering: a cookie whose session was closed by a sign-out,
+or whose account was disabled since, still carries a valid signature until its
+expiry. With only the proxy in place, `pnpm auth:user disable` and the logout
+button both looked like they worked and changed nothing on the API. So every
+route returning parts, prices or vehicle data calls `requireUser()` from
+`lib/auth/guard.ts`, which asks the database. Protected pages live under
+`app/(app)/`, whose layout does the same, which makes a new page protected by
+where it sits rather than by someone remembering.
+
+`users.passwordHash` is scrypt from `node:crypto`, carrying its own cost
+parameters. `sessions.id` is the SHA-256 of the cookie token, never the token,
+so the table cannot be replayed. Five consecutive failures lock an account for
+15 minutes, tracked on the user row rather than in memory, so the lock survives a
+serverless instance being recycled.
+
 ## Known gaps
 
-- **No authentication anywhere.** Net purchase prices are reachable by anyone who
-  loads the URL. This is the main blocker before the franchisees use it.
 - The Preference session cookie and plate-bearing logs are in the git history of
   this private repository. The Preference password needs rotating.
+- A 401 from an API route leaves the loaded page showing stale data until a
+  navigation; only the next server render redirects to `/login`. A TanStack Query
+  error handler would close that window.
 - `/api/admin/sync-winpro-csv` parses a CSV, counts lines, writes nothing, and
   returns success.
 - `article_criteria_facets` is populated but never read; `FacetPanel` derives
@@ -201,6 +231,16 @@ Decided and done, committed on `main`:
 - The `td_*` acquisition layer plus `pnpm index:braking` and
   `pnpm catalog:report`. Six vehicles indexed for 47 billed calls, 163
   references, 1564 criteria rows, served at 0.03 ms p50.
+- Per-account authentication, which was the blocker before the franchisees could
+  use it. See the section above for the two layers and why one is not enough.
+
+Deployment is open. The OVH shared hosting handed over (`cluster100`) is a poor
+target: Next 16 needs a persistent Node process the offer may not provide,
+`better-sqlite3` is a native module with no build toolchain there, and the WAL
+pragma in `lib/db/client.ts` sits on NFS, where SQLite locking is unreliable.
+Vercel plus Turso is the leading alternative, since Turso is libSQL and leaves
+`schema.ts` and the five migrations untouched, at the cost of trading a 0.03 ms
+local read for a network round trip.
 
 Agreed strategy: own the catalog rather than rent it. RapidAPI is an acquisition
 channel paid once per vehicle; the portals supply what TecDoc lacks, prices and

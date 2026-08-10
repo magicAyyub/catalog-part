@@ -379,3 +379,55 @@ export const indexJob = sqliteTable(
         byStatus: index("index_job_status_idx").on(t.status),
     })
 );
+
+/**
+ * ACCESS: an account allowed to open the catalog.
+ *
+ * Franchisees get one account each, so revoking one leaves the others alone.
+ * `passwordHash` carries its own scrypt parameters, which lets the cost be
+ * raised later without invalidating existing hashes.
+ */
+export const users = sqliteTable("users", {
+    id: text("id").primaryKey(),
+    /** Lowercased at write time; the login form is case-insensitive. */
+    username: text("username").notNull().unique(),
+    passwordHash: text("password_hash").notNull(),
+    displayName: text("display_name"),
+    /** Franchise label, informational for now. */
+    franchise: text("franchise"),
+    /** 'user' | 'admin' */
+    role: text("role").notNull().default("user"),
+    /** Set to revoke access without losing the audit trail. */
+    disabledAt: integer("disabled_at", { mode: "timestamp" }),
+    /** Consecutive failed sign-ins, reset on success. */
+    failedAttempts: integer("failed_attempts").notNull().default(0),
+    /** Sign-in refused until this instant, regardless of the password. */
+    lockedUntil: integer("locked_until", { mode: "timestamp" }),
+    lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+/**
+ * ACCESS: an open session, one row per sign-in.
+ *
+ * `id` is the SHA-256 of the token held in the cookie, never the token itself,
+ * so a dump of this table cannot be replayed as a cookie. Existence here is what
+ * makes logout and revocation immediate; the cookie signature alone only proves
+ * the token was issued by us.
+ */
+export const sessions = sqliteTable(
+    "sessions",
+    {
+        id: text("id").primaryKey(),
+        userId: text("user_id")
+            .notNull()
+            .references(() => users.id, { onDelete: "cascade" }),
+        expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+        lastSeenAt: integer("last_seen_at", { mode: "timestamp" }).notNull(),
+        createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    },
+    (t) => ({
+        byUser: index("sessions_user_idx").on(t.userId),
+        byExpiry: index("sessions_expires_idx").on(t.expiresAt),
+    })
+);

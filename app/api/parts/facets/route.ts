@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { db } from "@/lib/db/client";
 import { articleCriteriaFacets } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -10,6 +11,9 @@ export interface FacetResult {
 }
 
 export async function GET(request: Request) {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     const { searchParams } = new URL(request.url);
     const vehicleId = Number(searchParams.get("vehicleId"));
     const categoryId = Number(searchParams.get("categoryId"));

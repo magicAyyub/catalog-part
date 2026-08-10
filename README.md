@@ -28,6 +28,43 @@ All behavior is controlled via `.env`. No need to touch the source code.
 | `ALLOWED_CATEGORY_IDS` | Comma-separated TecDoc category IDs to sync | `100030,100032` |
 | `ALLOWED_SUPPLIER_IDS_PROD` | Supplier IDs to accept in production (real TecDoc IDs) | `7657,161,30,21,39` |
 | `ALLOWED_SUPPLIER_IDS_MOCK` | Supplier IDs to accept in mock mode (fixture server IDs) | `2,8,12` |
+| `AUTH_SECRET` | Session cookie signing key, 32 characters minimum. Required | — |
+| `AUTH_SESSION_TTL_DAYS` | Session lifetime | `7` |
+
+### Authentification
+
+Le catalogue expose des prix d'achat nets : tout est fermé par défaut. Une route
+est joignable sans session uniquement si elle figure dans `proxy.ts`, et les
+pages protégées vivent sous `app/(app)/`, dont le layout exige une session.
+
+```sh
+openssl rand -base64 48   # à mettre dans AUTH_SECRET
+pnpm auth:user create dupont --name "Garage Dupont" --franchise "Lyon Est"
+```
+
+Sans `--password`, un mot de passe fort est généré et affiché une seule fois.
+Le passer en ligne de commande le laisse dans l'historique du shell.
+
+```sh
+pnpm auth:user list
+pnpm auth:user password dupont   # réinitialise et ferme les sessions ouvertes
+pnpm auth:user disable dupont    # révoque, effet immédiat
+pnpm auth:user enable dupont
+```
+
+Deux niveaux de contrôle, volontairement :
+
+- `proxy.ts` vérifie la signature et l'expiration du cookie. Sans base de
+  données, donc sur chaque requête sans surcoût. Cela suffit à rediriger un
+  navigateur, pas à servir des données.
+- `requireUser()` (`lib/auth/guard.ts`) interroge la base. C'est le seul niveau
+  qui sait qu'une session a été fermée ou qu'un compte a été désactivé depuis.
+  Toute route qui renvoie des pièces, des prix ou des données véhicule l'appelle.
+
+Cinq échecs consécutifs bloquent un compte 15 minutes. Les mots de passe sont
+hachés en scrypt (`node:crypto`), les identifiants de session sont stockés
+hachés en SHA-256, si bien qu'un dump de la table `sessions` ne fournit aucun
+cookie rejouable.
 
 ### Development
 

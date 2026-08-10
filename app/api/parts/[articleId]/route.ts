@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { rapidApi } from "@/lib/rapidapi/client";
 import { getWithCompressedCache } from "@/lib/vehicle/api-cache";
 import { db } from "@/lib/db/client";
@@ -41,6 +42,9 @@ export async function GET(
     _request: Request,
     { params }: { params: Promise<{ articleId: string }> }
 ) {
+    const auth = await requireUser();
+    if (auth instanceof NextResponse) return auth;
+
     const { articleId } = await params;
     const id = Number(articleId);
 
