@@ -7,7 +7,7 @@
  */
 import { db } from "../lib/db/client";
 import { rapidApi } from "../lib/rapidapi/client";
-import { articles, articleCriteriaFacets, categories, suppliers, vehicles } from "../lib/db/schema";
+import { articles, categories, suppliers, vehicles } from "../lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { ApiEngineType } from "../lib/rapidapi/types";
 
@@ -15,11 +15,6 @@ const CATEGORIES = [
     { categoryId: 100030, labelFr: "Plaquettes de frein" },
     { categoryId: 100032, labelFr: "Disques de frein" },
 ] as const;
-
-const CATEGORY_TO_PRODUCT_ID: Record<number, number> = {
-    100030: 100030, // Brake Pad
-    100032: 100032, // Brake Disc
-};
 
 async function ensureCategories() {
     for (const c of CATEGORIES) {
@@ -55,10 +50,7 @@ async function syncCategoryArticles(vehicleId: number, categoryId: number) {
 
     console.log(`  Catégorie ${categoryId} : ${countArticles} articles annoncés, ${apiArticles.length} reçus`);
 
-    const distinctSupplierIds = new Set<number>();
-
     for (const a of apiArticles) {
-        distinctSupplierIds.add(a.supplierId);
         await db
             .insert(articles)
             .values({
@@ -75,48 +67,6 @@ async function syncCategoryArticles(vehicleId: number, categoryId: number) {
             })
             .onConflictDoNothing();
     }
-
-    return distinctSupplierIds;
-}
-
-async function syncFacetsForCategory(vehicleId: number, categoryId: number, supplierIds: Set<number>) {
-    const productId = CATEGORY_TO_PRODUCT_ID[categoryId];
-    if (!productId) {
-        console.warn(
-            `  Pas de productId configuré pour categoryId=${categoryId}, facettes ignorées pour l'instant.`
-        );
-        return;
-    }
-
-    // criteriaName -> { type, values: Set<string> }
-    const aggregated = new Map<string, { type: string; values: Set<string> }>();
-
-    for (const supplierId of supplierIds) {
-        const { articles: criteriaRows } = await rapidApi.getSparePartCriteria(productId, vehicleId, supplierId);
-
-        for (const row of criteriaRows) {
-            const entry = aggregated.get(row.criteriaName) ?? { type: row.type, values: new Set<string>() };
-            entry.values.add(row.criteriaValue);
-            aggregated.set(row.criteriaName, entry);
-        }
-    }
-
-    // On repart de zéro pour cette (vehicleId, categoryId) à chaque sync
-    await db
-        .delete(articleCriteriaFacets)
-        .where(and(eq(articleCriteriaFacets.vehicleId, vehicleId), eq(articleCriteriaFacets.categoryId, categoryId)));
-
-    for (const [criteriaName, { type, values }] of aggregated) {
-        await db.insert(articleCriteriaFacets).values({
-            vehicleId,
-            categoryId,
-            criteriaName,
-            type,
-            distinctValuesJson: JSON.stringify([...values]),
-        });
-    }
-
-    console.log(`  Facettes agrégées pour categoryId=${categoryId} : ${aggregated.size} critères distincts`);
 }
 
 async function resolveVehicle(vehicleIdArg: number | null): Promise<ApiEngineType> {
@@ -176,8 +126,7 @@ async function main() {
 
     for (const c of CATEGORIES) {
         console.log(`Catégorie "${c.labelFr}" (${c.categoryId})`);
-        const supplierIds = await syncCategoryArticles(vehicleId, c.categoryId);
-        await syncFacetsForCategory(vehicleId, c.categoryId, supplierIds);
+        await syncCategoryArticles(vehicleId, c.categoryId);
     }
 
     await db

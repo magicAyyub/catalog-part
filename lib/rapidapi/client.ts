@@ -45,12 +45,25 @@ async function callMockApi<T>(path: string): Promise<T> {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Every billed request goes through `callRealApi`, so counting here is the only
+ * place that cannot drift. Retries do not count: the quota is charged once per
+ * call, and this mirrors the `rapidapi_call` log line.
+ */
+let billedCalls = 0;
+
+/** Monotonic since process start. Callers measure deltas around an operation. */
+export function billedCallCount(): number {
+    return billedCalls;
+}
+
 async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise<T> {
     const apiKey = process.env.RAPIDAPI_KEY;
     if (!apiKey) {
         throw new Error("RAPIDAPI_KEY manquante dans les variables d'environnement.");
     }
 
+    billedCalls++;
     logger.info("RapidAPI HTTP call executed", { action: "rapidapi_call", path });
 
     for (let attempt = 1; attempt <= retries; attempt++) {

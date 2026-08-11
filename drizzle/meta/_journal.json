@@ -43,6 +43,13 @@
       "when": 1786350944469,
       "tag": "0005_nosy_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786463572813,
+      "tag": "0006_smart_pet_avengers",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,8 @@
     "auth:user": "tsx --env-file=.env scripts/manage-user.ts",
     "sync:vehicle": "tsx --env-file=.env scripts/sync-vehicle.ts",
     "warm:vehicles": "tsx --env-file=.env scripts/warm-vehicles.ts",
+    "vehicles:harvest": "tsx --env-file=.env scripts/harvest-vehicles.ts",
+    "night:run": "tsx --env-file=.env scripts/night-run.ts",
     "index:braking": "tsx --env-file=.env scripts/index-braking.ts",
     "catalog:report": "tsx --env-file=.env scripts/coverage-report.ts"
   },

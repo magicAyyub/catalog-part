@@ -2,17 +2,19 @@
  * Rebuilds the full vehicle record from a K-Type alone.
  *
  * RapidAPI has no reverse endpoint, and engine data only comes from
- * `Engine_Types_by_Model` which needs a `modelId`. So the chain is walked back
- * through labels, which app-etf reports identically to RapidAPI, then verified
- * by finding the K-Type among the candidate model's engine types. No label match
- * is accepted without that confirmation.
+ * `Engine_Types_by_Model` which needs a `modelId`. The local index answers
+ * first, at no billed call. Only an unknown K-Type falls back to walking the
+ * chain back through labels, which app-etf reports identically to RapidAPI, then
+ * verified by finding the K-Type among the candidate model's engine types. No
+ * label match is accepted without that confirmation.
  *
- * The lists reuse the cascade cache keys, so an already explored vehicle costs
- * nothing.
+ * Every response fetched on that path is banked, so the walk pays for itself:
+ * one call teaches the index around twenty K-Types rather than one.
  */
 
 import { rapidApi } from "@/lib/rapidapi/client";
 import { getWithCache } from "@/lib/vehicle/api-cache";
+import { findVehicleByKType, rememberEngineTypes } from "@/lib/vehicle/vehicle-index";
 import { logger } from "@/lib/logger";
 import type { ApiEngineType, ApiManufacturer, ApiModel } from "@/lib/rapidapi/types";
 
@@ -124,6 +126,25 @@ export async function resolveVehicleFromKType(
     const started = Date.now();
 
     try {
+        const indexed = await findVehicleByKType(kType);
+        if (indexed) {
+            logger.info("K-Type resolved from the local index", {
+                module: "ktype-resolver",
+                action: "index_hit",
+                kType,
+                manufacturerId: indexed.manufacturerId,
+                modelId: indexed.modelId,
+                durationMs: Date.now() - started,
+            });
+            return {
+                vehicleId: kType,
+                manufacturerId: indexed.manufacturerId,
+                modelId: indexed.modelId,
+                engineType: indexed.engineType,
+                confirmed: true,
+            };
+        }
+
         const manufacturers = await getWithCache<ApiManufacturer[]>("manufacturers", async () => {
             const { manufacturers: list } = await rapidApi.listManufacturers();
             return [...list].sort((a, b) => a.manufacturerName.localeCompare(b.manufacturerName));
@@ -159,6 +180,15 @@ export async function resolveVehicleFromKType(
                 async () => (await rapidApi.listEngineTypes(candidate.modelId)).modelTypes
             );
 
+            // Le payload entier est mis en banque, y compris quand le K-Type
+            // cherché n'y est pas : ces motorisations resserviront pour une
+            // autre plaque du même modèle.
+            const learned = await rememberEngineTypes(
+                engineTypes,
+                manufacturer.manufacturerId,
+                candidate.modelId
+            );
+
             // `Engine_Types_by_Model` renvoie parfois deux lignes identiques pour
             // un même vehicleId (constaté sur FIAT PUNTO EVO / 32251) : la
             // première suffit.
@@ -172,6 +202,7 @@ export async function resolveVehicleFromKType(
                     modelId: candidate.modelId,
                     typeEngineName: match.typeEngineName,
                     candidatesTried: candidates.indexOf(candidate) + 1,
+                    vehiclesLearned: learned,
                     durationMs: Date.now() - started,
                 });
                 return {

@@ -1,0 +1,53 @@
+Salut x tu vas bien ?
+J’ai une première version qui fonctionne assez bien, je voulais déployer le ovh que tu m’as donné ce n’est pas possible 
+C’est plus pour le web avec php, moi j ai du nodejs, une base de donnée qui est alimenté etc 
+Je peux bien faire avec vercel et une base de donnée distant à la demande mais ça entraînera un coût alors qu’un vps serait beaucoup mieux puisque je ne peux pas accéder au server de Gennevilliers 
+Tien moi au courant de ce que tu veux que je fasse. Prendre un vps moins cher ? Ou attendre ton retour
+Attends moi 2 jours 
+Je vais essayer de prendre un VPS chez OVH 
+Je suis toujours en déplacement ce moment 
+Je te rappellerai une fois qu’on est prêt 
+Aucun problème !
+Profite bien 
+Node fonctionne sur VPS ? 
+Je peux tout mettre en place oui 
+Via ssh c’est comme Linux classique 
+continue à améliorer local, attends mes nouvelles sur l’abonnement de VPS 😉
+No problemo 🙂
+Je me base actuellement sur ta version déployé by the way, ça te va ou tu veux que je réfléchisse à ma version avec scrapping nocturne sur vps 
+J’ai testé les deux approche en me basant uniquement sur ta version déployée et ta façon de faire la simulation humaine j’ai eu un résultat mais beaucoup moins détaillé qu’avec rapidapi
+Nice work 
+Actuellement : plaque -> ktype -> rapidapi 
+Yes ! 
+Je peux rajouter la simulation pour avoir les prix que rapidapi n’a pas. J’ai aussi vu des tips pour optimiser les call à rapidapi 
+Tu me dit ce qui t’arrange je me planche dessus 
+as les prix de barème pour les grandes marques ? 
+Prix de barème - % remise = nos vrais prix d’achat 
+En tableau Excel 
+Que ceux disponible chez les fournisseurs lorsque je simule l’humain. Je ne sais pas s’il s agit de grandes marques ou pas 
+Ah d’accord 
+Bon je mettrai ça de côté pour le moment 
+je ne veux pas utiliser les données chez les fournisseurs 
+Uniquement Ktype 
+D’accord 
+Le rapid api j’optimise les call, les charges etc alors 
+A terme, on va trouver plus de moyens « plaque to Ktype » ex. Distriauto.fr carrément 
+Yes
+Les fournisseurs + oscaro ou distriauto ou notre propre plaque API seront les multiples back up 
+Ils travaillent pour « plaque to Ktype » 
+Les restes sont pour RapidApi 
+D’accord je vois 
+Surtout avec les caches, le coût va diminuer au fur et à mesure 
+Yes 
+J’ai vu aussi que les véhicules avec le même référence id on quasiment les même pièce 
+Des véhicules sœur en quelque sorte 
+Ça fait passe de 11 call à 3
+J’ai envie de scraper les bases de véhicules sur Tecdoc 
+Marque-model de véhicules - type de véhicule to Ktype 
+Les consommations de requêtes vont diminuer de 6 à 2 fois en utilisant notre propre base de véhicules 
+Scraper tecdoc c’est vrai que ça peu être une idée ça. En mode simulation humaine ou comme d’hab ?
+À terme tu ne veux plus utiliser rapidapi du coup  ? Si on a notre base 
+Si, mais il n’a plus besoin de traduire « model véhicules to Ktype »
+L’économie de nombre de requêtes pour chaque recherche 
+Je vois, Ça serait quoi du coup ? Véhicule to … ? 
+“Marque-model de véhicules - type de véhicule to Ktype to piece ” consomme 6 requêtes à la fois 

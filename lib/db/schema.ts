@@ -89,65 +89,22 @@ export const articleSpecifications = sqliteTable("article_specifications", {
     criteriaValue: text("criteria_value").notNull(),
 });
 
-/**
- * Facettes agrégées pour un couple (vehicleId, categoryId), calculées à la sync
- * en bouclant Vehicle_Spare_Part_Criteria sur chaque supplierId distinct.
- * distinctValues stocke la liste JSON des valeurs possibles pour construire les checkboxes.
- */
-export const articleCriteriaFacets = sqliteTable("article_criteria_facets", {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    vehicleId: integer("vehicle_id").notNull(),
-    categoryId: integer("category_id").notNull(),
-    criteriaName: text("criteria_name").notNull(),
-    type: text("type"), // ex: "MANDATORY,ONLY_ARTICLE"
-    distinctValuesJson: text("distinct_values_json").notNull(), // JSON.stringify(string[])
-});
-
-/**
- * Véhicules compatibles avec un article (compatibleCars d'Article_Details).
- * Rempli en lazy-load quand la fiche produit est consultée.
- */
-export const articleCompatibleCars = sqliteTable("article_compatible_cars", {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    articleId: integer("article_id").notNull(),
-    vehicleId: integer("vehicle_id").notNull(),
-    modelId: integer("model_id"),
-    manufacturerName: text("manufacturer_name").notNull(),
-    modelName: text("model_name").notNull(),
-    typeEngineName: text("type_engine_name").notNull(),
-    constructionIntervalStart: text("construction_interval_start"),
-    constructionIntervalEnd: text("construction_interval_end"),
-});
-
 export const apiCache = sqliteTable("api_cache", {
     key: text("key").primaryKey(),
     valueJson: text("value_json").notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-/**
- * Index pré-calculé hors-ligne (L2 Cache) pour la résolution instantanée O(log N) par véhicule/catégorie.
- */
-export const etfLookupIndex = sqliteTable("etf_lookup_index", {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    vehicleId: integer("vehicle_id").notNull(),
-    categoryId: integer("category_id").notNull(),
-    vehicleJson: text("vehicle_json").notNull(),
-    productsJson: text("products_json").notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
 // Braking catalog: four natures of data, deliberately kept apart.
 //
-// Les tables ci-dessus (articles, article_specifications, article_criteria_facets)
-// mélangeaient trois choses de durées de vie très différentes dans une même
+// Les tables ci-dessus (articles, article_specifications) mélangeaient trois
+// choses de durées de vie très différentes dans une même
 // ligne : le référentiel technique, l'applicabilité véhicule, et le prix. Elles
 // stockaient aussi une référence BOSCH autant de fois qu'elle équipe de
 // véhicules, ce qui interdit de partager ses caractéristiques.
 //
 //   REFERENCE      immutable      one row per reference, never duplicated
 //   APPLICABILITY  semi-stable    which reference fits which vehicle
-//   OFFER          volatile       price and stock, per wholesaler
-//   EQUIVALENCE    derived        rebuildable at any time
 //
 // Intended consequence: adding a supplier later only requires indexing its
 // articles, not rescanning the fleet.
@@ -287,69 +244,6 @@ export const tdFitment = sqliteTable(
         // Accès principal de l'application : les pièces d'un véhicule pour un onglet.
         byVehicleCategory: index("td_fitment_vehicle_cat_idx").on(t.vehicleId, t.categoryId),
         byArticle: index("td_fitment_article_idx").on(t.articleId),
-    })
-);
-
-/**
- * OFFER: price and stock at a wholesaler.
- *
- * Deliberately keyed on (brand, normalized reference, source) rather than on
- * articleId: portals know nothing of TecDoc identifiers. That pair is the bridge
- * between the reference data and the commercial side.
- */
-export const supplierOffer = sqliteTable(
-    "supplier_offer",
-    {
-        brandKey: text("brand_key").notNull(),
-        articleNoKey: text("article_no_key").notNull(),
-        /** 'preference' | 'exadis' | 'winpro' … */
-        source: text("source").notNull(),
-        priceNet: real("price_net"),
-        priceGross: real("price_gross"),
-        discountPct: real("discount_pct"),
-        stockLabel: text("stock_label"),
-        inStock: integer("in_stock", { mode: "boolean" }),
-        fetchedAt: integer("fetched_at", { mode: "timestamp" }).notNull(),
-    },
-    (t) => ({
-        pk: primaryKey({ columns: [t.brandKey, t.articleNoKey, t.source] }),
-        byFreshness: index("supplier_offer_fetched_idx").on(t.fetchedAt),
-    })
-);
-
-/**
- * EQUIVALENCE: typed edges between references.
- *
- * `kind` carries the strength of the link: 'curated' as asserted by the ETF
- * catalog, 'wva' for a shared WVA number, 'oem' for a shared manufacturer
- * reference. Clustering merges only on strong edges and refuses any merge that
- * would violate dimensional compatibility, so the contamination observed in
- * app-etf, where an ETF meant for another car surfaced through WVA, becomes
- * impossible by construction rather than flagged after the fact.
- */
-export const equivalenceEdge = sqliteTable(
-    "equivalence_edge",
-    {
-        articleIdA: integer("article_id_a").notNull(),
-        articleIdB: integer("article_id_b").notNull(),
-        kind: text("kind").notNull(),
-        evidence: text("evidence"),
-    },
-    (t) => ({
-        pk: primaryKey({ columns: [t.articleIdA, t.articleIdB, t.kind] }),
-        byA: index("equivalence_edge_a_idx").on(t.articleIdA),
-    })
-);
-
-/** EQUIVALENCE: materialized clusters, the union-find output, recomputable. */
-export const equivalenceCluster = sqliteTable(
-    "equivalence_cluster",
-    {
-        articleId: integer("article_id").primaryKey(),
-        clusterId: integer("cluster_id").notNull(),
-    },
-    (t) => ({
-        byCluster: index("equivalence_cluster_idx").on(t.clusterId),
     })
 );
 

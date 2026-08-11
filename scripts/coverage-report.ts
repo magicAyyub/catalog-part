@@ -80,6 +80,30 @@ async function main() {
     bar("numéros WVA", String(wva));
     bar("références OEM", oem ? String(oem) : "0  (passe 2 non lancée)");
 
+    // Index K-Type
+    section("Index K-Type, résolution sans appel facturé");
+
+    const resolvable = one(
+        await q(`select count(*) as v from td_vehicle
+                 where manufacturer_id is not null and model_id is not null`)
+    );
+    const models = one(
+        await q(`select count(distinct model_id) as v from td_vehicle where model_id is not null`)
+    );
+    const pending = Number(vehicles) - Number(resolvable);
+
+    bar("K-Types résolus depuis la base locale", String(resolvable));
+    bar("modèles couverts", String(models));
+    if (pending > 0) {
+        bar("K-Types sans marque ni modèle", `${pending}  (résolution par libellés)`);
+    }
+    if (models) {
+        bar(
+            "K-Types par appel engine_types",
+            `${Math.round(Number(resolvable) / Number(models))}  en moyenne`
+        );
+    }
+
     // Amortissement
     section("Amortissement, effet du stockage unique");
 

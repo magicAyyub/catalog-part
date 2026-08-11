@@ -52,3 +52,6 @@ backup
 # sessions fournisseur (cookies) + logs applicatifs (plaques = données personnelles)
 .cache/
 logs/
+
+# sauvegardes nocturnes
+data/backups/

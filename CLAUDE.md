@@ -23,17 +23,18 @@ pnpm db:generate          # generate a migration from lib/db/schema.ts
 pnpm db:migrate           # apply pending migrations
 npx drizzle-kit studio    # browse the database
 
-pnpm warm:vehicles              # refresh vehicles whose cache nears TTL expiry
-pnpm warm:vehicles 15901 32251  # explicit K-Types
-
 pnpm auth:user list             # accounts allowed into the catalog
 pnpm auth:user create dupont --franchise "Lyon Est"   # prints a generated password once
 pnpm auth:user disable dupont   # revoke, effective immediately
 
+pnpm vehicles:harvest           # fill the local K-Type index from the cache, no billed call
+pnpm night:run --dry-run        # nightly plan and estimated cost, nothing leaves
+pnpm night:run                  # capped by NIGHT_MAX_API_CALLS, 60 by default
+
 pnpm index:braking              # acquire catalog for known vehicles
 pnpm index:braking --dry-run    # print the plan and the estimated billed calls
-pnpm index:braking 15901        # explicit K-Types
 pnpm index:braking --details 200  # pass 2, OEM refs, one billed call per article
+pnpm warm:vehicles              # refresh vehicles whose cache nears TTL expiry
 pnpm catalog:report             # coverage, amortisation, latency, cost report
 ```
 
@@ -53,13 +54,13 @@ This is the single most important thing to understand before touching vehicle co
 - **K-Type** is the TecDoc vehicle type number. It is exactly the `vehicleId` that
   every RapidAPI endpoint expects. Verified: 15901 is PEUGEOT 307 (3A/C) 1.6 16V,
   32251 is FIAT PUNTO EVO 1.3 D Multijet.
-- **carId** is Preference's internal portal id (101412, 199512). It lives in a
+- **carId** is a wholesaler portal's internal id (101412, 199512). It lives in a
   different space and is meaningless to TecDoc.
 
 The original bug in this project was passing a `carId` to TecDoc endpoints, which
 returned nothing usable. `lib/etf/plate-client.ts` therefore **refuses to fall
 back to `carId`** when the K-Type is missing, and fails loudly instead. Keep that
-behaviour.
+behaviour through any refactor of the provider chain.
 
 ## Request flow
 
@@ -67,10 +68,11 @@ Plate search:
 
 ```
 POST /api/vehicle/by-plate
-  -> lib/etf/plate-client.ts        GET app-etf /api/external/by-plate (Bearer)
-                                    returns kType + brand + model labels
-  -> lib/vehicle/ktype-resolver.ts  brand label -> manufacturerId
-                                    model label -> candidate modelIds
+  -> lib/plate/identify.ts          provider chain, see below
+  -> lib/vehicle/ktype-resolver.ts  td_vehicle lookup, no billed call
+                                    on a miss only, walk the labels back:
+                                    brand -> manufacturerId
+                                    model -> candidate modelIds
                                     engine-types of a candidate must CONTAIN the
                                     K-Type, otherwise try the next candidate
                                     result: a full ApiEngineType
@@ -89,6 +91,80 @@ Reads: `/api/parts?vehicleId&categoryId` and `/api/parts/[articleId]` serve from
 SQLite. The article detail route also enriches from `article-complete-details`,
 behind a permanent compressed cache.
 
+## Plate identification, and its single point of failure
+
+`lib/plate/identify.ts` tries providers in order.
+
+**Exadis first** (`lib/suppliers/exadis/`). One request,
+`searchVehiculeByImmatOrVin`, measured at 445 to 825 ms depending on whether the
+session is already open. It yields the K-Type and, from the same response, the
+brand and model labels. No extra request for the labels.
+
+**app-etf second**, only when Exadis fails or its labels are unreadable. It
+answers the same question but scrapes the whole product catalogue first:
+15 524 ms measured on the same plate.
+
+The decision inside the chain:
+
+```
+K-Type already in td_vehicle   -> done, labels irrelevant, no billed call
+K-Type new but labels readable -> TecDoc walk, no app-etf
+otherwise                      -> app-etf
+```
+
+Label positions in the Exadis string table were derived from real responses, not
+guessed, on two vehicles whose tables differ in length: the plate is the anchor,
+the brand sits three entries after it, the K-Type is the first nine digit group,
+and the model label is the last entry. That last one matches app-etf's label
+character for character (`307 (3A/C)`, `PUNTO EVO (199_)`). Only the K-Type is
+required; every label goes through a plausibility check and an unreadable one
+degrades to app-etf rather than propagating a doubtful value.
+
+**The gap worth knowing**: app-etf gets its own K-Type from Exadis as well, via
+`getCachedKType`. The other portal it queries only returns a `carId`. So there is
+exactly one source of K-Type in the whole system, used twice. app-etf is not a
+real fallback for that step. A genuine second pillar has to be independent of
+Exadis, which is what Distriauto or Oscaro would be for.
+
+Their server presents its leaf certificate without the intermediate, so Node
+fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. app-etf works around this by
+switching `NODE_TLS_REJECT_UNAUTHORIZED` off, which disables verification for
+every outbound request of the process. Here the missing intermediate is supplied
+explicitly in `lib/suppliers/exadis/ca.ts` and passed per request through
+`node:https`, so verification stays on everywhere. Do not replace that with the
+blunt workaround.
+
+Only the K-Type and its labels are taken from a supplier. No price, no stock, no
+article. That is the project owner's rule, and here it holds by construction:
+the code that would read a catalogue does not exist in this repository.
+
+## The local K-Type index
+
+RapidAPI has no endpoint answering "which vehicle is this K-Type". The only
+source is `Engine_Types_by_Model`, and it returns the whole engine line-up of a
+model, measured at 22 rows per call. The resolver used to read the one row it
+wanted and drop the other 21, so the same call was worth one K-Type.
+
+`lib/vehicle/vehicle-index.ts` banks the whole payload into `td_vehicle`, which
+already had the right columns. `resolveVehicleFromKType` answers from there
+first, at no billed call, and only falls back to the label walk on a miss. Every
+payload the walk fetches is banked too, including when it does not contain the
+K-Type being looked for, because it will answer some other plate later.
+
+`pnpm vehicles:harvest` does the same over the `engine_types_*` entries already
+sitting in `api_cache`. It reads the cache, never the API, so it costs nothing
+and is safe to rerun.
+
+Two measurements worth keeping. Banking took the index from 2 usable K-Types to
+36 without a single billed call. And the label walk is ambiguous for 20 percent
+of cached models, with a worst case of 26 candidate models for PEUGEOT ION,
+which is where the avoided calls actually are; the other 80 percent match one
+candidate and were already cheap.
+
+A row whose `manufacturer_id` or `model_id` is null does not count as resolvable.
+The indexer writes such placeholders for vehicles it meets without a legacy
+record, and they cannot stand in for a resolution.
+
 ## Two data layers coexist on purpose
 
 **Legacy read path, what the UI actually reads today**: `articles`,
@@ -96,19 +172,21 @@ behind a permanent compressed cache.
 `(articleId, vehicleId, categoryId)`, so one reference is duplicated per vehicle.
 
 **New acquisition layer, not yet read by the UI**: the `td_*` tables, filled by
-`pnpm index:braking`. Four natures of data are separated by design:
+`pnpm index:braking`. Three natures of data are separated by design:
 
 ```
 REFERENCE     td_supplier, td_article, td_criteria, td_oem, td_wva
 APPLICABILITY td_vehicle, td_fitment
-OFFER         supplier_offer          (prices and stock, still empty)
-EQUIVALENCE   equivalence_edge, equivalence_cluster
 TRACKING      index_job               (billed calls per vehicle/category)
 ```
 
 `td_article` is keyed on `articleId` alone, so a reference is stored once and its
 criteria are shared by every vehicle it fits. Do not reintroduce per-vehicle
 duplication.
+
+`td_vehicle` now carries a second role beyond applicability: it is the K-Type
+index the plate flow reads. It is therefore written by two paths, the indexer and
+`rememberEngineTypes`, and the latter overwrites placeholder rows on conflict.
 
 The cutover to `td_*` has not happened. Keep both layers working; the app must
 never be left broken between steps.
@@ -128,7 +206,7 @@ never be left broken between steps.
   which drops a sibling vehicle from 11 billed calls to 3.
 - **RapidAPI returns no prices.** An article carries only `articleId`, `articleNo`,
   `supplierName`, `supplierId`, `articleProductName`, `productId`, media fields and
-  `s3image`. Prices and stock can only come from the wholesaler portals.
+  `s3image`.
 - TecDoc returns around 500 articles per category; `ALLOWED_SUPPLIER_IDS_PROD`
   narrows that to roughly 15 to 60. Each brand in that list costs one criteria
   call per category and per vehicle, so the list is the most direct cost lever.
@@ -146,35 +224,48 @@ never be left broken between steps.
   remains readable.
 
 `sync-service.ts` has symmetric guards: neither articles nor criteria are re-bought
-when already present. `syncVehicle(..., { force: true })` bypasses them, which is
-what `warm:vehicles` uses.
+when already present. `syncVehicle(..., { force: true })` bypasses them.
 
 Never cache fabricated data. A previous version of the detail route invented OEM
 references (`<REF>-OEM1`) and compatible vehicles when TecDoc did not answer; that
 was removed precisely because a permanent cache would have frozen it. Prefer an
 empty field, which the drawer hides on its own.
 
+## Nightly preparation
+
+`pnpm night:run` is one command and one crontab line. It harvests the K-Type
+index, indexes vehicles the index can name but whose parts were never bought,
+renews caches nearing expiry, purges expired sessions, and writes a compacted
+backup to `data/backups` with rotation.
+
+Everything that spends money is capped by `NIGHT_MAX_API_CALLS`, measured at the
+RapidAPI client through `billedCallCount()` rather than estimated. That counter
+is the only place a billed call cannot be miscounted; an earlier version read
+`index_job` totals for the refresh step, which `sync-service` never writes, and
+silently overcounted. Prefer the counter for any new budgeted work.
+
+The indexing step orders by cost: siblings of an already indexed model come
+first, at about 3 billed calls instead of 10.
+
+## Watching what the system does
+
+`/logs` renders the structured logs as a chronological trace, with counters for
+billed calls, plate lookups and index hits, filters by day, level and action, and
+a 3 second live refresh. Built for sitting next to the catalog with a real plate
+and watching each step. It is behind `requireUser` like every data route, because
+log lines carry plates.
+
 ## The join key between TecDoc and the portals
 
-TecDoc and the wholesaler portals share no identifier. `lib/catalog/normalize.ts`
-builds the `(brandKey, articleNoKey)` pair that bridges them, which is why
-`supplier_offer` is keyed on it rather than on `articleId`. The rules were salvaged
+TecDoc identifiers mean nothing outside TecDoc. `lib/catalog/normalize.ts` builds
+a `(brandKey, articleNoKey)` pair that identifies a reference by brand and part
+number instead, and `td_article` carries it on every row. The rules were salvaged
 from the neighbouring `app-etf` project: legal entity suffixes, parenthesised group
-names, separator stripping, and the warehouse code Preference appends to BOSCH OE
-references (`0986479382PH01WHCO0000` becomes `0986479382`). A missed normalisation
-does not crash anything, it silently produces a part with no price.
+names, separator stripping, and the warehouse code one portal appends to BOSCH OE
+references (`0986479382PH01WHCO0000` becomes `0986479382`).
 
-## Related repository
-
-`../app-etf` is a colleague's project, deployed at `https://etf.jumbopneus.shop`,
-and it is the source of truth for plate identification. Only two endpoints are
-public: `/api/external/by-plate` and `/api/external/search`, both Bearer-token
-gated with a `shell` kind token created from its `/admin/tokens` page.
-
-The deployed build and the local checkout have diverged in both directions, so do
-not treat that source as the API contract. Confirm shapes against the live
-endpoint. Its scrapers (`lib/suppliers/exadis` for the K-Type, `lib/suppliers/preference`
-for prices) are the material to salvage when wiring prices into `supplier_offer`.
+Nothing consumes that pair today. It exists so a price source, whenever one is
+decided, can be joined without touching the reference tables.
 
 ## Authentication, and the one mistake not to repeat
 
@@ -198,71 +289,80 @@ where it sits rather than by someone remembering.
 `users.passwordHash` is scrypt from `node:crypto`, carrying its own cost
 parameters. `sessions.id` is the SHA-256 of the cookie token, never the token,
 so the table cannot be replayed. Five consecutive failures lock an account for
-15 minutes, tracked on the user row rather than in memory, so the lock survives a
-serverless instance being recycled.
+15 minutes, tracked on the user row rather than in memory.
+
+## Related repository
+
+`../app-etf` is a colleague's project, deployed at `https://etf.jumbopneus.shop`.
+Only two endpoints are public: `/api/external/by-plate` and
+`/api/external/search`, both Bearer-token gated.
+
+It used to be the source of truth for plate identification. It is now the
+fallback behind the direct Exadis lookup, for the reasons in the plate section.
+
+The deployed build and the local checkout have diverged in both directions, so do
+not treat that source as the API contract. Confirm shapes against the live
+endpoint. Its scraper code is useful as reference material; the parts salvaged
+here are the GWT request bodies, the string table decoding and the vehicle
+parsing, nothing that touches a catalogue.
 
 ## Known gaps
 
-- The Preference session cookie and plate-bearing logs are in the git history of
-  this private repository. The Preference password needs rotating.
+- Coverage is the real limit today: 36 K-Types are resolvable without a billed
+  call, but only 5 vehicles have their parts. A plate taken at random still costs
+  a full acquisition. `pnpm night:run` exists to close this and has not yet been
+  run with a real budget.
+- One source of K-Type, Exadis, reached by both providers. See the plate section.
+- No price source. The owner ruled out supplier data, so any price would have to
+  come from a rate sheet imported from a file. Nothing in the repo attempts it.
 - A 401 from an API route leaves the loaded page showing stale data until a
   navigation; only the next server render redirects to `/login`. A TanStack Query
   error handler would close that window.
-- `/api/admin/sync-winpro-csv` parses a CSV, counts lines, writes nothing, and
-  returns success.
-- `article_criteria_facets` is populated but never read; `FacetPanel` derives
-  filters from the specs of the loaded parts, which measured at 0.22 ms for 62
-  parts, roughly a hundred times faster than a round trip.
-- `lib/vehicle/plate-resolver.ts` still holds a mock vehicle pool and a
-  `resolvePlateToVehicle` that nothing calls. Some of those mock ids (178952) are
-  not valid K-Types.
+- Plate-bearing logs and a supplier session cookie are in the git history of this
+  private repository. The Exadis and Preference passwords need rotating.
+- The Exadis GWT request body embeds the account identity as captured: company
+  name, address, account number, contact email, a person's name and a phone
+  number. It is required verbatim for the request to deserialize on their side.
+- `FacetPanel` derives filters from the specs of the loaded parts, measured at
+  0.22 ms for 62 parts, roughly a hundred times faster than a round trip, which
+  is why there is no server-side facet table.
 
 ## Where the work stands, and what comes next
 
-Decided and done, committed on `main`:
+Done and working locally, not committed at the time of writing:
 
-- Plate identification rewired onto app-etf, which returns the K-Type. The old
-  path sent Preference's `carId` to TecDoc and got nothing usable.
-- `productId` fix, which unlocked criteria and therefore the filter panel. Before
-  it, every article had zero specs.
-- Cost work: permanent compressed cache on article details and media, removal of
-  `suppliers/list` on every sync, symmetric guards on articles and criteria,
-  nightly warm-up. A repeat click on a part went from two billed calls to zero.
-- The `td_*` acquisition layer plus `pnpm index:braking` and
-  `pnpm catalog:report`. Six vehicles indexed for 47 billed calls, 163
-  references, 1564 criteria rows, served at 0.03 ms p50.
-- Per-account authentication, which was the blocker before the franchisees could
-  use it. See the section above for the two layers and why one is not enough.
+- Per-account authentication, the blocker before franchisees could use it.
+- Dead code removal: the supplier price scrapers, the fabricated-article fallback
+  in the parts route, the server-side facet path, a mock plate resolver, and six
+  tables no code read.
+- The local K-Type index, plus `pnpm vehicles:harvest`.
+- Direct Exadis plate lookup with label extraction, and the provider chain behind
+  it. Plate identification went from 15 524 ms to 680 ms end to end, still at
+  zero billed calls.
+- `pnpm night:run` with a hard, measured budget.
+- The `/logs` trace page.
 
-Deployment is open. The OVH shared hosting handed over (`cluster100`) is a poor
-target: Next 16 needs a persistent Node process the offer may not provide,
-`better-sqlite3` is a native module with no build toolchain there, and the WAL
-pragma in `lib/db/client.ts` sits on NFS, where SQLite locking is unreliable.
-Vercel plus Turso is the leading alternative, since Turso is libSQL and leaves
-`schema.ts` and the five migrations untouched, at the cost of trading a 0.03 ms
-local read for a network round trip.
+Earlier, on `main`: the `productId` fix that unlocked criteria, the permanent
+compressed caches, the symmetric sync guards, and the `td_*` acquisition layer
+with `pnpm index:braking` and `pnpm catalog:report`.
+
+Deployment target is a VPS, which the project owner is taking at OVH. The shared
+hosting first handed over (`cluster100`) is PHP only and cannot run this. On a
+VPS, SQLite stays: `SQLITE_PATH` points outside the deployment directory, the
+nightly backup covers durability, and reads stay at 0.03 ms. A network database
+would only be needed if the app ever moved to serverless.
 
 Agreed strategy: own the catalog rather than rent it. RapidAPI is an acquisition
-channel paid once per vehicle; the portals supply what TecDoc lacks, prices and
-stock. Scope is braking only for now, pads and discs.
+channel paid once per vehicle. Scope is braking only, pads and discs.
 
-The immediate next step, already agreed with the user: **wire prices into
-`supplier_offer`**. Port the Preference scraper from `../app-etf`, fill the table,
-then measure in `catalog:report` how many `td_article` rows match an offer on
-`(brandKey, articleNoKey)`. That match rate is the open risk of the whole
-approach, which is why it comes before widening the catalog.
+Next, in order: run the nightly job with a real budget to lift coverage, then
+add an independent plate provider, then cut the UI over to the `td_*` tables and
+drop the legacy ones.
 
-After that, in order: widen the corpus to around twenty varied vehicles for a
-defensible amortisation figure, cut the UI over to the `td_*` tables and drop the
-legacy ones, then build equivalence clusters with a union-find over
-`equivalence_edge`. WVA edges are already collected for free; OEM edges need the
-opt-in details pass.
-
-Measured facts worth not rediscovering: the Preference portal exposes 11 physical
-fields against TecDoc's 40 criteria names, so scraping alone cannot reach the
-current level of detail. A sibling engine of an already indexed model costs 3
-billed calls instead of about 10. Deriving facets client-side costs 0.22 ms for
-62 parts, roughly a hundred times less than a round trip to the server.
+Measured facts worth not rediscovering: a sibling engine of an already indexed
+model costs 3 billed calls instead of about 10. One `engine_types` call teaches
+the index about 22 K-Types rather than one. The cascade is cached with no expiry,
+so a brand or a model costs one billed call once and zero forever after.
 
 ## Style rules from .agents/skills/developer-standards
 
@@ -276,7 +376,7 @@ billed calls instead of about 10. Deriving facets client-side costs 0.22 ms for
   on a misunderstanding, say so and propose the simpler path; but do not
   manufacture debate when the reasoning is already sound.
 
-The `td_*` modules, `lib/etf`, `lib/catalog` and the scripts follow these rules.
-Older files, including the legacy half of `lib/db/schema.ts` and the salvaged
-scrapers, still carry French docstrings. Leave them; match the rule in new code
-rather than the surrounding drift.
+The `td_*` modules, `lib/plate`, `lib/suppliers/exadis`, `lib/catalog` and the
+scripts follow these rules. Older files, including the legacy half of
+`lib/db/schema.ts`, still carry French docstrings. Leave them; match the rule in
+new code rather than the surrounding drift.

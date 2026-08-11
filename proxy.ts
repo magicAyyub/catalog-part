@@ -16,19 +16,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifyToken } from "@/lib/auth/tokens";
 
-/** Reachable without a session. */
+/** Reachable without a session. Nothing else is. */
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout"];
-
-/**
- * Carries its own Bearer check (`ADMIN_API_TOKEN`) and is called by scripts
- * that hold no cookie, so the session gate would only break it.
- */
-const TOKEN_GATED_PREFIX = "/api/admin";
 
 export async function proxy(req: NextRequest) {
     const { pathname, search } = req.nextUrl;
 
-    if (PUBLIC_PATHS.includes(pathname) || pathname.startsWith(TOKEN_GATED_PREFIX)) {
+    if (PUBLIC_PATHS.includes(pathname)) {
         return NextResponse.next();
     }
 

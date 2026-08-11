@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Activity } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { UserMenu } from "./user-menu";
 
@@ -23,12 +25,23 @@ export async function SiteHeader() {
     return (
         <header className="sticky top-0 z-30 border-b border-stroke bg-white/85 backdrop-blur-md">
             <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-4 px-4 sm:px-6 lg:px-8">
-                <BrandMark />
+                <Link href="/" aria-label="Accueil du catalogue">
+                    <BrandMark />
+                </Link>
                 {user && (
-                    <UserMenu
-                        label={user.displayName || user.username}
-                        franchise={user.franchise}
-                    />
+                    <>
+                        <Link
+                            href="/logs"
+                            className="ml-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-txt2 transition-colors hover:bg-muted hover:text-navy"
+                        >
+                            <Activity className="size-4" />
+                            <span className="hidden sm:inline">Trace</span>
+                        </Link>
+                        <UserMenu
+                            label={user.displayName || user.username}
+                            franchise={user.franchise}
+                        />
+                    </>
                 )}
             </div>
         </header>

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { formatDisplayPlate, normalizePlate } from "@/lib/vehicle/plate-resolver";
-import { fetchVehicleByPlate, friendlyPlateError, PlateLookupError } from "@/lib/etf/plate-client";
+import { friendlyPlateError, PlateLookupError } from "@/lib/etf/plate-client";
+import { identifyPlate, type PlateIdentity } from "@/lib/plate/identify";
 import { resolveVehicleFromKType } from "@/lib/vehicle/ktype-resolver";
 import { getWithCache } from "@/lib/vehicle/api-cache";
 import { logger } from "@/lib/logger";
-import type { PlateVehicle } from "@/lib/etf/plate-client";
 
 /**
  * POST /api/vehicle/by-plate with { plate }
@@ -13,7 +13,7 @@ import type { PlateVehicle } from "@/lib/etf/plate-client";
  * Translates a licence plate into a vehicle record the existing TecDoc pipeline
  * can consume. This route ONLY identifies:
  *
- *   plate -> app-etf -> K-Type -> RapidAPI referential -> ApiEngineType
+ *   plate -> Exadis or app-etf -> K-Type -> local index or RapidAPI -> ApiEngineType
  *
  * It fetches no parts. The client then proceeds exactly as after the manual
  * cascade, with POST /api/vehicle/sync, which runs the usual TecDoc sync, now
@@ -44,8 +44,8 @@ export async function POST(req: Request) {
     }
 
     try {
-        const identified = await getWithCache<PlateVehicle>(`plate_${clean}`, () =>
-            fetchVehicleByPlate(clean)
+        const identified = await getWithCache<PlateIdentity>(`plate_${clean}`, () =>
+            identifyPlate(clean)
         );
 
         const resolved = await resolveVehicleFromKType(
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
             action: "by-plate",
             plate: clean,
             vehicleId: resolved.vehicleId,
-            carId: identified.carId,
+            carId: identified.carId ?? null,
             confirmed: resolved.confirmed,
             durationMs: Date.now() - startTime,
         });

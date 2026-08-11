@@ -131,6 +131,68 @@ pnpm warm:vehicles              # véhicules dont le cache expire bientôt
 pnpm warm:vehicles 15901 32251  # K-Type explicites
 ```
 
+### Identification par plaque
+
+Deux fournisseurs, essayés dans cet ordre par `lib/plate/identify.ts` :
+
+```
+Exadis      1 requête, ~450 ms          rend le K-Type seul
+app-etf     scrape complet, 8 à 18 s    rend le K-Type et les libellés
+```
+
+Exadis rend le K-Type **et** les libellés marque/modèle, extraits de la même
+réponse, donc sans requête supplémentaire. app-etf ne sert plus que si Exadis
+échoue ou si les libellés sont illisibles :
+
+```
+K-Type connu de l'index    -> terminé, 0 appel facturé
+K-Type inconnu + libellés  -> chaîne TecDoc, sans app-etf
+sinon                      -> app-etf, comme avant
+```
+
+Mesuré sur la même plaque : 680 ms par Exadis contre 15 524 ms par app-etf.
+
+Le décodage des libellés est positionnel, calé sur des réponses réelles. S'il
+casse un jour on perd le raccourci, jamais l'identification : seul le K-Type est
+obligatoire.
+
+Sans `EXADIS_USERNAME` et `EXADIS_PASSWORD`, tout passe par app-etf comme avant.
+Seul le K-Type et son libellé sont prélevés chez le fournisseur, jamais un prix
+ni un article.
+
+### Préparation nocturne
+
+```sh
+pnpm night:run --dry-run     # le plan et le coût estimé, aucun appel ne part
+pnpm night:run               # plafonné par NIGHT_MAX_API_CALLS, 60 par défaut
+pnpm night:run --budget 30   # plafond serré pour une exécution
+```
+
+Récolte de l'index, indexation des véhicules connus mais non couverts en
+commençant par les moins chers, renouvellement des caches proches de
+l'expiration, purge des sessions expirées, sauvegarde compacte de la base dans
+`data/backups` avec rotation.
+
+Le plafond porte sur les appels réellement consommés, relevés auprès de
+l'indexeur, pas sur une estimation. Une nuit ne peut donc pas vider le quota.
+
+```
+0 3 * * *  cd /chemin/catalog-part && pnpm night:run >> logs/night.log 2>&1
+```
+
+### Index K-Type local
+
+```sh
+pnpm vehicles:harvest            # construit l'index depuis le cache, zéro appel facturé
+pnpm vehicles:harvest --dry-run  # affiche ce qui serait enregistré
+```
+
+Un appel `Engine_Types_by_Model` renvoie toutes les motorisations d'un modèle,
+mesuré à 22 par appel. Le résolveur n'en lisait qu'une. Elles sont désormais
+toutes enregistrées dans `td_vehicle`, et un K-Type connu se résout sans appel
+facturé. La commande ci-dessus récupère celles qui dorment déjà dans `api_cache` ;
+ensuite l'index se remplit tout seul à chaque résolution.
+
 Les franchisés consultent largement le même parc. Renouveler de nuit les
 véhicules connus rend les recherches de la journée instantanées sans un appel en
 heure de pointe. Le script est idempotent et s'arrête de lui-même si le quota

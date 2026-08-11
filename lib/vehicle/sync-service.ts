@@ -14,7 +14,6 @@ import { rapidApi } from "@/lib/rapidapi/client";
 import { logger } from "@/lib/logger";
 import {
     articles,
-    articleCriteriaFacets,
     articleSpecifications,
     categories,
     suppliers,
@@ -173,7 +172,6 @@ async function syncFacetsForCategory(vehicleId: number, categoryId: number, forc
         });
     }
 
-    const aggregated = new Map<string, { type: string; values: Set<string> }>();
     // Clé composite pour ne pas insérer deux fois la même caractéristique :
     // la table n'a pas de contrainte d'unicité, un onConflictDoNothing n'y
     // changerait rien.
@@ -204,13 +202,6 @@ async function syncFacetsForCategory(vehicleId: number, categoryId: number, forc
             // correspondrait à aucune pièce à l'écran.
             if (!ourArticleIds.has(row.articleId)) continue;
 
-            const entry = aggregated.get(row.criteriaName) ?? {
-                type: row.type,
-                values: new Set<string>(),
-            };
-            entry.values.add(row.criteriaValue);
-            aggregated.set(row.criteriaName, entry);
-
             specs.set(`${row.articleId}|${row.criteriaName}|${row.criteriaValue}`, {
                 articleId: row.articleId,
                 criteriaName: row.criteriaName,
@@ -230,7 +221,6 @@ async function syncFacetsForCategory(vehicleId: number, categoryId: number, forc
         articles: dbArticles.length,
         articlesWithSpecs: new Set(specsToInsert.map((s) => s.articleId)).size,
         specRows: specsToInsert.length,
-        facets: aggregated.size,
     });
 
     // Remise à plat avant réécriture, pour qu'une resynchronisation ne cumule
@@ -247,24 +237,6 @@ async function syncFacetsForCategory(vehicleId: number, categoryId: number, forc
         });
     }
 
-    await db
-        .delete(articleCriteriaFacets)
-        .where(
-            and(
-                eq(articleCriteriaFacets.vehicleId, vehicleId),
-                eq(articleCriteriaFacets.categoryId, categoryId)
-            )
-        );
-
-    for (const [criteriaName, { type, values }] of aggregated) {
-        await db.insert(articleCriteriaFacets).values({
-            vehicleId,
-            categoryId,
-            criteriaName,
-            type,
-            distinctValuesJson: JSON.stringify([...values]),
-        });
-    }
 }
 
 export async function needsSync(vehicleId: number): Promise<boolean> {
