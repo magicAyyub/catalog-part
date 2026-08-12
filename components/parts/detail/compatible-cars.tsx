@@ -52,11 +52,14 @@ export function CompatibleCars({ cars }: { cars: ApiCompatibleCar[] }) {
     if (cars.length === 0) return null;
 
     return (
-        <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Véhicules compatibles ({cars.length})
-            </p>
-            <div className="flex flex-col gap-2">
+        <section id="vehicules">
+            <h2 className="mb-3 flex items-baseline gap-2 font-heading text-base font-bold text-navy">
+                Véhicules compatibles
+                <span className="text-sm font-normal text-txt2">{cars.length} motorisations</span>
+            </h2>
+            {/* Deux colonnes de marques : une pile unique était plus haute que
+                l'écran avant même d'ouvrir quoi que ce soit. */}
+            <div className="grid gap-2 sm:grid-cols-2 sm:items-start">
                 {Object.entries(grouped).map(([manuf, modelsMap]) => {
                     const isManufOpen = openManufacturers.has(manuf);
                     return (
@@ -132,6 +135,6 @@ export function CompatibleCars({ cars }: { cars: ApiCompatibleCar[] }) {
                     );
                 })}
             </div>
-        </div>
+        </section>
     );
 }

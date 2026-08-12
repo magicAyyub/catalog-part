@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArticleGallery } from "@/components/parts/detail/article-gallery";
 import { CompatibleCars } from "@/components/parts/detail/compatible-cars";
 import { DetailRow } from "@/components/parts/detail/detail-row";
+import { OemReferences } from "@/components/parts/detail/oem-references";
+import { Specifications } from "@/components/parts/detail/specifications";
 import { withRequestContext } from "@/lib/logs/request-context";
 import { loadArticleDetail, loadArticleMedia } from "@/lib/parts/article-detail";
 
@@ -69,10 +71,10 @@ export default async function ArticlePage({
             </header>
 
             <div className="grid gap-10 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
-                <ArticleGallery images={images} alt={article.articleProductName} />
+                <div className="lg:sticky lg:top-6">
+                    <ArticleGallery images={images} alt={article.articleProductName} />
 
-                <div className="flex min-w-0 flex-col gap-8">
-                    <dl className="grid grid-cols-2 gap-4">
+                    <dl className="mt-6 flex flex-col gap-4 rounded-lg border border-stroke p-4">
                         <DetailRow
                             label="Référence"
                             value={<span className="font-mono">{article.articleNo}</span>}
@@ -85,43 +87,14 @@ export default async function ArticlePage({
                             />
                         )}
                     </dl>
+                </div>
 
-                    {article.oemNo.length > 0 && (
-                        <div>
-                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                Références OEM
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                                {article.oemNo.map((oem, i) => (
-                                    <span
-                                        key={i}
-                                        className="rounded-md bg-secondary px-2 py-1 font-mono text-xs text-secondary-foreground"
-                                    >
-                                        {oem.oemBrand} | {oem.oemDisplayNo}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {article.allSpecifications.length > 0 && (
-                        <div>
-                            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                Spécifications
-                            </p>
-                            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                {article.allSpecifications.map((spec, i) => (
-                                    <DetailRow
-                                        key={i}
-                                        label={spec.criteriaName}
-                                        value={spec.criteriaValue}
-                                    />
-                                ))}
-                            </dl>
-                        </div>
-                    )}
-
+                {/* Les spécifications d'abord : c'est ce qu'on lit au comptoir.
+                    Les références OEM ferment la marche, repliées. */}
+                <div className="flex min-w-0 flex-col gap-8">
+                    <Specifications specs={article.allSpecifications} />
                     <CompatibleCars cars={article.compatibleCars} />
+                    <OemReferences refs={article.oemNo} />
                 </div>
             </div>
         </main>
