@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A brake parts catalog for around 7 franchisees of Jumbo Pneus. A user identifies a
 vehicle (licence plate, or a brand/model/engine cascade) and gets the compatible
-brake pads and discs with specs, filters and a detail drawer.
+brake pads and discs with specs, filters and a detail page.
 
 Next.js 16 App Router, React 19, Drizzle ORM over SQLite (`better-sqlite3`),
 TanStack Query. Package manager is pnpm.
@@ -88,8 +88,22 @@ wrapped in `getWithCache` under `manufacturers`, `models_<id>`, `engine_types_<i
 Cached with no expiry, so the cascade is effectively free after first use.
 
 Reads: `/api/parts?vehicleId&categoryId` and `/api/parts/[articleId]` serve from
-SQLite. The article detail route also enriches from `article-complete-details`,
-behind a permanent compressed cache.
+SQLite. The article detail also enriches from `article-complete-details`, behind
+a permanent compressed cache.
+
+`lib/parts/article-detail.ts` holds that assembly, and both the API route and
+the `/piece/[articleId]` page call it. The page renders on the server, so it
+must go through this function rather than reaching upstream on its own;
+otherwise a page view would carry a billed call the fetch never had. Measured on
+article 64225: a full render, 20 criteria, 302 OEM references, 1203 compatible
+vehicles and 6 images, at zero billed calls.
+
+The catalog carries its own state in the URL, `vehicule`, `cat`, `f`, `c`,
+`page` and `taille`, written with `replace` rather than `push` so a history
+entry per filter click does not bury the way out. Leaving for a part detail is a
+push, which is what makes browser back restore the exact screen. `localStorage`
+still holds the vehicle labels, which the URL cannot carry; a link opened by
+someone else degrades to the vehicle number rather than inventing a label.
 
 ## Plate identification, and its single point of failure
 
@@ -229,7 +243,7 @@ when already present. `syncVehicle(..., { force: true })` bypasses them.
 Never cache fabricated data. A previous version of the detail route invented OEM
 references (`<REF>-OEM1`) and compatible vehicles when TecDoc did not answer; that
 was removed precisely because a permanent cache would have frozen it. Prefer an
-empty field, which the drawer hides on its own.
+empty field, which the detail page hides on its own.
 
 ## Nightly preparation
 

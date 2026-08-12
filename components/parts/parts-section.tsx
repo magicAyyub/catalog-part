@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CategoryTabs, BRAKE_CATEGORIES } from "./category-tabs";
 import { FacetPanel } from "./facet-panel";
 import { PartsGrid } from "./parts-grid";
-import { ArticleDetailDrawer } from "./article-detail-drawer";
 import { useParts } from "@/hooks/parts/use-parts";
 
 import {
@@ -16,6 +16,31 @@ import {
 } from "@/components/ui/empty";
 
 const DEFAULT_PAGE_SIZE = 10;
+
+/**
+ * Query keys the catalog reads its own state from. Filters live in the URL so
+ * leaving for a part detail and coming back lands on the same screen, and so a
+ * filtered catalog can be sent to someone as a link.
+ */
+const PARAM = {
+    category: "cat",
+    supplier: "f",
+    criteria: "c",
+    page: "page",
+    pageSize: "taille",
+} as const;
+
+/** `name:value`, split on the first colon since a value may contain one. */
+function parseCriteria(values: string[]): Record<string, Set<string>> {
+    const criteria: Record<string, Set<string>> = {};
+    for (const raw of values) {
+        const at = raw.indexOf(":");
+        if (at <= 0) continue;
+        const name = raw.slice(0, at);
+        (criteria[name] ??= new Set()).add(raw.slice(at + 1));
+    }
+    return criteria;
+}
 
 interface PartsSectionProps {
     vehicleId: number;
@@ -32,35 +57,46 @@ export function PartsSection({
     vehicleLabel,
     syncError,
 }: PartsSectionProps) {
-    // Onglet actif
-    const [activeCategoryId, setActiveCategoryId] = useState<number>(BRAKE_CATEGORIES[0].categoryId);
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
-    // Filtres fournisseur
-    const [activeSuppliers, setActiveSuppliers] = useState<Set<string>>(new Set());
-
-    // Filtres critères : criteriaName → Set<value>
-    const [activeCriteria, setActiveCriteria] = useState<Record<string, Set<string>>>({});
-
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-
-    // Drawer détail
-    const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
+    const activeCategoryId =
+        Number(searchParams.get(PARAM.category)) || BRAKE_CATEGORIES[0].categoryId;
+    const activeSuppliers = useMemo(
+        () => new Set(searchParams.getAll(PARAM.supplier)),
+        [searchParams]
+    );
+    const activeCriteria = useMemo(
+        () => parseCriteria(searchParams.getAll(PARAM.criteria)),
+        [searchParams]
+    );
+    const currentPage = Math.max(Number(searchParams.get(PARAM.page)) || 1, 1);
+    const pageSize = Number(searchParams.get(PARAM.pageSize)) || DEFAULT_PAGE_SIZE;
 
     const { data: parts, isLoading, isError } = useParts(vehicleId, activeCategoryId, isSynced);
+
+    /**
+     * Replaces rather than pushes: a history entry per filter click would bury
+     * the way out of the catalog. Leaving for a part detail is a push, so coming
+     * back still restores the filters that were active at that moment.
+     */
+    function commit(mutate: (params: URLSearchParams) => void) {
+        const params = new URLSearchParams(searchParams.toString());
+        mutate(params);
+        router.replace(params.size > 0 ? `${pathname}?${params}` : pathname, { scroll: false });
+    }
 
     // Filtrage client
     const filteredParts = useMemo(() => {
         if (!parts) return undefined;
         let result = parts;
 
-        // Filtre fournisseur
         if (activeSuppliers.size > 0) {
             result = result.filter((p) => p.supplierName && activeSuppliers.has(p.supplierName));
         }
 
-        // Filtres critères (ET logique entre groupes, OU entre valeurs d'un même groupe)
+        // ET logique entre groupes de critères, OU entre valeurs d'un même groupe
         for (const [criteriaName, values] of Object.entries(activeCriteria)) {
             if (values.size === 0) continue;
             result = result.filter((p) =>
@@ -81,38 +117,63 @@ export function PartsSection({
     // ── Handlers ──────────────────────────────────────────────────────────────
 
     function toggleSupplier(name: string) {
-        setActiveSuppliers((prev) => {
-            const next = new Set(prev);
-            next.has(name) ? next.delete(name) : next.add(name);
-            return next;
+        commit((params) => {
+            const next = new Set(params.getAll(PARAM.supplier));
+            if (next.has(name)) next.delete(name);
+            else next.add(name);
+            params.delete(PARAM.supplier);
+            for (const value of next) params.append(PARAM.supplier, value);
+            params.delete(PARAM.page);
         });
-        setCurrentPage(1);
     }
 
     function toggleCriteria(criteriaName: string, value: string) {
-        setActiveCriteria((prev) => {
-            const currentSet = new Set(prev[criteriaName] ?? []);
-            currentSet.has(value) ? currentSet.delete(value) : currentSet.add(value);
-            return { ...prev, [criteriaName]: currentSet };
+        commit((params) => {
+            const entry = `${criteriaName}:${value}`;
+            const next = params.getAll(PARAM.criteria).filter((v) => v !== entry);
+            if (next.length === params.getAll(PARAM.criteria).length) next.push(entry);
+            params.delete(PARAM.criteria);
+            for (const v of next) params.append(PARAM.criteria, v);
+            params.delete(PARAM.page);
         });
-        setCurrentPage(1);
     }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     function resetFilters() {
-        setActiveSuppliers(new Set());
-        setActiveCriteria({});
-        setCurrentPage(1);
+        commit((params) => {
+            params.delete(PARAM.supplier);
+            params.delete(PARAM.criteria);
+            params.delete(PARAM.page);
+        });
     }
 
     function handleCategoryChange(id: number) {
-        setActiveCategoryId(id);
-        resetFilters();
+        commit((params) => {
+            params.set(PARAM.category, String(id));
+            params.delete(PARAM.supplier);
+            params.delete(PARAM.criteria);
+            params.delete(PARAM.page);
+        });
+    }
+
+    function handlePageChange(page: number) {
+        commit((params) => {
+            if (page <= 1) params.delete(PARAM.page);
+            else params.set(PARAM.page, String(page));
+        });
     }
 
     function handlePageSizeChange(size: number) {
-        setPageSize(size);
-        setCurrentPage(1);
+        commit((params) => {
+            if (size === DEFAULT_PAGE_SIZE) params.delete(PARAM.pageSize);
+            else params.set(PARAM.pageSize, String(size));
+            params.delete(PARAM.page);
+        });
+    }
+
+    /** The detail page carries the way back, for a link opened from elsewhere. */
+    function detailHref(articleId: number): string {
+        const back = searchParams.toString();
+        return back ? `/piece/${articleId}?retour=${encodeURIComponent(back)}` : `/piece/${articleId}`;
     }
 
     const [showErrorDetails, setShowErrorDetails] = useState(false);
@@ -136,7 +197,7 @@ export function PartsSection({
                 <EmptyHeader>
                     <EmptyTitle className="text-destructive font-semibold">Impossible de charger le catalogue</EmptyTitle>
                     <EmptyDescription>
-                        Une erreur s'est produite lors de la communication avec le service de pièces.
+                        Une erreur s&apos;est produite lors de la communication avec le service de pièces.
                     </EmptyDescription>
                 </EmptyHeader>
                 <div className="mt-2 flex flex-col items-center gap-3">
@@ -157,63 +218,55 @@ export function PartsSection({
     }
 
     return (
-        <>
-            <section className="flex flex-col gap-6">
-                {/* En-tête */}
-                <div className="flex flex-col gap-1">
-                    <h2 className="font-heading text-xl font-bold text-foreground">Pièces de frein</h2>
-                    {vehicleLabel && (
-                        <p className="text-sm text-muted-foreground">
-                            Résultats pour :{" "}
-                            <span className="font-medium text-foreground">{vehicleLabel}</span>
-                        </p>
-                    )}
-                </div>
+        <section className="flex flex-col gap-6">
+            {/* En-tête */}
+            <div className="flex flex-col gap-1">
+                <h2 className="font-heading text-xl font-bold text-foreground">Pièces de frein</h2>
+                {vehicleLabel && (
+                    <p className="text-sm text-muted-foreground">
+                        Résultats pour :{" "}
+                        <span className="font-medium text-foreground">{vehicleLabel}</span>
+                    </p>
+                )}
+            </div>
 
-                {/* Onglets */}
-                <CategoryTabs
-                    activeCategoryId={activeCategoryId}
-                    onChange={handleCategoryChange}
-                    counts={counts}
-                />
-
-                {/* Layout : filtres + grille */}
-                <div className="flex items-start gap-6">
-                    {/* Panneau latéral */}
-                    <div className="hidden w-64 shrink-0 md:block sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2">
-                        <FacetPanel
-                            parts={parts}
-                            activeSuppliers={activeSuppliers}
-                            activeCriteria={activeCriteria}
-                            onToggleSupplier={toggleSupplier}
-                            onToggleCriteria={toggleCriteria}
-                            onReset={resetFilters}
-                        />
-                    </div>
-
-                    {/* Grille */}
-                    <div className="min-w-0 flex-1">
-                        <PartsGrid
-                            parts={filteredParts}
-                            isLoading={isLoading}
-                            isSyncing={isSyncing}
-                            isError={isError}
-                            categoryLabel={activeCategoryLabel}
-                            currentPage={currentPage}
-                            pageSize={pageSize}
-                            onPageChange={setCurrentPage}
-                            onPageSizeChange={handlePageSizeChange}
-                            onDetail={setSelectedArticleId}
-                        />
-                    </div>
-                </div>
-            </section>
-
-            {/* Drawer détail article */}
-            <ArticleDetailDrawer
-                articleId={selectedArticleId}
-                onClose={() => setSelectedArticleId(null)}
+            {/* Onglets */}
+            <CategoryTabs
+                activeCategoryId={activeCategoryId}
+                onChange={handleCategoryChange}
+                counts={counts}
             />
-        </>
+
+            {/* Layout : filtres + grille */}
+            <div className="flex items-start gap-6">
+                {/* Panneau latéral */}
+                <div className="hidden w-64 shrink-0 md:block sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2">
+                    <FacetPanel
+                        parts={parts}
+                        activeSuppliers={activeSuppliers}
+                        activeCriteria={activeCriteria}
+                        onToggleSupplier={toggleSupplier}
+                        onToggleCriteria={toggleCriteria}
+                        onReset={resetFilters}
+                    />
+                </div>
+
+                {/* Grille */}
+                <div className="min-w-0 flex-1">
+                    <PartsGrid
+                        parts={filteredParts}
+                        isLoading={isLoading}
+                        isSyncing={isSyncing}
+                        isError={isError}
+                        categoryLabel={activeCategoryLabel}
+                        currentPage={currentPage}
+                        pageSize={pageSize}
+                        onPageChange={handlePageChange}
+                        onPageSizeChange={handlePageSizeChange}
+                        detailHref={detailHref}
+                    />
+                </div>
+            </div>
+        </section>
     );
 }
