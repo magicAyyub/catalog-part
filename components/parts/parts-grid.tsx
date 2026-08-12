@@ -256,7 +256,7 @@ interface PartsGridProps {
     pageSize: number;
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
-    onDetail: (articleId: number) => void;
+    detailHref: (articleId: number) => string;
 }
 
 export function PartsGrid({
@@ -269,7 +269,7 @@ export function PartsGrid({
     pageSize,
     onPageChange,
     onPageSizeChange,
-    onDetail,
+    detailHref,
 }: PartsGridProps) {
     if (isSyncing) return <SyncingState />;
     if (isLoading) return <SkeletonGrid />;
@@ -288,7 +288,7 @@ export function PartsGrid({
                     <PartCard
                         key={`${part.articleId}-${part.supplierId}`}
                         part={part}
-                        onDetail={onDetail}
+                        detailHref={detailHref(part.articleId)}
                     />
                 ))}
             </div>

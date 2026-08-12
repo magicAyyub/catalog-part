@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
+
 import { ArrowRightIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
 interface PartCardProps {
     part: PartItem;
-    onDetail: (articleId: number) => void;
+    /** Adresse de la fiche, construite par la section avec l'état du catalogue. */
+    detailHref: string;
 }
 
 function BrakeIcon() {
@@ -30,7 +33,7 @@ function formatPrice(value: number): string {
     return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
 
-export function PartCard({ part, onDetail }: PartCardProps) {
+export function PartCard({ part, detailHref }: PartCardProps) {
     const hasDiscount = part.priceBase !== null && part.priceNet !== null && part.priceBase > part.priceNet;
 
     return (
@@ -126,9 +129,9 @@ export function PartCard({ part, onDetail }: PartCardProps) {
                     )}
                 </div>
 
-                <button
+                <Link
                     id={`part-detail-${part.articleId}`}
-                    onClick={() => onDetail(part.articleId)}
+                    href={detailHref}
                     className={cn(
                         "flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-royal",
                         "px-4 font-heading text-sm font-bold text-white",
@@ -139,7 +142,7 @@ export function PartCard({ part, onDetail }: PartCardProps) {
                 >
                     Voir le détail
                     <ArrowRightIcon className="size-4" />
-                </button>
+                </Link>
             </div>
         </article>
     );
