@@ -1,0 +1,43 @@
+name: Chantier
+description: Une évolution, un nettoyage, ou une décision à prendre
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Ce qu'on veut obtenir
+      placeholder: Le détail d'une pièce a sa propre adresse, partageable et rechargeable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Pourquoi maintenant
+      description: Ce que ça débloque, ou ce que ça coûte de ne pas le faire.
+
+  - type: textarea
+    id: guardrails
+    attributes:
+      label: Ce qu'il ne faut pas casser
+      placeholder: Les caches permanents, le compte d'appels facturés, le fait que l'application reste utilisable entre deux étapes.
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Comment on saura que c'est fait
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Partie concernée
+      options:
+        - Je ne sais pas
+        - Interface
+        - Routes API
+        - Données et cache
+        - Identification plaque
+        - Comptes et sessions
+        - Serveur, cron, sauvegardes
+    validations:
+      required: true

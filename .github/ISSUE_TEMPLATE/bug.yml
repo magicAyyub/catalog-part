@@ -1,0 +1,44 @@
+name: Bug
+description: Quelque chose ne marche pas comme prévu
+labels: ["bug"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Ce qui se passe
+      placeholder: La plaque AB-123-CD ne renvoie aucun véhicule, la page reste sur le chargement.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ce qui devrait se passer
+
+  - type: input
+    id: repro
+    attributes:
+      label: Comment le retrouver
+      description: Plaque, véhicule, page, ou la suite de clics.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Partie concernée
+      options:
+        - Je ne sais pas
+        - Interface
+        - Routes API
+        - Données et cache
+        - Identification plaque
+        - Comptes et sessions
+        - Serveur, cron, sauvegardes
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: cost
+    attributes:
+      label: Argent
+      options:
+        - label: Ça touche à quelque chose qui appelle RapidAPI
