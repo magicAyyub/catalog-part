@@ -105,6 +105,21 @@ push, which is what makes browser back restore the exact screen. `localStorage`
 still holds the vehicle labels, which the URL cannot carry; a link opened by
 someone else degrades to the vehicle number rather than inventing a label.
 
+Two things the move from a drawer to a page cost, and how they were paid back.
+The drawer showed a skeleton because it fetched from the client; a server
+rendered page has no loading state of its own, so without `loading.tsx` the
+browser sat on the catalog with nothing moving, for seconds on an article whose
+details are not cached. And the card link carries `prefetch={false}`, because a
+page render can carry a billed call and prefetching ten visible cards would buy
+articles nobody opens.
+
+The order on the page is deliberate. A BOSCH pad kit carries 302 manufacturer
+references and 1203 compatible engines; laid flat they pushed the
+specifications, which is what someone at the counter actually reads, below the
+fold. Specifications come first as a table, compatible vehicles next in two
+columns of brands, OEM references last, grouped by manufacturer and folded into
+a `details` element that costs no JavaScript.
+
 ## Plate identification, and its single point of failure
 
 `lib/plate/identify.ts` tries providers in order.
