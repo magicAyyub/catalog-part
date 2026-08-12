@@ -160,6 +160,17 @@ Sans `EXADIS_USERNAME` et `EXADIS_PASSWORD`, tout passe par app-etf comme avant.
 Seul le K-Type et son libellé sont prélevés chez le fournisseur, jamais un prix
 ni un article.
 
+### Page de trace
+
+`/logs` montre chaque étape d'une recherche dans l'ordre, avec les appels
+facturés, les durées et la provenance de chaque K-Type. Rafraîchissement toutes
+les 3 secondes, filtres par jour, niveau et action.
+
+Elle demande un second mot de passe, `LOGS_PASSWORD` dans `.env`, distinct des
+comptes franchisés : la trace expose les plaques consultées. Sans cette variable
+la page reste fermée pour tout le monde. Cinq essais ratés bloquent le compte 15
+minutes.
+
 ### Préparation nocturne
 
 ```sh

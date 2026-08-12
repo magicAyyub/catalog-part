@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Activity } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { UserMenu } from "./user-menu";
 
@@ -29,19 +28,10 @@ export async function SiteHeader() {
                     <BrandMark />
                 </Link>
                 {user && (
-                    <>
-                        <Link
-                            href="/logs"
-                            className="ml-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-txt2 transition-colors hover:bg-muted hover:text-navy"
-                        >
-                            <Activity className="size-4" />
-                            <span className="hidden sm:inline">Trace</span>
-                        </Link>
-                        <UserMenu
-                            label={user.displayName || user.username}
-                            franchise={user.franchise}
-                        />
-                    </>
+                    <UserMenu
+                        label={user.displayName || user.username}
+                        franchise={user.franchise}
+                    />
                 )}
             </div>
         </header>

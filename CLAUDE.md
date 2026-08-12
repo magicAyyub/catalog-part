@@ -252,8 +252,16 @@ first, at about 3 billed calls instead of 10.
 `/logs` renders the structured logs as a chronological trace, with counters for
 billed calls, plate lookups and index hits, filters by day, level and action, and
 a 3 second live refresh. Built for sitting next to the catalog with a real plate
-and watching each step. It is behind `requireUser` like every data route, because
-log lines carry plates.
+and watching each step.
+
+Two doors, checked on the page and on `/api/logs` alike. Being signed in as a
+franchisee is not enough: the trace shows plates and billed calls, so it also
+asks for `LOGS_PASSWORD`, a shared secret held in `.env` rather than a role on
+the accounts table, so who can read it never depends on a flag someone might set
+by accident. Unlocking issues a short lived signed cookie, reusing the session
+token machinery rather than a second crypto scheme. Five wrong tries lock the
+account out for 15 minutes. With `LOGS_PASSWORD` unset the page stays closed to
+everyone, which is the safe default.
 
 ## The join key between TecDoc and the portals
 
