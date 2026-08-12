@@ -50,8 +50,10 @@ data/*.db-shm
 backup
 
 # sessions fournisseur (cookies) + logs applicatifs (plaques = données personnelles)
+# La barre initiale est indispensable : sans elle, la règle emporte aussi
+# app/(app)/logs/ et lib/logs/, qui sont du code.
 .cache/
-logs/
+/logs/
 
 # sauvegardes nocturnes
 data/backups/
