@@ -132,6 +132,10 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                 <Link
                     id={`part-detail-${part.articleId}`}
                     href={detailHref}
+                    // Le rendu de la fiche peut porter un appel facturé sur un
+                    // article encore froid. Précharger dix cartes achèterait des
+                    // articles que personne n'ouvrira.
+                    prefetch={false}
                     className={cn(
                         "flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-royal",
                         "px-4 font-heading text-sm font-bold text-white",
