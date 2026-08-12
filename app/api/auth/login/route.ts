@@ -14,6 +14,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { createSession, findUserByUsername, sessionCookieOptions } from "@/lib/auth/session";
 import { logger } from "@/lib/logger";
 
+import { withRequestContext } from "@/lib/logs/request-context";
 /** Consecutive failures before the account stops answering. */
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -28,7 +29,7 @@ const DUMMY_HASH =
     "scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$" +
     "PXTULW3jP9eNyTooGytjVvEF0ny4wWvCYqr4sa+G6PCyQfgpa7PX0T0L33rGWqPux1yzeDMFMJ0cjccjZ4REhA==";
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
     let username: unknown;
     let password: unknown;
 
@@ -89,4 +90,8 @@ export async function POST(req: NextRequest) {
     });
     res.cookies.set({ ...sessionCookieOptions(expiresAt), value: token });
     return res;
+}
+
+export async function POST(req: NextRequest) {
+    return withRequestContext("auth/login", () => handlePost(req));
 }

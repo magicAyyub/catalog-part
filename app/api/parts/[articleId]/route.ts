@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { eq } from "drizzle-orm";
 import type { ApiArticleDetails } from "@/lib/rapidapi/types";
 
+import { withRequestContext } from "@/lib/logs/request-context";
 /**
  * GET /api/parts/[articleId]
  *
@@ -38,10 +39,8 @@ async function fetchArticleDetails(articleId: number): Promise<ApiArticleDetails
     }
 }
 
-export async function GET(
-    _request: Request,
-    { params }: { params: Promise<{ articleId: string }> }
-) {
+async function handleGet(_request: Request,
+    { params }: { params: Promise<{ articleId: string }> }) {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
@@ -131,4 +130,11 @@ export async function GET(
             { status: 500 }
         );
     }
+}
+
+export async function GET(
+    request: Request,
+    context: { params: Promise<{ articleId: string }> }
+) {
+    return withRequestContext("parts/detail", () => handleGet(request, context));
 }

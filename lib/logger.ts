@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, appendFileSync } from 'fs';
 import { join } from 'path';
+import { currentRequestContext } from './logs/request-context';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -36,10 +37,13 @@ class StructuredLogger {
 
   private writeLog(level: LogLevel, message: string, context?: LogContext): void {
     const timestamp = new Date().toISOString();
+    // Le contexte explicite prime : un appelant qui pose son propre requestId gagne.
+    const request = currentRequestContext();
     const entry: Record<string, unknown> = {
       timestamp,
       level,
       message,
+      ...(request ? { requestId: request.requestId, route: request.route } : {}),
       ...context,
     };
 

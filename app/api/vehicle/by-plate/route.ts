@@ -7,6 +7,7 @@ import { resolveVehicleFromKType } from "@/lib/vehicle/ktype-resolver";
 import { getWithCache } from "@/lib/vehicle/api-cache";
 import { logger } from "@/lib/logger";
 
+import { withRequestContext } from "@/lib/logs/request-context";
 /**
  * POST /api/vehicle/by-plate with { plate }
  *
@@ -22,7 +23,7 @@ import { logger } from "@/lib/logger";
  * The resolution is cached with no expiry: a plate always designates the same
  * vehicle, and the upstream call costs 8 to 18 seconds.
  */
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
@@ -96,4 +97,8 @@ export async function POST(req: Request) {
         });
         return NextResponse.json({ error: friendlyPlateError(error) }, { status });
     }
+}
+
+export async function POST(req: Request) {
+    return withRequestContext("vehicle/by-plate", () => handlePost(req));
 }

@@ -4,7 +4,8 @@ import { db } from "@/lib/db/client";
 import { articles, suppliers, articleSpecifications } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
-export async function GET(request: Request) {
+import { withRequestContext } from "@/lib/logs/request-context";
+async function handleGet(request: Request) {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
@@ -88,4 +89,8 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(result);
+}
+
+export async function GET(request: Request) {
+    return withRequestContext("parts", () => handleGet(request));
 }

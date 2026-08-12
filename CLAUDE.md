@@ -254,6 +254,37 @@ billed calls, plate lookups and index hits, filters by day, level and action, an
 a 3 second live refresh. Built for sitting next to the catalog with a real plate
 and watching each step.
 
+The trace reads as requests rather than as lines. `lib/logs/request-context.ts`
+holds an `AsyncLocalStorage` that `lib/logger.ts` reads on its own, so every line
+written during one request carries the same `requestId` without a single call
+site passing it. The routes under `app/api/` open that context in a thin wrapper
+around their handler. This exists because nothing else could tie the lines
+together: `rapidapi_call` carries only a path, never the plate that caused it, so
+a billed call could not be attributed to the search that paid for it.
+
+Grouping in `lib/logs/reader.ts` is deliberately strict. Only a shared
+`requestId` puts two lines in one block; nothing is inferred from timing or
+proximity, so a block always reflects something the logger actually recorded.
+Lines written before the correlation id existed, and lines written by the
+scripts, stand alone. The reader also folds runs of identical consecutive lines
+into one, ignoring `count`, `failedAttempts` and `attempt`, which only carry a
+running total. Folding counts occurrences, not lines, so two identical
+`rapidapi_call` entries collapsed into one row still report two billed calls.
+That distinction was a real bug, caught by exercising the reader rather than by
+reading it.
+
+Messages stay in English at the call sites, where they are effectively technical
+identifiers and remain greppable in the files. `lib/logs/vocabulary.ts` maps them
+to French for display, along with the tone of each action and the two or three
+fields worth reading without unfolding. An unknown message falls back to its raw
+form: showing English beats showing a label that might be wrong. Account ids are
+resolved to account names before the entry leaves the reader, since a trace full
+of UUIDs tells the reader nothing.
+
+`.gitignore` must keep the leading slash on `/logs/`. Without it the rule also
+swallowed `app/(app)/logs/` and `lib/logs/`, and the whole trace page sat
+untracked for a while despite a commit that claimed otherwise.
+
 Two doors, checked on the page and on `/api/logs` alike. Being signed in as a
 franchisee is not enough: the trace shows plates and billed calls, so it also
 asks for `LOGS_PASSWORD`, a shared secret held in `.env` rather than a role on
@@ -348,7 +379,7 @@ Done and working locally, not committed at the time of writing:
   it. Plate identification went from 15 524 ms to 680 ms end to end, still at
   zero billed calls.
 - `pnpm night:run` with a hard, measured budget.
-- The `/logs` trace page.
+- The `/logs` trace page, then its rewrite around per-request correlation.
 
 Earlier, on `main`: the `productId` fix that unlocked criteria, the permanent
 compressed caches, the symmetric sync guards, and the `td_*` acquisition layer
@@ -366,6 +397,11 @@ channel paid once per vehicle. Scope is braking only, pads and discs.
 Next, in order: run the nightly job with a real budget to lift coverage, then
 add an independent plate provider, then cut the UI over to the `td_*` tables and
 drop the legacy ones.
+
+That backlog now lives in the GitHub issues of this repository, grouped into
+milestones, with a board linked from the Projects tab. Read the issues rather
+than this paragraph for the current state, and put decisions taken while working
+on a subject in a comment on its issue.
 
 Measured facts worth not rediscovering: a sibling engine of an already indexed
 model costs 3 billed calls instead of about 10. One `engine_types` call teaches

@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/auth/guard";
 import { rapidApi } from "@/lib/rapidapi/client";
 import { getWithCache } from "@/lib/vehicle/api-cache";
 
-export async function GET() {
+import { withRequestContext } from "@/lib/logs/request-context";
+async function handleGet() {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
@@ -22,4 +23,8 @@ export async function GET() {
             { status: 500 }
         );
     }
+}
+
+export async function GET() {
+    return withRequestContext("vehicle/manufacturers", () => handleGet());
 }

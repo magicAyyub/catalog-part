@@ -6,7 +6,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, destroySession } from "@/lib/auth/session";
 
-export async function POST(req: NextRequest) {
+import { withRequestContext } from "@/lib/logs/request-context";
+async function handlePost(req: NextRequest) {
     await destroySession(req.cookies.get(SESSION_COOKIE)?.value);
 
     const res = NextResponse.json({ ok: true });
@@ -20,4 +21,8 @@ export async function POST(req: NextRequest) {
         maxAge: 0,
     });
     return res;
+}
+
+export async function POST(req: NextRequest) {
+    return withRequestContext("auth/logout", () => handlePost(req));
 }

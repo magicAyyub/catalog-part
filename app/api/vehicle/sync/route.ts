@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { needsSync, syncVehicle } from "@/lib/vehicle/sync-service";
 import type { ApiEngineType } from "@/lib/rapidapi/types";
 
+import { withRequestContext } from "@/lib/logs/request-context";
 export interface SyncRequestBody {
     vehicleId: number;
     manufacturerId: number;
@@ -10,7 +11,7 @@ export interface SyncRequestBody {
     engineType: ApiEngineType;
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
@@ -62,4 +63,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ status: "synced", vehicleId });
+}
+
+export async function POST(request: Request) {
+    return withRequestContext("vehicle/sync", () => handlePost(request));
 }
