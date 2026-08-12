@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { rapidApi } from "@/lib/rapidapi/client";
-import { getWithCache } from "@/lib/vehicle/api-cache";
-import { logger } from "@/lib/logger";
+import { withRequestContext } from "@/lib/logs/request-context";
+import { loadArticleMedia } from "@/lib/parts/article-detail";
 
 /**
  * GET /api/parts/[articleId]/media
  *
- * Image gallery of a reference. Cached with no expiry: the visuals of an article
+ * Image gallery of a reference, cached with no expiry: the visuals of an article
  * do not change, and this route used to be called on every drawer opening with
  * no cache at all, one billed call per click.
  */
-export async function GET(
-    _request: Request,
-    { params }: { params: Promise<{ articleId: string }> }
-) {
+async function handleGet(_request: Request, { params }: { params: Promise<{ articleId: string }> }) {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
@@ -25,16 +21,12 @@ export async function GET(
         return NextResponse.json({ error: "articleId invalide" }, { status: 400 });
     }
 
-    try {
-        const media = await getWithCache(`article_media_${id}`, () => rapidApi.getArticleMedia(id));
-        return NextResponse.json(media);
-    } catch (error) {
-        // La galerie est accessoire : le tiroir sait s'afficher sans.
-        logger.warn("Article media lookup failed", {
-            action: "article-media",
-            articleId: id,
-            error,
-        });
-        return NextResponse.json([]);
-    }
+    return NextResponse.json(await loadArticleMedia(id));
+}
+
+export async function GET(
+    request: Request,
+    context: { params: Promise<{ articleId: string }> }
+) {
+    return withRequestContext("parts/media", () => handleGet(request, context));
 }
