@@ -15,9 +15,6 @@ const LANG_ID = process.env.LANG_ID;
 const COUNTRY_FILTER_ID = process.env.COUNTRY_FILTER_ID;
 const TYPE_ID = process.env.TYPE_ID;
 
-const USE_MOCK = process.env.USE_MOCK_API === "true";
-
-const MOCK_BASE_URL = process.env.MOCK_BASE_URL ?? "http://localhost:4000";
 const RAPIDAPI_BASE_URL = process.env.BASE_URL ?? "https://auto-parts-catalog.p.rapidapi.com";
 
 function assertServerSide() {
@@ -26,21 +23,6 @@ function assertServerSide() {
             "rapidapi/client ne doit jamais être importé côté client : la clé API fuiterait dans le bundle navigateur."
         );
     }
-}
-
-async function callMockApi<T>(path: string): Promise<T> {
-    const res = await fetch(`${MOCK_BASE_URL}${path}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-    });
-
-    if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`[Mock] ${path} -> ${res.status} ${res.statusText} : ${body}`);
-    }
-
-    return res.json() as Promise<T>;
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -111,7 +93,7 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
 
 async function callApi<T>(path: string): Promise<T> {
     assertServerSide();
-    return USE_MOCK ? callMockApi<T>(path) : callRealApi<T>(path);
+    return callRealApi<T>(path);
 }
 
 export const rapidApi = {

@@ -47,7 +47,7 @@ async function handlePost(request: Request) {
         const msg = error.message || "";
 
         if (msg.includes("exceeded the MONTHLY quota")) {
-            friendlyMessage = "Votre quota mensuel d'appels RapidAPI (plan BASIC) a été dépassé. Veuillez activer le mode simulé (USE_MOCK_API=true dans le fichier .env) ou mettre à niveau votre plan sur RapidAPI pour continuer.";
+            friendlyMessage = "Votre quota mensuel d'appels RapidAPI a été dépassé. Les véhicules déjà en base restent consultables ; la mise à niveau du plan se fait sur RapidAPI.";
         } else if (msg.includes("exceeded the rate limit per second")) {
             friendlyMessage = "Limite de requêtes par seconde atteinte. Veuillez patienter un instant et réessayer.";
         } else if (msg.includes("429") || msg.includes("Too Many Requests")) {

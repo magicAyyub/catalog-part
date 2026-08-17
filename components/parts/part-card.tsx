@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { ArrowRightIcon, CheckCircle2Icon, XCircleIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
@@ -29,13 +29,7 @@ function BrakeIcon() {
     );
 }
 
-function formatPrice(value: number): string {
-    return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-}
-
 export function PartCard({ part, detailHref }: PartCardProps) {
-    const hasDiscount = part.priceBase !== null && part.priceNet !== null && part.priceBase > part.priceNet;
-
     return (
         <article className="flex w-full flex-col gap-y-4 rounded-lg border border-stroke bg-card p-4 sm:flex-row sm:items-start sm:justify-between sm:py-4 sm:pr-5 sm:pl-4">
             {/* Marque + image + stock */}
@@ -57,21 +51,6 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                         <BrakeIcon />
                     )}
                 </div>
-                {part.stockLabel && (
-                    <span
-                        className={cn(
-                            "flex items-center gap-1.5 text-xs font-semibold",
-                            part.inStock ? "text-leaf" : "text-txt2"
-                        )}
-                    >
-                        {part.inStock ? (
-                            <CheckCircle2Icon className="size-3.5" />
-                        ) : (
-                            <XCircleIcon className="size-3.5" />
-                        )}
-                        {part.stockLabel}
-                    </span>
-                )}
             </div>
 
             {/* Titre + specs, séparé par un trait vertical */}
@@ -106,27 +85,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
             {/* Prix + action */}
             <div className="flex w-full shrink-0 flex-row items-center justify-between gap-4 border-t border-stroke pt-4 sm:w-47.5 sm:flex-col sm:items-end sm:border-l sm:border-t-0 sm:pt-0 sm:pl-4 sm:text-right">
                 <div className="flex flex-col items-end gap-0.5">
-                    {hasDiscount && part.priceBase !== null && (
-                        <div className="flex items-center gap-2 text-sm text-txt2">
-                            <span className="line-through">{formatPrice(part.priceBase)} €</span>
-                            {part.discountLabel && (
-                                <span className="rounded bg-flame px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white">
-                                    {part.discountLabel}
-                                </span>
-                            )}
-                        </div>
-                    )}
-
-                    {part.priceNet !== null ? (
-                        <>
-                            <span className="text-xs text-txt2">Prix unitaire</span>
-                            <span className="font-heading text-[28px] font-semibold leading-none text-navy">
-                                {formatPrice(part.priceNet)} €
-                            </span>
-                        </>
-                    ) : (
-                        <span className="text-sm text-txt2">Prix sur devis</span>
-                    )}
+                    <span className="text-sm text-txt2">Prix sur devis</span>
                 </div>
 
                 <Link

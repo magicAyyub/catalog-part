@@ -15,7 +15,6 @@ TanStack Query. Package manager is pnpm.
 
 ```sh
 pnpm dev                  # Next dev server on :3000
-pnpm dev:mock             # fixture server (:4000) + Next together
 pnpm build                # production build, also the fastest full typecheck
 pnpm lint                 # eslint
 

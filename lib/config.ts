@@ -25,11 +25,8 @@ function parseIntEnv(raw: string | undefined, fallback: number): number {
     return Number.isNaN(n) || raw === undefined ? fallback : n;
 }
 
-export const IS_MOCK = process.env.USE_MOCK_API === "true";
-
 export const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY ?? "";
 export const RAPIDAPI_BASE_URL = process.env.BASE_URL ?? "https://auto-parts-catalog.p.rapidapi.com";
-export const MOCK_BASE_URL = process.env.MOCK_BASE_URL ?? "http://localhost:4000";
 export const LANG_ID = process.env.LANG_ID ?? "6";
 export const COUNTRY_FILTER_ID = process.env.COUNTRY_FILTER_ID ?? "63";
 export const TYPE_ID = process.env.TYPE_ID ?? "1";
@@ -48,9 +45,10 @@ export const CATEGORIES: { categoryId: number; labelFr: string }[] = [
     { categoryId: 100032, labelFr: "Disques de frein" },
 ];
 
-// Équipementiers autorisés. Deux listes distinctes selon le mode d'exécution.
-// Production : ALLOWED_SUPPLIER_IDS_PROD dans .env (IDs TecDoc réels)
-// Mock local  : ALLOWED_SUPPLIER_IDS_MOCK dans .env (IDs du serveur de fixtures)
-export const ALLOWED_SUPPLIER_IDS: Set<number> = IS_MOCK
-    ? parseIntList(process.env.ALLOWED_SUPPLIER_IDS_MOCK, [2, 8, 12])
-    : parseIntList(process.env.ALLOWED_SUPPLIER_IDS_PROD, [7657, 161, 30, 21, 39]);
+// Équipementiers autorisés, via ALLOWED_SUPPLIER_IDS_PROD dans .env.
+// C'est le levier de coût le plus direct : un équipementier de plus, c'est un
+// appel « critères » de plus par catégorie et par véhicule.
+export const ALLOWED_SUPPLIER_IDS: Set<number> = parseIntList(
+    process.env.ALLOWED_SUPPLIER_IDS_PROD,
+    [7657, 161, 30, 21, 39]
+);

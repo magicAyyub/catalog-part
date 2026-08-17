@@ -9,7 +9,6 @@ Copy `.env.example` to `.env` and fill in the values.
 ```sh
 cp .env.example .env
 pnpm install
-cd fixture-server && npm install && cd ..
 pnpm db:generate
 pnpm db:migrate
 ```
@@ -20,22 +19,20 @@ All behavior is controlled via `.env`. No need to touch the source code.
 
 | Variable | Description | Default |
 |---|---|---|
-| `USE_MOCK_API` | `true` = fixture server local, `false` = RapidAPI production | `true` |
-| `RAPIDAPI_KEY` | Required when `USE_MOCK_API=false` | — |
-| `MOCK_BASE_URL` | Address of the fixture server | `http://localhost:4000` |
+| `RAPIDAPI_KEY` | RapidAPI key. Required | — |
 | `SQLITE_PATH` | Path to the SQLite database file | `./data/app.db` |
 | `SYNC_TTL_DAYS` | How long a vehicle sync is kept before refresh | `30` |
 | `ALLOWED_CATEGORY_IDS` | Comma-separated TecDoc category IDs to sync | `100030,100032` |
 | `ALLOWED_SUPPLIER_IDS_PROD` | Supplier IDs to accept in production (real TecDoc IDs) | `7657,161,30,21,39` |
-| `ALLOWED_SUPPLIER_IDS_MOCK` | Supplier IDs to accept in mock mode (fixture server IDs) | `2,8,12` |
 | `AUTH_SECRET` | Session cookie signing key, 32 characters minimum. Required | — |
 | `AUTH_SESSION_TTL_DAYS` | Session lifetime | `7` |
 
 ### Authentification
 
-Le catalogue expose des prix d'achat nets : tout est fermé par défaut. Une route
-est joignable sans session uniquement si elle figure dans `proxy.ts`, et les
-pages protégées vivent sous `app/(app)/`, dont le layout exige une session.
+Le catalogue expose des données véhicule et des références : tout est fermé par
+défaut. Une route est joignable sans session uniquement si elle figure dans
+`proxy.ts`, et les pages protégées vivent sous `app/(app)/`, dont le layout
+exige une session.
 
 ```sh
 openssl rand -base64 48   # à mettre dans AUTH_SECRET
@@ -59,7 +56,7 @@ Deux niveaux de contrôle, volontairement :
   navigateur, pas à servir des données.
 - `requireUser()` (`lib/auth/guard.ts`) interroge la base. C'est le seul niveau
   qui sait qu'une session a été fermée ou qu'un compte a été désactivé depuis.
-  Toute route qui renvoie des pièces, des prix ou des données véhicule l'appelle.
+  Toute route qui renvoie des pièces ou des données véhicule l'appelle.
 
 Cinq échecs consécutifs bloquent un compte 15 minutes. Les mots de passe sont
 hachés en scrypt (`node:crypto`), les identifiants de session sont stockés
@@ -69,16 +66,13 @@ cookie rejouable.
 ### Development
 
 ```sh
-pnpm dev:mock   # starts the fixture server + Next.js together
+pnpm dev   # http://localhost:3000
 ```
-
-- App: `http://localhost:3000`
-- Fixture server: `http://localhost:4000`
 
 To reset and re-sync a vehicle manually:
 
 ```sh
-pnpm sync:vehicle [vehicleId]   # fixture server must be running
+pnpm sync:vehicle [vehicleId]
 ```
 
 ### Database
@@ -88,17 +82,6 @@ pnpm db:generate    # generate a migration from the schema
 pnpm db:migrate     # apply pending migrations
 pnpm drizzle-kit studio  # browse the database in a web UI
 ```
-
-### Switching to production API
-
-Set in `.env`:
-
-```sh
-USE_MOCK_API=false
-RAPIDAPI_KEY=your_key_here
-```
-
-Then run `pnpm dev` (no fixture server needed).
 
 ### Coût des appels TecDoc
 

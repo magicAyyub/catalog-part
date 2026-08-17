@@ -17,11 +17,6 @@ export interface PartItem {
     articleMediaFileName: string | null;
     s3image: string | null;
     specs: PartSpec[];
-    priceNet: number | null;
-    priceBase: number | null;
-    discountLabel: string | null;
-    inStock: boolean | null;
-    stockLabel: string | null;
 }
 
 async function fetchParts(vehicleId: number, categoryId: number): Promise<PartItem[]> {

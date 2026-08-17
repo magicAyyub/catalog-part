@@ -6,6 +6,7 @@ import { CategoryTabs, BRAKE_CATEGORIES } from "./category-tabs";
 import { FacetPanel } from "./facet-panel";
 import { PartsGrid } from "./parts-grid";
 import { useParts } from "@/hooks/parts/use-parts";
+import { canonicalCriteriaValue } from "@/lib/parts/facets";
 
 import {
     Empty,
@@ -96,11 +97,17 @@ export function PartsSection({
             result = result.filter((p) => p.supplierName && activeSuppliers.has(p.supplierName));
         }
 
-        // ET logique entre groupes de critères, OU entre valeurs d'un même groupe
+        // ET logique entre groupes de critères, OU entre valeurs d'un même groupe.
+        // La valeur comparée est la forme canonique, sinon une URL portant
+        // « Essieu avant » raterait les articles étiquetés « avant ».
         for (const [criteriaName, values] of Object.entries(activeCriteria)) {
             if (values.size === 0) continue;
             result = result.filter((p) =>
-                p.specs.some((s) => s.criteriaName === criteriaName && values.has(s.criteriaValue))
+                p.specs.some(
+                    (s) =>
+                        s.criteriaName === criteriaName &&
+                        values.has(canonicalCriteriaValue(criteriaName, s.criteriaValue))
+                )
             );
         }
 

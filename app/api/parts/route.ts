@@ -32,11 +32,6 @@ async function handleGet(request: Request) {
             articleMediaType: articles.articleMediaType,
             articleMediaFileName: articles.articleMediaFileName,
             s3image: articles.s3image,
-            priceNet: articles.priceNet,
-            priceBase: articles.priceBase,
-            discountLabel: articles.discountLabel,
-            inStock: articles.inStock,
-            stockLabel: articles.stockLabel,
         })
         .from(articles)
         .leftJoin(suppliers, eq(articles.supplierId, suppliers.supplierId))

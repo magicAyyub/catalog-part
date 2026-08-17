@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortSupplierNames } from "@/lib/parts/suppliers";
+import { FACET_CRITERIA, canonicalCriteriaValue } from "@/lib/parts/facets";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
 interface FacetOption {
@@ -44,18 +45,21 @@ export function FacetPanel({
         checked: activeSuppliers.has(name),
     }));
 
-    // ── Critères dynamiques ───────────────────────────────────────────────────
-    // Dérive les groupes de critères directement depuis les specs des articles présents
+    // ── Critères retenus comme filtres ────────────────────────────────────────
+    // Dérivés des specs des articles présents, mais bornés à la liste blanche :
+    // tout critère TecDoc donnait une section, soit une vingtaine par véhicule.
     const criteriaGroupsMap = new Map<string, Set<string>>();
     for (const p of parts ?? []) {
         for (const s of p.specs) {
             const values = criteriaGroupsMap.get(s.criteriaName) ?? new Set<string>();
-            values.add(s.criteriaValue);
+            values.add(canonicalCriteriaValue(s.criteriaName, s.criteriaValue));
             criteriaGroupsMap.set(s.criteriaName, values);
         }
     }
-    // Ne garder que les groupes avec >1 valeur distincte (filtrer serait inutile sinon)
-    const criteriaGroups = [...criteriaGroupsMap.entries()].filter(([, values]) => values.size > 1);
+    // Une seule valeur distincte : filtrer ne retirerait rien.
+    const criteriaGroups = FACET_CRITERIA.map(
+        (name) => [name, criteriaGroupsMap.get(name) ?? new Set<string>()] as const
+    ).filter(([, values]) => values.size > 1);
 
     const hasActiveFilter =
         activeSuppliers.size > 0 ||
@@ -98,7 +102,11 @@ export function FacetPanel({
                 const options: FacetOption[] = sortedValues.map((value) => ({
                     label: value,
                     count: (parts ?? []).filter((p) =>
-                        p.specs.some((s) => s.criteriaName === criteriaName && s.criteriaValue === value)
+                        p.specs.some(
+                            (s) =>
+                                s.criteriaName === criteriaName &&
+                                canonicalCriteriaValue(criteriaName, s.criteriaValue) === value
+                        )
                     ).length,
                     checked: active.has(value),
                 }));
