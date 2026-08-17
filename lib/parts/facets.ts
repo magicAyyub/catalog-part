@@ -11,6 +11,14 @@
  * category tabs, already filters of their own.
  */
 
+/** The two categories the catalog covers, in display order. */
+export const BRAKE_CATEGORIES = [
+    { categoryId: 100030, label: "Plaquettes de frein" },
+    { categoryId: 100032, label: "Disques de frein" },
+] as const;
+
+export const CATEGORY_IDS = BRAKE_CATEGORIES.map((c) => c.categoryId);
+
 /** Criteria offered as filters, in display order. */
 export const FACET_CRITERIA = ["Côté d'assemblage"] as const;
 

@@ -20,7 +20,7 @@ export function UnlockForm() {
         setIsSubmitting(true);
 
         try {
-            const res = await fetch("/api/logs/unlock", {
+            const res = await fetch("/api/admin/unlock", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ password }),
@@ -47,7 +47,7 @@ export function UnlockForm() {
                 <span className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-muted text-txt2">
                     <Lock className="size-5" />
                 </span>
-                <h1 className="font-heading text-lg font-bold text-navy">Trace du système</h1>
+                <h1 className="font-heading text-lg font-bold text-navy">Comptes franchisés</h1>
             </div>
 
             <form
@@ -55,9 +55,9 @@ export function UnlockForm() {
                 className="flex flex-col gap-4 rounded-xl border border-stroke bg-white p-6 shadow-sm"
             >
                 <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="logs-password">Mot de passe technique</Label>
+                    <Label htmlFor="admin-password">Mot de passe d&apos;administration</Label>
                     <Input
-                        id="logs-password"
+                        id="admin-password"
                         type="password"
                         autoComplete="off"
                         autoFocus
@@ -77,7 +77,7 @@ export function UnlockForm() {
 
                 <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
                     {isSubmitting ? <Spinner /> : null}
-                    {isSubmitting ? "Ouverture…" : "Ouvrir la trace"}
+                    {isSubmitting ? "Ouverture…" : "Ouvrir la gestion des comptes"}
                 </Button>
             </form>
         </div>

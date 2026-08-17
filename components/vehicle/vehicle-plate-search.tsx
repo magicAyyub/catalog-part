@@ -6,6 +6,8 @@ import { useSyncVehicle } from "@/hooks/parts/use-sync-vehicle";
 import { type PlateLookupResult, formatPlateInput } from "@/lib/vehicle/plate-resolver";
 
 interface VehiclePlateSearchProps {
+    /** Remonté pour que la page montre une attente, le formulaire étant trop haut. */
+    onIdentifyingChange?: (identifying: boolean) => void;
     onVehicleSelected?: (vehicleId: number) => void;
     onSyncComplete?: (
         vehicleId: number,
@@ -15,6 +17,7 @@ interface VehiclePlateSearchProps {
 }
 
 export function VehiclePlateSearch({
+    onIdentifyingChange,
     onVehicleSelected,
     onSyncComplete,
     onSyncError,
@@ -55,6 +58,7 @@ export function VehiclePlateSearch({
         }
 
         setIsLoadingPlate(true);
+        onIdentifyingChange?.(true);
         setPlateError(null);
         setFoundVehicle(null);
         resetSync();
@@ -102,15 +106,11 @@ export function VehiclePlateSearch({
             setPlateError(msg);
         } finally {
             setIsLoadingPlate(false);
+            // La section pièces prend le relais dès qu'un véhicule est retenu :
+            // on rend la main sans laisser de trou entre les deux attentes.
+            onIdentifyingChange?.(false);
         }
     }
-
-    function handleTestPlate(plate: string) {
-        setRawInput(formatPlateInput(plate));
-        setPlateError(null);
-    }
-
-    const isDev = process.env.NODE_ENV === "development";
 
     return (
         <div className="flex flex-col gap-3">
@@ -142,23 +142,6 @@ export function VehiclePlateSearch({
                     {isLoadingPlate || isSyncing ? "Identification…" : "Rechercher"}
                 </Button>
             </form>
-
-            {/* Raccourcis de plaques de test (visibles uniquement en mode développement) */}
-            {isDev && (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
-                    <span>Exemples de plaques :</span>
-                    {["AA-123-BB", "AB-123-CD", "GH-456-JK"].map((testPlate) => (
-                        <button
-                            key={testPlate}
-                            type="button"
-                            onClick={() => handleTestPlate(testPlate)}
-                            className="rounded bg-white/10 px-2 py-1 font-mono text-xs text-white hover:bg-white/20 transition-colors"
-                        >
-                            {testPlate}
-                        </button>
-                    ))}
-                </div>
-            )}
 
             {/* Erreur */}
             {plateError && (

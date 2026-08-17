@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CategoryTabs, BRAKE_CATEGORIES } from "./category-tabs";
+import { BRAKE_CATEGORIES, CATEGORY_IDS } from "@/lib/parts/facets";
 import { FacetPanel } from "./facet-panel";
 import { PartsGrid } from "./parts-grid";
 import { useParts } from "@/hooks/parts/use-parts";
@@ -62,8 +62,15 @@ export function PartsSection({
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const activeCategoryId =
-        Number(searchParams.get(PARAM.category)) || BRAKE_CATEGORIES[0].categoryId;
+    /** Aucune catégorie dans l'URL : les deux, ce que quelqu'un au comptoir veut voir. */
+    const activeCategories = useMemo(() => {
+        const asked = searchParams
+            .getAll(PARAM.category)
+            .map(Number)
+            .filter((id) => BRAKE_CATEGORIES.some((c) => c.categoryId === id));
+        return new Set(asked);
+    }, [searchParams]);
+
     const activeSuppliers = useMemo(
         () => new Set(searchParams.getAll(PARAM.supplier)),
         [searchParams]
@@ -75,7 +82,7 @@ export function PartsSection({
     const currentPage = Math.max(Number(searchParams.get(PARAM.page)) || 1, 1);
     const pageSize = Number(searchParams.get(PARAM.pageSize)) || DEFAULT_PAGE_SIZE;
 
-    const { data: parts, isLoading, isError } = useParts(vehicleId, activeCategoryId, isSynced);
+    const { data: parts, isLoading, isError } = useParts(vehicleId, CATEGORY_IDS, isSynced);
 
     /**
      * Replaces rather than pushes: a history entry per filter click would bury
@@ -97,6 +104,10 @@ export function PartsSection({
             result = result.filter((p) => p.supplierName && activeSuppliers.has(p.supplierName));
         }
 
+        if (activeCategories.size > 0) {
+            result = result.filter((p) => activeCategories.has(p.categoryId));
+        }
+
         // ET logique entre groupes de critères, OU entre valeurs d'un même groupe.
         // La valeur comparée est la forme canonique, sinon une URL portant
         // « Essieu avant » raterait les articles étiquetés « avant ».
@@ -112,14 +123,13 @@ export function PartsSection({
         }
 
         return result;
-    }, [parts, activeSuppliers, activeCriteria]);
+    }, [parts, activeCategories, activeSuppliers, activeCriteria]);
 
-    const counts: Record<number, number> = {
-        [activeCategoryId]: filteredParts?.length ?? 0,
-    };
-
-    const activeCategoryLabel =
-        BRAKE_CATEGORIES.find((c) => c.categoryId === activeCategoryId)?.label ?? "";
+    /** Ce que la grille annonce quand elle est vide, au plus près de la sélection. */
+    const selectionLabel =
+        activeCategories.size === 1
+            ? (BRAKE_CATEGORIES.find((c) => activeCategories.has(c.categoryId))?.label ?? "pièces")
+            : "pièces de frein";
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -145,17 +155,21 @@ export function PartsSection({
         });
     }
 
-    function resetFilters() {
+    function toggleCategory(categoryId: number) {
         commit((params) => {
-            params.delete(PARAM.supplier);
-            params.delete(PARAM.criteria);
+            const next = new Set(params.getAll(PARAM.category));
+            const entry = String(categoryId);
+            if (next.has(entry)) next.delete(entry);
+            else next.add(entry);
+            params.delete(PARAM.category);
+            for (const value of next) params.append(PARAM.category, value);
             params.delete(PARAM.page);
         });
     }
 
-    function handleCategoryChange(id: number) {
+    function resetFilters() {
         commit((params) => {
-            params.set(PARAM.category, String(id));
+            params.delete(PARAM.category);
             params.delete(PARAM.supplier);
             params.delete(PARAM.criteria);
             params.delete(PARAM.page);
@@ -237,21 +251,16 @@ export function PartsSection({
                 )}
             </div>
 
-            {/* Onglets */}
-            <CategoryTabs
-                activeCategoryId={activeCategoryId}
-                onChange={handleCategoryChange}
-                counts={counts}
-            />
-
             {/* Layout : filtres + grille */}
             <div className="flex items-start gap-6">
                 {/* Panneau latéral */}
                 <div className="hidden w-64 shrink-0 md:block sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2">
                     <FacetPanel
                         parts={parts}
+                        activeCategories={activeCategories}
                         activeSuppliers={activeSuppliers}
                         activeCriteria={activeCriteria}
+                        onToggleCategory={toggleCategory}
                         onToggleSupplier={toggleSupplier}
                         onToggleCriteria={toggleCriteria}
                         onReset={resetFilters}
@@ -265,7 +274,7 @@ export function PartsSection({
                         isLoading={isLoading}
                         isSyncing={isSyncing}
                         isError={isError}
-                        categoryLabel={activeCategoryLabel}
+                        categoryLabel={selectionLabel}
                         currentPage={currentPage}
                         pageSize={pageSize}
                         onPageChange={handlePageChange}

@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { VehicleCascade } from "@/components/vehicle/vehicle-cascade";
 import { ActiveVehicleCard, type ActiveVehicleData } from "@/components/vehicle/active-vehicle-card";
 import { PartsSection } from "@/components/parts/parts-section";
+import { BusyPanel } from "@/components/ui/busy-panel";
 
 const STORAGE_KEY = "catalog_active_vehicle";
 const VEHICLE_PARAM = "vehicule";
@@ -55,6 +56,7 @@ export function CatalogView() {
     const [chosen, setChosen] = useState<ActiveVehicleData | null | undefined>(undefined);
     const [syncedOverride, setSyncedOverride] = useState<boolean | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isIdentifying, setIsIdentifying] = useState(false);
     const [syncError, setSyncError] = useState<Error | null>(null);
 
     const urlVehicleId = Number(searchParams.get(VEHICLE_PARAM)) || null;
@@ -150,12 +152,27 @@ export function CatalogView() {
                     <ActiveVehicleCard vehicle={activeVehicleData} onReset={handleResetVehicle} />
                 ) : (
                     <VehicleCascade
+                        onIdentifyingChange={setIsIdentifying}
                         onVehicleSelected={handleVehicleSelected}
                         onSyncComplete={handleSyncComplete}
                         onSyncError={handleSyncError}
                     />
                 )}
             </section>
+
+            {/* Traduction de la plaque : aucun véhicule n'existe encore, donc la
+                section pièces ne peut rien montrer. Sans ce panneau l'écran ne
+                bouge pas pendant une à deux secondes. */}
+            {isIdentifying && !selectedVehicleId && (
+                <>
+                    <div className="mb-10 border-t border-border" />
+
+                    <BusyPanel
+                        title="Identification du véhicule…"
+                        description="Recherche de l'immatriculation chez le fournisseur, puis dans le référentiel TecDoc."
+                    />
+                </>
+            )}
 
             {selectedVehicleId && (
                 <>

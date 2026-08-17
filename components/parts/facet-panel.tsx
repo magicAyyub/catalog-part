@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CheckIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sortSupplierNames } from "@/lib/parts/suppliers";
-import { FACET_CRITERIA, canonicalCriteriaValue } from "@/lib/parts/facets";
+import { BRAKE_CATEGORIES, FACET_CRITERIA, canonicalCriteriaValue } from "@/lib/parts/facets";
 import type { PartItem } from "@/hooks/parts/use-parts";
 
 interface FacetOption {
@@ -15,8 +15,11 @@ interface FacetOption {
 
 interface FacetPanelProps {
     parts: PartItem[] | undefined;
+    /** Empty means every category, which is the default state of the catalog. */
+    activeCategories: Set<number>;
     activeSuppliers: Set<string>;
     activeCriteria: Record<string, Set<string>>;
+    onToggleCategory: (categoryId: number) => void;
     onToggleSupplier: (name: string) => void;
     onToggleCriteria: (criteriaName: string, value: string) => void;
     onReset: () => void;
@@ -24,12 +27,21 @@ interface FacetPanelProps {
 
 export function FacetPanel({
     parts,
+    activeCategories,
     activeSuppliers,
     activeCriteria,
+    onToggleCategory,
     onToggleSupplier,
     onToggleCriteria,
     onReset,
 }: FacetPanelProps) {
+    // ── Catégories ────────────────────────────────────────────────────────────
+    const categoryOptions: FacetOption[] = BRAKE_CATEGORIES.map(({ categoryId, label }) => ({
+        label,
+        count: (parts ?? []).filter((p) => p.categoryId === categoryId).length,
+        checked: activeCategories.has(categoryId),
+    }));
+
     // ── Fournisseurs ──────────────────────────────────────────────────────────
     const supplierIdMap = new Map<string, number>();
     for (const p of parts ?? []) {
@@ -62,6 +74,7 @@ export function FacetPanel({
     ).filter(([, values]) => values.size > 1);
 
     const hasActiveFilter =
+        activeCategories.size > 0 ||
         activeSuppliers.size > 0 ||
         Object.values(activeCriteria).some((s) => s.size > 0);
 
@@ -80,13 +93,22 @@ export function FacetPanel({
                 )}
             </div>
 
-            {/* Section Fournisseur */}
+            <FilterSection
+                title="Catégorie"
+                options={categoryOptions}
+                onToggle={(label) => {
+                    const hit = BRAKE_CATEGORIES.find((c) => c.label === label);
+                    if (hit) onToggleCategory(hit.categoryId);
+                }}
+                emptyLabel="Aucune catégorie"
+                first
+            />
+
             <FilterSection
                 title="Marques"
                 options={supplierOptions}
                 onToggle={onToggleSupplier}
                 emptyLabel={parts === undefined ? "Chargement…" : "Aucun fournisseur"}
-                first
             />
 
             {/* Sections critères dynamiques */}

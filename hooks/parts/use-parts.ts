@@ -1,4 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+"use client";
+
+import { useQueries } from "@tanstack/react-query";
 
 export interface PartSpec {
     criteriaName: string;
@@ -17,23 +19,37 @@ export interface PartItem {
     articleMediaFileName: string | null;
     s3image: string | null;
     specs: PartSpec[];
+    /** Added client side: the route answers per category, so it never sends it back. */
+    categoryId: number;
 }
 
 async function fetchParts(vehicleId: number, categoryId: number): Promise<PartItem[]> {
     const res = await fetch(`/api/parts?vehicleId=${vehicleId}&categoryId=${categoryId}`);
     if (!res.ok) throw new Error("Impossible de charger les articles");
-    return res.json();
+    const parts = (await res.json()) as Omit<PartItem, "categoryId">[];
+    return parts.map((part) => ({ ...part, categoryId }));
 }
 
-export function useParts(
-    vehicleId: number | null,
-    categoryId: number | null,
-    isSynced: boolean
-) {
-    return useQuery({
-        queryKey: ["parts", vehicleId, categoryId],
-        queryFn: () => fetchParts(vehicleId!, categoryId!),
-        enabled: !!vehicleId && !!categoryId && isSynced,
-        staleTime: 1000 * 60 * 30,
+/**
+ * Loads every category at once and lets the panel filter them, so pads and
+ * discs can be seen together. Both reads hit SQLite, never the upstream API.
+ */
+export function useParts(vehicleId: number | null, categoryIds: readonly number[], isSynced: boolean) {
+    return useQueries({
+        queries: categoryIds.map((categoryId) => ({
+            queryKey: ["parts", vehicleId, categoryId],
+            queryFn: () => fetchParts(vehicleId!, categoryId),
+            enabled: !!vehicleId && isSynced,
+            staleTime: 1000 * 60 * 30,
+        })),
+        // `combine` mémoïse le résultat fusionné, ce qu'un useMemo sur un tableau
+        // de longueur variable ne peut pas faire proprement.
+        combine: (results) => ({
+            data: results.every((r) => r.data !== undefined)
+                ? results.flatMap((r) => r.data ?? [])
+                : undefined,
+            isLoading: results.some((r) => r.isLoading),
+            isError: results.some((r) => r.isError),
+        }),
     });
 }

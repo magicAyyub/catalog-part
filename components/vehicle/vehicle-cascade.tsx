@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/combobox";
 
 interface VehicleCascadeProps {
+    /** Vrai pendant la traduction d'une plaque, avant qu'un vehicleId existe. */
+    onIdentifyingChange?: (identifying: boolean) => void;
     /** Appelé dès qu'un vehicleId est sélectionné (avant sync) */
     onVehicleSelected?: (vehicleId: number) => void;
     /** Appelé quand la sync SQLite est terminée (status synced ou cached) */
@@ -80,7 +82,12 @@ function SpinnerIcon() {
     );
 }
 
-export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError }: VehicleCascadeProps) {
+export function VehicleCascade({
+    onIdentifyingChange,
+    onVehicleSelected,
+    onSyncComplete,
+    onSyncError,
+}: VehicleCascadeProps) {
     const [manufacturer, setManufacturer] = useState<ApiManufacturer | null>(null);
     const [model, setModel] = useState<ApiModel | null>(null);
     const [engineType, setEngineType] = useState<ApiEngineType | null>(null);
@@ -194,6 +201,7 @@ export function VehicleCascade({ onVehicleSelected, onSyncComplete, onSyncError 
                         Recherche par plaque d&apos;immatriculation
                     </p>
                     <VehiclePlateSearch
+                        onIdentifyingChange={onIdentifyingChange}
                         onVehicleSelected={onVehicleSelected}
                         onSyncComplete={onSyncComplete}
                         onSyncError={onSyncError}

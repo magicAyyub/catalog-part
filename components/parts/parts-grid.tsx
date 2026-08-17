@@ -15,7 +15,7 @@ import {
     NativeSelect,
     NativeSelectOption,
 } from "@/components/ui/native-select";
-import { WheelSpinner, IndeterminateBar } from "@/components/ui/wheel-spinner";
+import { BusyPanel } from "@/components/ui/busy-panel";
 import {
     Empty,
     EmptyHeader,
@@ -111,21 +111,10 @@ function EmptyState({ categoryLabel }: { categoryLabel: string }) {
 
 function SyncingState() {
     return (
-        <div
-            role="status"
-            aria-live="polite"
-            aria-busy="true"
-            className="flex flex-col items-center gap-5 rounded-lg border border-stroke bg-card p-10"
-        >
-            <WheelSpinner className="size-16" />
-            <p className="font-heading text-base font-semibold text-navy">
-                Synchronisation du catalogue…
-            </p>
-            <p className="max-w-100 text-center text-sm text-txt2">
-                Récupération des pièces disponibles pour ce véhicule.
-            </p>
-            <IndeterminateBar />
-        </div>
+        <BusyPanel
+            title="Synchronisation du catalogue…"
+            description="Récupération des pièces disponibles pour ce véhicule."
+        />
     );
 }
 

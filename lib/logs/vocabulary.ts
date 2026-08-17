@@ -75,6 +75,14 @@ const MESSAGES: Record<string, string> = {
     "Rejected sign-in on locked account": "Connexion refusée, compte bloqué",
     "Trace unlocked": "Trace déverrouillée",
     "Rejected trace unlock": "Déverrouillage de la trace refusé",
+    "Accounts unlocked": "Gestion des comptes déverrouillée",
+    "Rejected accounts unlock": "Déverrouillage des comptes refusé",
+    "Account created": "Compte créé",
+    "Account password reset": "Mot de passe réinitialisé",
+    "Account disabled": "Compte révoqué",
+    "Account enabled": "Compte réactivé",
+    "Account update failed": "Modification de compte en échec",
+    "Account creation failed": "Création de compte en échec",
 
     "Server persistence warning": "Écriture en base en échec",
 };
@@ -132,6 +140,13 @@ const ACTIONS: Record<string, { tone: Tone; keys: string[] }> = {
     "auth-login-locked": { tone: "auth", keys: ["user"] },
     "logs-unlock-success": { tone: "auth", keys: ["user"] },
     "logs-unlock-failed": { tone: "auth", keys: ["user", "count"] },
+    "admin-unlock-success": { tone: "auth", keys: ["user"] },
+    "admin-unlock-failed": { tone: "auth", keys: ["user", "count"] },
+    "account-created": { tone: "auth", keys: ["account", "role"] },
+    "account-password": { tone: "auth", keys: ["account", "closedSessions"] },
+    "account-disabled": { tone: "auth", keys: ["account", "closedSessions"] },
+    "account-enabled": { tone: "auth", keys: ["account"] },
+    "account-error": { tone: "auth", keys: ["user"] },
 
     "article-detail": { tone: "neutral", keys: ["articleId", "vehicleId"] },
     "by-plate-db": { tone: "neutral", keys: [] },
