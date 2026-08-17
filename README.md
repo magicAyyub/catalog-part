@@ -133,32 +133,31 @@ pnpm warm:vehicles 15901 32251  # K-Type explicites
 
 ### Identification par plaque
 
-Deux fournisseurs, essayés dans cet ordre par `lib/plate/identify.ts` :
-
-```
-Exadis      1 requête, ~450 ms          rend le K-Type seul
-app-etf     scrape complet, 8 à 18 s    rend le K-Type et les libellés
-```
-
-Exadis rend le K-Type **et** les libellés marque/modèle, extraits de la même
-réponse, donc sans requête supplémentaire. app-etf ne sert plus que si Exadis
-échoue ou si les libellés sont illisibles :
+Un seul fournisseur, Exadis, appelé par `lib/plate/identify.ts` :
 
 ```
 K-Type connu de l'index    -> terminé, 0 appel facturé
-K-Type inconnu + libellés  -> chaîne TecDoc, sans app-etf
-sinon                      -> app-etf, comme avant
+K-Type inconnu + libellés  -> remontée de la chaîne TecDoc
+K-Type inconnu, sans       -> véhicule non confirmé, pièces justes quand même
 ```
 
-Mesuré sur la même plaque : 680 ms par Exadis contre 15 524 ms par app-etf.
+Une requête, 680 ms mesurés bout en bout, qui rend le K-Type **et** les libellés
+marque/modèle depuis la même réponse.
+
+app-etf occupait la place de secours et a été retiré : il lisait son propre
+K-Type chez Exadis, donc il tombait avec la source qu'il devait couvrir, et sa
+route publique dégrade un K-Type manquant en `carId` de portail, c'est-à-dire
+exactement le bug d'origine du projet. Un vrai second pilier devra être
+indépendant d'Exadis, Distriauto ou Oscaro par exemple.
 
 Le décodage des libellés est positionnel, calé sur des réponses réelles. S'il
-casse un jour on perd le raccourci, jamais l'identification : seul le K-Type est
-obligatoire.
+casse un jour on perd le libellé, jamais l'identification : seul le K-Type est
+obligatoire, et un véhicule non confirmé donne malgré tout les bonnes pièces,
+puisque l'acquisition ne consomme que le `vehicleId`.
 
-Sans `EXADIS_USERNAME` et `EXADIS_PASSWORD`, tout passe par app-etf comme avant.
-Seul le K-Type et son libellé sont prélevés chez le fournisseur, jamais un prix
-ni un article.
+Sans `EXADIS_USERNAME` et `EXADIS_PASSWORD`, la recherche par plaque est fermée
+et il reste la cascade marque / modèle / motorisation. Seuls le K-Type et ses
+libellés sont prélevés chez le fournisseur, jamais un prix ni un article.
 
 ### Page de trace
 

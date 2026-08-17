@@ -58,9 +58,10 @@ This is the single most important thing to understand before touching vehicle co
   different space and is meaningless to TecDoc.
 
 The original bug in this project was passing a `carId` to TecDoc endpoints, which
-returned nothing usable. `lib/etf/plate-client.ts` therefore **refuses to fall
-back to `carId`** when the K-Type is missing, and fails loudly instead. Keep that
-behaviour through any refactor of the provider chain.
+returned nothing usable. A missing K-Type must therefore **fail loudly rather
+than fall back to `carId`**. Keep that behaviour through any refactor of the
+provider chain. It is also why app-etf was dropped: its public route still
+answers `vehicleId: kType ?? carId`.
 
 ## Request flow
 
@@ -122,38 +123,41 @@ a `details` element that costs no JavaScript.
 
 ## Plate identification, and its single point of failure
 
-`lib/plate/identify.ts` tries providers in order.
+`lib/plate/identify.ts` has one provider, Exadis (`lib/suppliers/exadis/`). One
+request, `searchVehiculeByImmatOrVin`, measured at 445 to 825 ms depending on
+whether the session is already open. It yields the K-Type and, from the same
+response, the brand and model labels. No extra request for the labels.
 
-**Exadis first** (`lib/suppliers/exadis/`). One request,
-`searchVehiculeByImmatOrVin`, measured at 445 to 825 ms depending on whether the
-session is already open. It yields the K-Type and, from the same response, the
-brand and model labels. No extra request for the labels.
-
-**app-etf second**, only when Exadis fails or its labels are unreadable. It
-answers the same question but scrapes the whole product catalogue first:
-15 524 ms measured on the same plate.
-
-The decision inside the chain:
+The decision after it answers:
 
 ```
 K-Type already in td_vehicle   -> done, labels irrelevant, no billed call
-K-Type new but labels readable -> TecDoc walk, no app-etf
-otherwise                      -> app-etf
+K-Type new but labels readable -> TecDoc walk
+K-Type new, labels unreadable  -> unconfirmed record, parts still correct
 ```
+
+The third line is a degradation, not a failure. `resolveVehicleFromKType`
+returns `confirmed: false` with `manufacturerId` and `modelId` at zero, and
+`syncVehicle` buys parts on `engineType.vehicleId` alone, so only the displayed
+vehicle label suffers.
 
 Label positions in the Exadis string table were derived from real responses, not
 guessed, on two vehicles whose tables differ in length: the plate is the anchor,
 the brand sits three entries after it, the K-Type is the first nine digit group,
-and the model label is the last entry. That last one matches app-etf's label
-character for character (`307 (3A/C)`, `PUNTO EVO (199_)`). Only the K-Type is
-required; every label goes through a plausibility check and an unreadable one
-degrades to app-etf rather than propagating a doubtful value.
+and the model label is the last entry. Only the K-Type is required; every label
+goes through a plausibility check and an unreadable one is dropped rather than
+propagated as a doubtful value.
 
-**The gap worth knowing**: app-etf gets its own K-Type from Exadis as well, via
-`getCachedKType`. The other portal it queries only returns a `carId`. So there is
-exactly one source of K-Type in the whole system, used twice. app-etf is not a
-real fallback for that step. A genuine second pillar has to be independent of
-Exadis, which is what Distriauto or Oscaro would be for.
+**Why app-etf is gone.** It sat behind Exadis as a fallback until it was
+removed. It read its own K-Type from Exadis too, through the same RPC #4, so it
+fell with the source it was meant to cover; its `getCachedKType` is a
+single-entry in-memory cache keyed on `cookies::plate`, not a store of plates
+already seen; and its public route degrades a missing K-Type into a portal
+`carId`, which our client rejected, turning the fallback into a 502 after
+15 seconds. The only independence it had was a distinct Exadis account and
+outbound IP, which covers revoked credentials and nothing else. A genuine second
+pillar has to be independent of Exadis, which is what Distriauto or Oscaro would
+be for. Do not reintroduce a provider that reaches Exadis to answer.
 
 Their server presents its leaf certificate without the intermediate, so Node
 fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`. app-etf works around this by
@@ -365,12 +369,13 @@ so the table cannot be replayed. Five consecutive failures lock an account for
 Only two endpoints are public: `/api/external/by-plate` and
 `/api/external/search`, both Bearer-token gated.
 
-It used to be the source of truth for plate identification. It is now the
-fallback behind the direct Exadis lookup, for the reasons in the plate section.
+It used to be the source of truth for plate identification, then the fallback
+behind the direct Exadis lookup. Nothing in this repository calls it any more,
+for the reasons in the plate section. It stays a neighbour, not a dependency.
 
 The deployed build and the local checkout have diverged in both directions, so do
-not treat that source as the API contract. Confirm shapes against the live
-endpoint. Its scraper code is useful as reference material; the parts salvaged
+not treat that source as the API contract. Its scraper code is useful as
+reference material; the parts salvaged
 here are the GWT request bodies, the string table decoding and the vehicle
 parsing, nothing that touches a catalogue.
 
@@ -380,7 +385,9 @@ parsing, nothing that touches a catalogue.
   call, but only 5 vehicles have their parts. A plate taken at random still costs
   a full acquisition. `pnpm night:run` exists to close this and has not yet been
   run with a real budget.
-- One source of K-Type, Exadis, reached by both providers. See the plate section.
+- One source of K-Type, Exadis, and now a single path to it. Removing app-etf
+  cost no real redundancy, but it does mean an Exadis outage closes plate search
+  until an independent provider exists. See the plate section.
 - No price source. The owner ruled out supplier data, so any price would have to
   come from a rate sheet imported from a file. Nothing in the repo attempts it.
 - A 401 from an API route leaves the loaded page showing stale data until a

@@ -1,95 +1,100 @@
 /**
- * Plate to vehicle identity, through whichever provider answers first.
+ * Plate to vehicle identity.
  *
- * Exadis is asked first because it costs one request and answers in under a
- * second. It returns the K-Type alone, which is enough whenever the local index
- * already knows that vehicle.
+ * Exadis is the only provider: one request, under a second, and it yields the
+ * K-Type plus the brand and model labels from the same response.
  *
- * app-etf is the fallback. It answers the same question but runs a full product
- * scrape first, so it is only worth its 8 to 18 seconds when we also need the
- * brand and model labels, which is exactly the case of a K-Type the index has
- * never seen.
+ * app-etf used to sit behind it as a fallback. It was removed because it read
+ * its own K-Type from Exadis too, so it fell with the very source it was meant
+ * to cover, and its public route degrades a missing K-Type into a portal
+ * `carId`. A real second pillar has to be independent of Exadis.
  *
- * Adding a third provider means adding a branch here, nothing else.
+ * Unreadable labels are not a failure here. The K-Type alone drives the parts
+ * acquisition; `resolveVehicleFromKType` returns an unconfirmed record and the
+ * counter sees a poor vehicle label, never wrong parts.
  */
 
-import { fetchVehicleByPlate, PlateLookupError } from "@/lib/etf/plate-client";
-import { exadisConfigured, lookupVehicleByPlate } from "@/lib/suppliers/exadis/vehicle-lookup";
+import { ExadisLookupError, exadisConfigured, lookupVehicleByPlate } from "@/lib/suppliers/exadis/vehicle-lookup";
 import { findVehicleByKType } from "@/lib/vehicle/vehicle-index";
+import { PlateLookupError } from "@/lib/plate/errors";
 import { logger } from "@/lib/logger";
 
 export interface PlateIdentity {
     kType: number;
-    /** Empty when the K-Type came from Exadis and the index already knew it. */
+    /** Empty when the Exadis string table could not be read with confidence. */
     brand: string;
     model: string;
-    /** Kept for diagnostics only, never sent to TecDoc. */
-    carId?: string | null;
-    source?: "exadis" | "app-etf";
+    /** Diagnostics only. Cached entries written before may name another provider. */
+    source?: string;
+}
+
+const STATUS_BY_CODE: Record<ExadisLookupError["code"], number> = {
+    no_credentials: 500,
+    auth_failed: 502,
+    not_found: 404,
+    transport: 504,
+};
+
+function asPlateLookupError(error: unknown): PlateLookupError {
+    if (error instanceof ExadisLookupError) {
+        return new PlateLookupError(error.message, STATUS_BY_CODE[error.code], error.code);
+    }
+    return new PlateLookupError("Identification du véhicule en échec.", 502, "transport");
 }
 
 /**
- * Resolves a plate. Throws `PlateLookupError` when no provider could answer, so
- * the route keeps its existing error handling.
+ * Resolves a plate. Throws `PlateLookupError`, which the route turns into a
+ * status and a French message.
  */
 export async function identifyPlate(plate: string): Promise<PlateIdentity> {
-    if (exadisConfigured()) {
-        try {
-            const vehicle = await lookupVehicleByPlate(plate);
-
-            // Index connu : les libellés ne servent à rien, on s'arrête là.
-            // Libellés lisibles : ils suffisent à remonter la chaîne TecDoc.
-            const known = Boolean(await findVehicleByKType(vehicle.kType));
-            if (known || (vehicle.brand && vehicle.model)) {
-                logger.info("Plate identified by Exadis", {
-                    module: "plate-identify",
-                    action: "plate_source",
-                    plate,
-                    kType: vehicle.kType,
-                    source: "exadis",
-                    indexed: known,
-                });
-                return {
-                    kType: vehicle.kType,
-                    brand: vehicle.brand,
-                    model: vehicle.model,
-                    source: "exadis",
-                };
-            }
-
-            // K-Type inconnu et libellés illisibles : seul app-etf peut fournir
-            // de quoi remonter la chaîne chez TecDoc.
-            logger.warn("Exadis gave a K-Type but no usable labels, falling back", {
-                module: "plate-identify",
-                action: "plate_fallback",
-                plate,
-                kType: vehicle.kType,
-            });
-        } catch (error: unknown) {
-            logger.warn("Exadis could not identify the plate, falling back to app-etf", {
-                module: "plate-identify",
-                action: "plate_fallback",
-                plate,
-                error,
-            });
-        }
+    if (!exadisConfigured()) {
+        throw new PlateLookupError(
+            "EXADIS_USERNAME et EXADIS_PASSWORD absents de .env : aucune identification par plaque possible.",
+            500,
+            "no_credentials"
+        );
     }
 
-    const vehicle = await fetchVehicleByPlate(plate);
-    logger.info("Plate identified by app-etf", {
+    let vehicle;
+    try {
+        vehicle = await lookupVehicleByPlate(plate);
+    } catch (error: unknown) {
+        logger.warn("Exadis could not identify the plate", {
+            module: "plate-identify",
+            action: "plate_failed",
+            plate,
+            error,
+        });
+        throw asPlateLookupError(error);
+    }
+
+    const known = Boolean(await findVehicleByKType(vehicle.kType));
+
+    // Libellés illisibles sur un K-Type que l'index ne connaît pas : la remontée
+    // TecDoc ne pourra pas nommer le véhicule. Les pièces restent justes.
+    if (!known && (!vehicle.brand || !vehicle.model)) {
+        logger.warn("Exadis gave a K-Type but no usable labels", {
+            module: "plate-identify",
+            action: "plate_labels_missing",
+            plate,
+            kType: vehicle.kType,
+        });
+    }
+
+    logger.info("Plate identified by Exadis", {
         module: "plate-identify",
         action: "plate_source",
         plate,
         kType: vehicle.kType,
-        source: "app-etf",
+        source: "exadis",
+        indexed: known,
     });
 
     return {
         kType: vehicle.kType,
         brand: vehicle.brand,
         model: vehicle.model,
-        carId: vehicle.carId,
-        source: "app-etf",
+        source: "exadis",
     };
 }
 

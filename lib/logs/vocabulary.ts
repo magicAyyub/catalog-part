@@ -24,8 +24,13 @@ const MESSAGES: Record<string, string> = {
     "Plate translated to K-Type by Exadis": "Plaque traduite en K-Type par Exadis",
     "Plate identified by Exadis, vehicle already in the local index":
         "Plaque identifiée par Exadis, véhicule déjà dans l'index local",
-    "Plate identified by app-etf": "Plaque identifiée par app-etf",
+    "Plate identified by Exadis": "Plaque identifiée par Exadis",
     "Plate identification step completed": "Étape d'identification terminée",
+    "Exadis could not identify the plate": "Exadis n'a pas su identifier la plaque",
+    "Exadis gave a K-Type but no usable labels":
+        "K-Type obtenu, mais sans libellés lisibles",
+    // Lignes que plus aucun code n'écrit, gardées pour les traces déjà en fichier.
+    "Plate identified by app-etf": "Plaque identifiée par app-etf",
     "Exadis could not identify the plate, falling back to app-etf":
         "Exadis n'a pas su identifier la plaque, repli sur app-etf",
     "L2 Pre-calculated Index HIT": "Réponse servie par l'index pré-calculé",
@@ -84,6 +89,8 @@ const ACTIONS: Record<string, { tone: Tone; keys: string[] }> = {
     "by-plate": { tone: "plate", keys: ["plate", "vehicleId", "confirmed"] },
     "by-plate-l2-hit": { tone: "free", keys: ["plate"] },
     plate_source: { tone: "plate", keys: ["plate", "kType", "source"] },
+    plate_failed: { tone: "supplier", keys: ["plate"] },
+    plate_labels_missing: { tone: "supplier", keys: ["plate", "kType"] },
     plate_fallback: { tone: "supplier", keys: ["plate"] },
     exadis_ktype: { tone: "supplier", keys: ["plate", "kType", "brand", "model"] },
     ktype_resolved: { tone: "supplier", keys: ["plate", "kType", "brand", "model"] },

@@ -8,7 +8,7 @@
 import { db } from "../lib/db/client";
 import { rapidApi } from "../lib/rapidapi/client";
 import { articles, categories, suppliers, vehicles } from "../lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { ApiEngineType } from "../lib/rapidapi/types";
 
 const CATEGORIES = [

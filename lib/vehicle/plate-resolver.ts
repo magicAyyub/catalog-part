@@ -1,8 +1,8 @@
 /**
  * French plate formatting and normalisation (SIV and FNI).
  *
- * Resolution itself lives in `lib/etf/plate-client.ts`, which asks app-etf for
- * the K-Type. This file only shapes what the user types.
+ * Resolution itself lives in `lib/plate/identify.ts`, which asks Exadis for the
+ * K-Type. This file only shapes what the user types.
  */
 
 import type { ApiEngineType } from "@/lib/rapidapi/types";

@@ -6,6 +6,12 @@ des plaquettes, et quelles décisions sont sur la table.
 Un seul chiffre à garder en tête : **un appel facturé**, c'est une requête payée
 à RapidAPI. Tout le reste en découle.
 
+Ce document est l'analyse qui a mené à l'état actuel, gardée telle quelle pour le
+raisonnement. Son « aujourd'hui » décrit le passage par app-etf, qui n'existe
+plus : la plaque est résolue chez Exadis en une requête, et app-etf a été retiré
+parce qu'il lisait son propre K-Type chez Exadis, donc ne couvrait pas la panne
+qu'il était censé couvrir. Le README décrit le flux en vigueur.
+
 ---
 
 ## 1. Ce qui se passe aujourd'hui
@@ -60,8 +66,7 @@ flowchart LR
     style F stroke-dasharray: 5 5
 ```
 
-C'est écrit noir sur blanc dans notre propre code, dans `lib/etf/plate-client.ts` :
-le service fait un scrape produits complet de 8 à 18 secondes, et on ne conserve
+Le service fait un scrape produits complet de 8 à 18 secondes, et on ne conserve
 que l'en-tête véhicule.
 
 Conséquence concrète : le franchisé regarde un écran de chargement pendant une

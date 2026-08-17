@@ -48,23 +48,6 @@ export const CATEGORIES: { categoryId: number; labelFr: string }[] = [
     { categoryId: 100032, labelFr: "Disques de frein" },
 ];
 
-// Service app-etf : traduction plaque vers K-Type.
-// app-etf (déployé, maintenu séparément) sert uniquement à identifier le
-// véhicule à partir d'une immatriculation. Il rend le K-Type TecDoc, qui est
-// exactement le `vehicleId` attendu par les endpoints RapidAPI.
-// Le token est de type "shell", à créer sur /admin/tokens d'app-etf.
-
-export const ETF_API_BASE_URL =
-    process.env.ETF_API_URL ??
-    process.env.PLATE_API_URL ??
-    "https://etf.jumbopneus.shop/api/external/by-plate";
-
-export const ETF_API_TOKEN = process.env.ETF_API_TOKEN ?? process.env.PLATE_API_TOKEN ?? "";
-
-// 8 à 18 s mesurés à froid : app-etf scrape les produits avant de répondre,
-// même si on ne garde que l'en-tête véhicule.
-export const ETF_API_TIMEOUT_MS = parseIntEnv(process.env.ETF_API_TIMEOUT_MS, 90_000);
-
 // Équipementiers autorisés. Deux listes distinctes selon le mode d'exécution.
 // Production : ALLOWED_SUPPLIER_IDS_PROD dans .env (IDs TecDoc réels)
 // Mock local  : ALLOWED_SUPPLIER_IDS_MOCK dans .env (IDs du serveur de fixtures)

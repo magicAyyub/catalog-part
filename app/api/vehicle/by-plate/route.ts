@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { formatDisplayPlate, normalizePlate } from "@/lib/vehicle/plate-resolver";
-import { friendlyPlateError, PlateLookupError } from "@/lib/etf/plate-client";
+import { friendlyPlateError, PlateLookupError } from "@/lib/plate/errors";
 import { identifyPlate, type PlateIdentity } from "@/lib/plate/identify";
 import { resolveVehicleFromKType } from "@/lib/vehicle/ktype-resolver";
 import { getWithCache } from "@/lib/vehicle/api-cache";
@@ -14,14 +14,14 @@ import { withRequestContext } from "@/lib/logs/request-context";
  * Translates a licence plate into a vehicle record the existing TecDoc pipeline
  * can consume. This route ONLY identifies:
  *
- *   plate -> Exadis or app-etf -> K-Type -> local index or RapidAPI -> ApiEngineType
+ *   plate -> Exadis -> K-Type -> local index or RapidAPI -> ApiEngineType
  *
  * It fetches no parts. The client then proceeds exactly as after the manual
  * cascade, with POST /api/vehicle/sync, which runs the usual TecDoc sync, now
  * with the correct `vehicleId`.
  *
  * The resolution is cached with no expiry: a plate always designates the same
- * vehicle, and the upstream call costs 8 to 18 seconds.
+ * vehicle, and the upstream call costs a supplier round trip.
  */
 async function handlePost(req: Request) {
     const auth = await requireUser();
@@ -61,7 +61,6 @@ async function handlePost(req: Request) {
             action: "by-plate",
             plate: clean,
             vehicleId: resolved.vehicleId,
-            carId: identified.carId ?? null,
             confirmed: resolved.confirmed,
             durationMs: Date.now() - startTime,
         });
