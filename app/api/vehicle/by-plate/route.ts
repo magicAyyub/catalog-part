@@ -20,6 +20,11 @@ import { withRequestContext } from "@/lib/logs/request-context";
  * cascade, with POST /api/vehicle/sync, which runs the usual TecDoc sync, now
  * with the correct `vehicleId`.
  *
+ * An unconfirmed identification comes back without its `engineType`, so that
+ * second step cannot start. The supplier's identifier is not always a K-Type,
+ * and buying parts for one the referential does not carry spends billed calls
+ * for nothing.
+ *
  * The resolution is cached with no expiry: a plate always designates the same
  * vehicle, and the upstream call costs a supplier round trip.
  */
@@ -52,7 +57,8 @@ async function handlePost(req: Request) {
         const resolved = await resolveVehicleFromKType(
             identified.kType,
             identified.brand,
-            identified.model
+            identified.model,
+            identified.version ?? ""
         );
 
         const { engineType } = resolved;
@@ -62,6 +68,7 @@ async function handlePost(req: Request) {
             plate: clean,
             vehicleId: resolved.vehicleId,
             confirmed: resolved.confirmed,
+            matchedBy: resolved.matchedBy ?? null,
             durationMs: Date.now() - startTime,
         });
 
@@ -77,14 +84,21 @@ async function handlePost(req: Request) {
                 typeEngineName: engineType.typeEngineName,
                 powerKw: engineType.powerKw,
                 fuelType: engineType.fuelType,
-                /**
-                 * False means the K-Type is certain but its engine line was not
-                 * found in the TecDoc referential, so the displayed labels are
-                 * the supplier's. The parts themselves remain correct.
-                 */
                 confirmed: resolved.confirmed,
+                matchedBy: resolved.matchedBy ?? null,
                 engineType,
             },
+            /**
+             * Unconfirmed does not mean unusable. The labels failed to place the
+             * vehicle in the referential, but the identifier itself may still be
+             * a valid `vehicleId`, and `/api/vehicle/sync` settles that on data:
+             * its first article list either answers or does not. Withholding the
+             * sync here was tried and it turned a naming problem into a dead end,
+             * measured on a plate whose brand came back as `M.G.`.
+             */
+            notice: resolved.confirmed
+                ? undefined
+                : "Véhicule non reconnu au référentiel TecDoc. Le libellé affiché est celui du fournisseur.",
         });
     } catch (error: unknown) {
         const status = error instanceof PlateLookupError && error.status === 404 ? 404 : 400;

@@ -9,9 +9,10 @@
  * to cover, and its public route degrades a missing K-Type into a portal
  * `carId`. A real second pillar has to be independent of Exadis.
  *
- * Unreadable labels are not a failure here. The K-Type alone drives the parts
- * acquisition; `resolveVehicleFromKType` returns an unconfirmed record and the
- * counter sees a poor vehicle label, never wrong parts.
+ * The labels are not decoration. Measured on a TOYOTA PRIUS: the identifier
+ * Exadis returns is usually a K-Type but not always, and the engine label is
+ * what recovers the vehicle when it is not. Unreadable labels leave the
+ * identification unconfirmed, which the caller must not turn into a purchase.
  */
 
 import { ExadisLookupError, exadisConfigured, lookupVehicleByPlate } from "@/lib/suppliers/exadis/vehicle-lookup";
@@ -24,6 +25,12 @@ export interface PlateIdentity {
     /** Empty when the Exadis string table could not be read with confidence. */
     brand: string;
     model: string;
+    /**
+     * Engine line as the supplier words it, "1.8 Hybrid (ZVW3_)". Recovers the
+     * vehicle when the supplier's identifier is not a TecDoc K-Type. Optional:
+     * plate entries cached before this field existed do not carry it.
+     */
+    version?: string;
     /** Diagnostics only. Cached entries written before may name another provider. */
     source?: string;
 }
@@ -94,6 +101,7 @@ export async function identifyPlate(plate: string): Promise<PlateIdentity> {
         kType: vehicle.kType,
         brand: vehicle.brand,
         model: vehicle.model,
+        version: vehicle.version,
         source: "exadis",
     };
 }

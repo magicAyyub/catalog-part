@@ -78,6 +78,14 @@ export function VehiclePlateSearch({
             }
 
             const vehicle: PlateLookupResult = data.vehicle;
+
+            // Non confirmé veut dire mal nommé, pas inutilisable : la
+            // synchronisation part quand même et c'est elle qui tranche, sur les
+            // articles rendus par TecDoc plutôt que sur des libellés.
+            if (!vehicle.confirmed) {
+                setPlateError(data.notice ?? null);
+            }
+
             setFoundVehicle(vehicle);
             onVehicleSelected?.(vehicle.vehicleId);
 
@@ -155,7 +163,9 @@ export function VehiclePlateSearch({
                 <div className="flex flex-col gap-1.5 rounded-md bg-white/10 p-3 text-sm text-white">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 font-medium">
-                            <span className="flex size-5 items-center justify-center rounded-full bg-white/20 text-xs">✓</span>
+                            <span className="flex size-5 items-center justify-center rounded-full bg-white/20 text-xs">
+                                {foundVehicle.confirmed ? "✓" : "!"}
+                            </span>
                             <span>
                                 {foundVehicle.manufacturerName} {foundVehicle.modelName} | {foundVehicle.typeEngineName}
                             </span>

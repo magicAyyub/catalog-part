@@ -27,9 +27,9 @@ function parseIntEnv(raw: string | undefined, fallback: number): number {
 
 export const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY ?? "";
 export const RAPIDAPI_BASE_URL = process.env.BASE_URL ?? "https://auto-parts-catalog.p.rapidapi.com";
-export const LANG_ID = process.env.LANG_ID ?? "6";
-export const COUNTRY_FILTER_ID = process.env.COUNTRY_FILTER_ID ?? "63";
-export const TYPE_ID = process.env.TYPE_ID ?? "1";
+export const LANG_ID = "6";
+export const COUNTRY_FILTER_ID = "63";
+export const TYPE_ID = "1";
 
 // Durée de vie du cache. Configurable via SYNC_TTL_DAYS dans .env.
 export const SYNC_TTL_MS = parseIntEnv(process.env.SYNC_TTL_DAYS, 30) * 24 * 60 * 60 * 1000;

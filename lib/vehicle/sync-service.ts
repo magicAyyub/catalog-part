@@ -49,11 +49,22 @@ async function ensureCategories() {
  * the brand as text.
  */
 
+/**
+ * Both counts matter and mean different things. `returnedByApi` at zero says
+ * TecDoc knows nothing about this vehicle, which usually means the vehicleId is
+ * not one of its own. `kept` at zero while the API answered says the supplier
+ * allow list is too narrow, which buying again would not fix.
+ */
+interface CategoryOutcome {
+    returnedByApi: number;
+    kept: number;
+}
+
 async function syncArticlesForCategory(
     vehicleId: number,
     categoryId: number,
     force: boolean
-): Promise<void> {
+): Promise<CategoryOutcome> {
     if (!force) {
         const existing = await db
             .select({ articleId: articles.articleId })
@@ -61,7 +72,9 @@ async function syncArticlesForCategory(
             .where(and(eq(articles.vehicleId, vehicleId), eq(articles.categoryId, categoryId)))
             .limit(1);
 
-        if (existing.length > 0) return;
+        // Des articles sont déjà en base : rien n'a été redemandé, et le
+        // véhicule compte évidemment comme pourvu.
+        if (existing.length > 0) return { returnedByApi: 1, kept: 1 };
     }
 
     const res = await rapidApi.listArticles(vehicleId, categoryId);
@@ -107,6 +120,8 @@ async function syncArticlesForCategory(
             })
             .onConflictDoNothing();
     }
+
+    return { returnedByApi: apiArticles.length, kept: filteredArticles.length };
 }
 
 /**
@@ -258,16 +273,37 @@ export interface SyncOptions {
     force?: boolean;
 }
 
+export interface SyncResult {
+    /** True when TecDoc answered with at least one article, filtered or not. */
+    known: boolean;
+    articles: number;
+}
+
+/**
+ * A vehicle TecDoc answers nothing for is not recorded as synced.
+ *
+ * `synced_at` used to be stamped unconditionally, so a vehicleId the referential
+ * does not carry was written as a healthy vehicle with zero part, and
+ * `needsSync` then refused to retry for the whole TTL. A wrong identification
+ * froze a plate on an empty catalog for thirty days, silently. The row is now
+ * removed again when this call created it and nothing came back.
+ */
 export async function syncVehicle(
     engineType: ApiEngineType,
     manufacturerId: number,
     modelId: number,
     options: SyncOptions = {}
-): Promise<void> {
+): Promise<SyncResult> {
     const vehicleId = engineType.vehicleId;
     const force = options.force === true;
 
     await ensureCategories();
+
+    const [existingVehicle] = await db
+        .select({ vehicleId: vehicles.vehicleId })
+        .from(vehicles)
+        .where(eq(vehicles.vehicleId, vehicleId))
+        .limit(1);
 
     await db
         .insert(vehicles)
@@ -293,17 +329,47 @@ export async function syncVehicle(
             },
         });
 
+    let returnedByApi = 0;
+    let kept = 0;
+
     for (const cat of CATEGORIES) {
-        await syncArticlesForCategory(vehicleId, cat.categoryId, force);
+        const outcome = await syncArticlesForCategory(vehicleId, cat.categoryId, force);
+        returnedByApi += outcome.returnedByApi;
+        kept += outcome.kept;
+
+        // Le premier appel sert aussi de test d'existence. Un véhicule que TecDoc
+        // connaît a des plaquettes; zéro article sur un véhicule jamais vu veut
+        // dire que le vehicleId n'est pas un des siens, et la deuxième catégorie
+        // serait un appel payé pour rien.
+        if (returnedByApi === 0 && !existingVehicle) break;
+
         // Les couples (productId, supplierId) sont relus depuis la base : plus
         // besoin de faire circuler la liste des équipementiers.
         await syncFacetsForCategory(vehicleId, cat.categoryId, force);
+    }
+
+    // Un véhicule déjà en base qui ne rend plus rien reste enregistré : il a été
+    // payé une fois, et ne pas horodater le ferait racheter chaque nuit par le
+    // réchauffage. Seul un véhicule créé par cet appel est retiré.
+    if (returnedByApi === 0 && !existingVehicle) {
+        logger.warn("TecDoc returned no article at all, vehicle not recorded as synced", {
+            module: "sync-service",
+            action: "vehicle_unknown_upstream",
+            vehicleId,
+            manufacturerId,
+            modelId,
+        });
+
+        await db.delete(vehicles).where(eq(vehicles.vehicleId, vehicleId));
+        return { known: false, articles: 0 };
     }
 
     await db
         .update(vehicles)
         .set({ syncedAt: new Date() })
         .where(eq(vehicles.vehicleId, vehicleId));
+
+    return { known: true, articles: kept };
 }
 
 /**

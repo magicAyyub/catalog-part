@@ -4,6 +4,7 @@ import type { SyncRequestBody } from "@/app/api/vehicle/sync/route";
 interface SyncResponse {
     status: "synced" | "cached";
     vehicleId: number;
+    articles?: number;
 }
 
 async function postSync(body: SyncRequestBody): Promise<SyncResponse> {

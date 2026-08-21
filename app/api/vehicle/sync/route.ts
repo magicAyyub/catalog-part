@@ -38,8 +38,9 @@ async function handlePost(request: Request) {
         return NextResponse.json({ status: "cached", vehicleId });
     }
 
+    let result;
     try {
-        await syncVehicle(engineType, manufacturerId, modelId);
+        result = await syncVehicle(engineType, manufacturerId, modelId);
     } catch (error: any) {
         console.error("Erreur de synchronisation :", error);
 
@@ -62,7 +63,21 @@ async function handlePost(request: Request) {
         );
     }
 
-    return NextResponse.json({ status: "synced", vehicleId });
+    // Le référentiel n'a rien renvoyé : l'identifiant n'est probablement pas un
+    // vehicleId TecDoc. Rien n'a été enregistré, la prochaine tentative repartira
+    // de zéro plutôt que de servir un catalogue vide pendant tout le TTL.
+    if (!result.known) {
+        return NextResponse.json(
+            {
+                status: "empty",
+                vehicleId,
+                error: "Aucune pièce de freinage au référentiel pour ce véhicule. Essayez la recherche manuelle marque, modèle, motorisation.",
+            },
+            { status: 404 }
+        );
+    }
+
+    return NextResponse.json({ status: "synced", vehicleId, articles: result.articles });
 }
 
 export async function POST(request: Request) {
