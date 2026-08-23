@@ -53,7 +53,7 @@ async function handlePatch(req: Request, username: string) {
             closedSessions,
         });
         return NextResponse.json({ closedSessions });
-    } catch (error: unknown) {
+    } catch (error) {
         if (error instanceof AccountError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }

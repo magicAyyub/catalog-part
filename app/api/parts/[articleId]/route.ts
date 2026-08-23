@@ -28,7 +28,7 @@ async function handleGet(_request: Request, { params }: { params: Promise<{ arti
             return NextResponse.json({ error: "Article introuvable." }, { status: 404 });
         }
         return NextResponse.json(detail);
-    } catch (error: unknown) {
+    } catch (error) {
         logger.warn("Article detail lookup error", { action: "article-detail", articleId: id, error });
         return NextResponse.json(
             { error: "Impossible de charger les détails de l'article." },

@@ -188,7 +188,7 @@ export async function lookupVehicleByPlate(rawPlate: string): Promise<ExadisVehi
             active = await session(true);
             response = await requestVehicle(plate, active);
         }
-    } catch (error: unknown) {
+    } catch (error) {
         if (error instanceof ExadisLookupError) throw error;
         logger.warn("Exadis vehicle lookup transport error", {
             module: "exadis",

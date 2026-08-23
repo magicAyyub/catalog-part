@@ -46,7 +46,7 @@ async function handlePost(req: Request) {
         });
 
         return NextResponse.json({ account, generatedPassword }, { status: 201 });
-    } catch (error: unknown) {
+    } catch (error) {
         if (error instanceof AccountError) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }

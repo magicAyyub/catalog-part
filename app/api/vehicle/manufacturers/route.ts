@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { rapidApi } from "@/lib/rapidapi/client";
 import { getWithCache } from "@/lib/vehicle/api-cache";
+import { rapidApiFailure } from "@/lib/rapidapi/errors";
 
 import { withRequestContext } from "@/lib/logs/request-context";
 async function handleGet() {
@@ -16,12 +17,8 @@ async function handleGet() {
             );
         });
         return NextResponse.json(sorted);
-    } catch (error: any) {
-        console.error("Erreur manufacturers API :", error);
-        return NextResponse.json(
-            { error: "Impossible de charger la liste des constructeurs. " + (error.message || "") },
-            { status: 500 }
-        );
+    } catch (error) {
+        return rapidApiFailure(error);
     }
 }
 

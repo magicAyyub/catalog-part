@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { rapidApi } from "@/lib/rapidapi/client";
 import { getWithCache } from "@/lib/vehicle/api-cache";
+import { rapidApiFailure } from "@/lib/rapidapi/errors";
 
 import { withRequestContext } from "@/lib/logs/request-context";
 async function handleGet(request: Request) {
@@ -20,12 +21,8 @@ async function handleGet(request: Request) {
             return res.models;
         });
         return NextResponse.json(models);
-    } catch (error: any) {
-        console.error(`Erreur models API (manufacturer: ${manufacturerId}) :`, error);
-        return NextResponse.json(
-            { error: "Impossible de charger la liste des modèles. " + (error.message || "") },
-            { status: 500 }
-        );
+    } catch (error) {
+        return rapidApiFailure(error, { manufacturerId });
     }
 }
 

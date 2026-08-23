@@ -1,18 +1,13 @@
 /**
- * Plate to vehicle identity.
+ * Plate to vehicle identity. Exadis is the only provider: one request yields the
+ * K-Type plus the brand and model labels.
  *
- * Exadis is the only provider: one request, under a second, and it yields the
- * K-Type plus the brand and model labels from the same response.
+ * The labels are load-bearing. The identifier Exadis returns is usually a K-Type
+ * but not always, and the engine label is what recovers the vehicle when it is
+ * not, so unreadable labels leave the identification unconfirmed.
  *
- * app-etf used to sit behind it as a fallback. It was removed because it read
- * its own K-Type from Exadis too, so it fell with the very source it was meant
- * to cover, and its public route degrades a missing K-Type into a portal
- * `carId`. A real second pillar has to be independent of Exadis.
- *
- * The labels are not decoration. Measured on a TOYOTA PRIUS: the identifier
- * Exadis returns is usually a K-Type but not always, and the engine label is
- * what recovers the vehicle when it is not. Unreadable labels leave the
- * identification unconfirmed, which the caller must not turn into a purchase.
+ * A second provider must not read its K-Type from Exadis: app-etf did, and fell
+ * with the source it was meant to cover.
  */
 
 import { ExadisLookupError, exadisConfigured, lookupVehicleByPlate } from "@/lib/suppliers/exadis/vehicle-lookup";
@@ -25,13 +20,9 @@ export interface PlateIdentity {
     /** Empty when the Exadis string table could not be read with confidence. */
     brand: string;
     model: string;
-    /**
-     * Engine line as the supplier words it, "1.8 Hybrid (ZVW3_)". Recovers the
-     * vehicle when the supplier's identifier is not a TecDoc K-Type. Optional:
-     * plate entries cached before this field existed do not carry it.
-     */
+    /** Engine line as the supplier words it, "1.8 Hybrid (ZVW3_)". Absent on older cached entries. */
     version?: string;
-    /** Diagnostics only. Cached entries written before may name another provider. */
+    /** Diagnostics only. Older cached entries may name another provider. */
     source?: string;
 }
 
@@ -49,10 +40,7 @@ function asPlateLookupError(error: unknown): PlateLookupError {
     return new PlateLookupError("Identification du véhicule en échec.", 502, "transport");
 }
 
-/**
- * Resolves a plate. Throws `PlateLookupError`, which the route turns into a
- * status and a French message.
- */
+/** Throws `PlateLookupError`, which the route turns into a status and a message. */
 export async function identifyPlate(plate: string): Promise<PlateIdentity> {
     if (!exadisConfigured()) {
         throw new PlateLookupError(
@@ -65,7 +53,7 @@ export async function identifyPlate(plate: string): Promise<PlateIdentity> {
     let vehicle;
     try {
         vehicle = await lookupVehicleByPlate(plate);
-    } catch (error: unknown) {
+    } catch (error) {
         logger.warn("Exadis could not identify the plate", {
             module: "plate-identify",
             action: "plate_failed",

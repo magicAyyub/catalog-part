@@ -10,12 +10,14 @@ import type {
     ApiMediaItem,
 } from "./types";
 import { logger } from "@/lib/logger";
-
-const LANG_ID = process.env.LANG_ID;
-const COUNTRY_FILTER_ID = process.env.COUNTRY_FILTER_ID;
-const TYPE_ID = process.env.TYPE_ID;
-
-const RAPIDAPI_BASE_URL = process.env.BASE_URL ?? "https://auto-parts-catalog.p.rapidapi.com";
+import { RapidApiError } from "./errors";
+import {
+    COUNTRY_FILTER_ID,
+    LANG_ID,
+    RAPIDAPI_BASE_URL,
+    RAPIDAPI_KEY,
+    TYPE_ID,
+} from "@/lib/config";
 
 function assertServerSide() {
     if (typeof window !== "undefined") {
@@ -40,31 +42,48 @@ export function billedCallCount(): number {
 }
 
 async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise<T> {
-    const apiKey = process.env.RAPIDAPI_KEY;
-    if (!apiKey) {
-        throw new Error("RAPIDAPI_KEY manquante dans les variables d'environnement.");
+    if (!RAPIDAPI_KEY) {
+        throw new RapidApiError(
+            "RAPIDAPI_KEY manquante dans les variables d'environnement.",
+            "no_credentials"
+        );
     }
 
     billedCalls++;
     logger.info("RapidAPI HTTP call executed", { action: "rapidapi_call", path });
 
     for (let attempt = 1; attempt <= retries; attempt++) {
-        const res = await fetch(`${RAPIDAPI_BASE_URL}${path}`, {
-            method: "GET",
-            headers: {
-                "x-rapidapi-key": apiKey,
-                "x-rapidapi-host": "auto-parts-catalog.p.rapidapi.com",
-                "Content-Type": "application/json",
-            },
-            cache: "no-store",
-        });
+        let res: Response;
+        try {
+            res = await fetch(`${RAPIDAPI_BASE_URL}${path}`, {
+                method: "GET",
+                headers: {
+                    "x-rapidapi-key": RAPIDAPI_KEY,
+                    "x-rapidapi-host": "auto-parts-catalog.p.rapidapi.com",
+                    "Content-Type": "application/json",
+                },
+                cache: "no-store",
+            });
+        } catch (cause) {
+            // DNS, TLS, socket : aucune réponse n'est revenue.
+            throw new RapidApiError(
+                `RapidAPI ${path} -> injoignable : ${cause instanceof Error ? cause.message : String(cause)}`,
+                "transport"
+            );
+        }
 
         if (res.status === 429) {
             const body = await res.text().catch(() => "");
             const lowerBody = body.toLowerCase();
 
+            // Le quota mensuel ne se recharge pas sur un backoff, contrairement
+            // à la limite par seconde : inutile de réessayer.
             if (lowerBody.includes("monthly") || lowerBody.includes("quota")) {
-                throw new Error(`RapidAPI ${path} -> 429 Too Many Requests : ${body}`);
+                throw new RapidApiError(
+                    `RapidAPI ${path} -> 429 Too Many Requests : ${body}`,
+                    "quota_exceeded",
+                    429
+                );
             }
 
             if (attempt < retries) {
@@ -78,17 +97,32 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
                 await delay(sleepTime);
                 continue;
             }
+
+            throw new RapidApiError(
+                `RapidAPI ${path} -> 429 Too Many Requests après ${retries} tentatives : ${body}`,
+                "rate_limited",
+                429
+            );
         }
 
         if (!res.ok) {
             const body = await res.text().catch(() => "");
-            throw new Error(`RapidAPI ${path} -> ${res.status} ${res.statusText} : ${body}`);
+            throw new RapidApiError(
+                `RapidAPI ${path} -> ${res.status} ${res.statusText} : ${body}`,
+                res.status === 401 || res.status === 403 ? "unauthorized" : "upstream",
+                res.status
+            );
         }
 
         return res.json() as Promise<T>;
     }
 
-    throw new Error(`RapidAPI ${path} -> Rate limit dépassé de façon persistante après ${retries} tentatives.`);
+    // Inatteignable : la dernière tentative renvoie ou lève. Présent pour le typage.
+    throw new RapidApiError(
+        `RapidAPI ${path} -> Rate limit dépassé de façon persistante après ${retries} tentatives.`,
+        "rate_limited",
+        429
+    );
 }
 
 async function callApi<T>(path: string): Promise<T> {

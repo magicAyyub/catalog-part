@@ -20,8 +20,14 @@ export async function getWithCache<T>(key: string, fetchFn: () => Promise<T>): P
     if (cached) {
         try {
             return JSON.parse(cached.valueJson) as T;
-        } catch (e) {
-            console.warn(`Erreur lors du parsing du cache SQLite pour ${key}:`, e);
+        } catch (error) {
+            // Entrée illisible : on la traite comme absente et on la réécrira.
+            logger.warn("Unreadable cache entry, refetching", {
+                module: "api-cache",
+                action: "parse_error",
+                key,
+                error,
+            });
         }
     }
 
@@ -42,8 +48,13 @@ export async function getWithCache<T>(key: string, fetchFn: () => Promise<T>): P
                     updatedAt: new Date(),
                 },
             });
-    } catch (e) {
-        console.warn(`Impossible de sauvegarder la clé ${key} dans api_cache :`, e);
+    } catch (error) {
+        logger.warn("Failed to write cache entry", {
+            module: "api-cache",
+            action: "write_error",
+            key,
+            error,
+        });
     }
 
     return freshData;

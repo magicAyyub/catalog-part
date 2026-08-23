@@ -22,6 +22,32 @@ export interface IndexedVehicle {
     engineType: ApiEngineType;
 }
 
+export interface HarvestResult {
+    payloads: number;
+    processed: number;
+    learned: number;
+    skipped: number;
+}
+
+
+/**
+ * A K-Type is only answered from here when the row carries its manufacturer and
+ * model. The indexer inserts placeholder rows for vehicles it meets without a
+ * legacy record, and those cannot stand in for a resolution.
+ */
+export async function findVehicleByKType(kType: number): Promise<IndexedVehicle | null> {
+    const [row] = await db.select().from(tdVehicle).where(eq(tdVehicle.vehicleId, kType)).limit(1);
+
+    if (!row || row.manufacturerId == null || row.modelId == null) return null;
+
+    return {
+        manufacturerId: row.manufacturerId,
+        modelId: row.modelId,
+        engineType: toEngineType(row),
+    };
+}
+
+
 /**
  * Rebuilds the API shape from a stored row. The fields left empty
  * (`capacityTax`, `numberOfCylinders`, `capacityLt`, `capacityTech`, `engId`)
@@ -45,23 +71,6 @@ function toEngineType(row: typeof tdVehicle.$inferSelect): ApiEngineType {
         capacityTech: "",
         engineCodes: row.engineCodes ?? "",
         engId: row.vehicleId,
-    };
-}
-
-/**
- * A K-Type is only answered from here when the row carries its manufacturer and
- * model. The indexer inserts placeholder rows for vehicles it meets without a
- * legacy record, and those cannot stand in for a resolution.
- */
-export async function findVehicleByKType(kType: number): Promise<IndexedVehicle | null> {
-    const [row] = await db.select().from(tdVehicle).where(eq(tdVehicle.vehicleId, kType)).limit(1);
-
-    if (!row || row.manufacturerId == null || row.modelId == null) return null;
-
-    return {
-        manufacturerId: row.manufacturerId,
-        modelId: row.modelId,
-        engineType: toEngineType(row),
     };
 }
 
@@ -123,12 +132,7 @@ export async function rememberEngineTypes(
     return ids.filter((id) => !knownIds.has(id)).length;
 }
 
-export interface HarvestResult {
-    payloads: number;
-    processed: number;
-    learned: number;
-    skipped: number;
-}
+
 
 /**
  * Fills the index from the `engine_types_*` responses already in `api_cache`.

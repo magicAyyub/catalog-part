@@ -100,7 +100,7 @@ async function handlePost(req: Request) {
                 ? undefined
                 : "Véhicule non reconnu au référentiel TecDoc. Le libellé affiché est celui du fournisseur.",
         });
-    } catch (error: unknown) {
+    } catch (error) {
         const status = error instanceof PlateLookupError && error.status === 404 ? 404 : 400;
         logger.warn("Plate lookup failed", {
             action: "by-plate",

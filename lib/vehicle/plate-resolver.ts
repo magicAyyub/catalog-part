@@ -18,7 +18,6 @@ export interface PlateLookupResult {
     powerKw: string;
     fuelType: string;
     vin?: string;
-    products?: any[];
     /** Vrai quand le véhicule a été confirmé dans le référentiel TecDoc. */
     confirmed: boolean;
     matchedBy?: "index" | "ktype" | "engine_label" | null;

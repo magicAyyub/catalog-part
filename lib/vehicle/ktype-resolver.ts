@@ -376,7 +376,7 @@ export async function resolveVehicleFromKType(
             engineType: fallbackEngineType(kType, brand, modelLabel),
             confirmed: false,
         };
-    } catch (error: unknown) {
+    } catch (error) {
         // Quota RapidAPI dépassé, réseau, etc. : le K-Type reste exploitable.
         logger.warn("K-Type enrichment failed, falling back to labels", {
             module: "ktype-resolver",

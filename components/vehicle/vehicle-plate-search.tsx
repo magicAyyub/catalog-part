@@ -109,7 +109,7 @@ export function VehiclePlateSearch({
                     },
                 }
             );
-        } catch (err: unknown) {
+        } catch (err) {
             const msg = err instanceof Error ? err.message : "Erreur lors de la recherche.";
             setPlateError(msg);
         } finally {
