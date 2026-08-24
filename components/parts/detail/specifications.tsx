@@ -8,7 +8,7 @@ export function Specifications({
 
     return (
         <section id="specifications">
-            <h2 className="mb-3 font-heading text-base font-bold text-navy">Spécifications</h2>
+            <h2 className="mb-3 font-heading text-base font-bold text-ink">Spécifications</h2>
             <div className="overflow-hidden rounded-lg border border-stroke">
                 <table className="w-full text-sm">
                     <tbody>

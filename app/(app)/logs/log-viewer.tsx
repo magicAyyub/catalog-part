@@ -53,7 +53,7 @@ function Tile({
     tone?: "default" | "cost" | "good" | "bad";
 }) {
     const tones = {
-        default: "text-navy",
+        default: "text-ink",
         cost: "text-amber-700",
         good: "text-emerald-700",
         bad: "text-red-600",
@@ -73,7 +73,7 @@ function Field({ name, value }: { name: string; value: unknown }) {
     return (
         <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
             <span className="text-txt2">{fieldLabel(name)}</span>
-            <span className="font-medium text-navy">{display(value)}</span>
+            <span className="font-medium text-ink">{display(value)}</span>
         </span>
     );
 }
@@ -99,7 +99,7 @@ function EntryRow({ entry }: { entry: LogEntry }) {
             <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <span
-                        className={`text-sm ${entry.level === "error" ? "font-medium text-red-600" : entry.level === "warn" ? "text-amber-700" : "text-navy"}`}
+                        className={`text-sm ${entry.level === "error" ? "font-medium text-red-600" : entry.level === "warn" ? "text-amber-700" : "text-ink"}`}
                     >
                         {messageLabel(entry.message)}
                     </span>
@@ -132,7 +132,7 @@ function EntryRow({ entry }: { entry: LogEntry }) {
 
                 {details.length > 0 && (
                     <details className="group mt-0.5">
-                        <summary className="cursor-pointer list-none text-[11px] text-txt2 hover:text-navy">
+                        <summary className="cursor-pointer list-none text-[11px] text-txt2 hover:text-ink">
                             <span className="group-open:hidden">Détails ({details.length})</span>
                             <span className="hidden group-open:inline">Masquer</span>
                         </summary>
@@ -140,7 +140,7 @@ function EntryRow({ entry }: { entry: LogEntry }) {
                             {details.map(([key, value]) => (
                                 <span key={key} className="break-all">
                                     <span className="text-txt2">{fieldLabel(key)}</span>{" "}
-                                    <span className="text-navy">{display(value)}</span>
+                                    <span className="text-ink">{display(value)}</span>
                                 </span>
                             ))}
                         </div>
@@ -178,7 +178,7 @@ function GroupBlock({ group }: { group: LogGroup }) {
         <div className={`border-l-2 bg-white ${rail}`}>
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-dashed border-stroke px-3 py-1.5">
                 <span className="font-mono text-[11px] tabular-nums text-txt2">{shortClock(group.startedAt)}</span>
-                <span className="font-heading text-sm font-bold text-navy">{group.route ?? "requête"}</span>
+                <span className="font-heading text-sm font-bold text-ink">{group.route ?? "requête"}</span>
                 {group.plate && (
                     <span className="rounded border border-indigo-200 bg-indigo-50 px-1.5 font-mono text-[11px] font-medium text-indigo-900">
                         {group.plate}
@@ -236,7 +236,7 @@ export function LogViewer() {
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 className="font-heading text-xl font-bold text-navy">Trace du système</h1>
+                    <h1 className="font-heading text-xl font-bold text-ink">Trace du système</h1>
                     <p className="text-sm text-txt2">
                         Chaque étape d&apos;une recherche, dans l&apos;ordre. Le point orange marque un appel payé.
                     </p>

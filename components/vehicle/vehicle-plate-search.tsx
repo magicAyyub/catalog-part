@@ -47,8 +47,8 @@ export function VehiclePlateSearch() {
             <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch gap-2.5">
                 {/* Plaque d'immatriculation */}
                 <div className="relative flex flex-1 items-center rounded-md bg-white p-1 shadow-sm">
-                    <div className="flex h-10 w-9 flex-col items-center justify-between rounded-l bg-royal py-1 text-[9px] font-bold text-white select-none">
-                        <div className="flex gap-0.5 text-[7px] text-gold">★</div>
+                    <div className="flex h-10 w-9 flex-col items-center justify-between rounded-l bg-plate-blue py-1 text-[9px] font-bold text-white select-none">
+                        <div className="flex gap-0.5 text-[7px] text-plate-star">★</div>
                         <span className="font-sans tracking-tight">F</span>
                     </div>
 
@@ -59,7 +59,7 @@ export function VehiclePlateSearch() {
                         onPaste={handlePaste}
                         placeholder="AA-123-BB"
                         maxLength={9}
-                        className="w-full bg-transparent px-3 text-center font-mono text-lg font-bold tracking-widest text-navy placeholder:text-navy/30 focus:outline-none uppercase"
+                        className="w-full bg-transparent px-3 text-center font-mono text-lg font-bold tracking-widest text-ink placeholder:text-ink/30 focus:outline-none uppercase"
                         disabled={isLoadingPlate || isSyncing}
                     />
                 </div>
@@ -67,7 +67,7 @@ export function VehiclePlateSearch() {
                 <Button
                     type="submit"
                     disabled={isLoadingPlate || isSyncing || !rawInput.trim()}
-                    className="h-12 shrink-0 bg-royal px-6 font-heading font-bold text-white hover:bg-royal-hover"
+                    className="h-12 shrink-0 bg-pine px-6 font-heading font-bold text-white hover:bg-pine-hover"
                 >
                     {isLoadingPlate || isSyncing ? "Identification…" : "Rechercher"}
                 </Button>

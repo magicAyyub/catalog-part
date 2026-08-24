@@ -61,7 +61,7 @@ export function CompatibleCars({ cars }: { cars: CompatibleCar[] }) {
 
     return (
         <section id="vehicules">
-            <h2 className="mb-3 flex items-baseline gap-2 font-heading text-base font-bold text-navy">
+            <h2 className="mb-3 flex items-baseline gap-2 font-heading text-base font-bold text-ink">
                 Véhicules compatibles
                 <span className="text-sm font-normal text-txt2">{cars.length} motorisations</span>
             </h2>

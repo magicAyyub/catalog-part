@@ -24,7 +24,7 @@ export function OemReferences({ refs }: { refs: { oemBrand: string; oemDisplayNo
         <section id="oem">
             <details className="group overflow-hidden rounded-lg border border-stroke">
                 <summary className="flex cursor-pointer list-none items-baseline gap-2 px-4 py-3 hover:bg-muted/30">
-                    <h2 className="font-heading text-base font-bold text-navy">Références OEM</h2>
+                    <h2 className="font-heading text-base font-bold text-ink">Références OEM</h2>
                     <span className="text-sm text-txt2">
                         {refs.length} références, {brands.length} constructeurs
                     </span>

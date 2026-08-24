@@ -119,7 +119,7 @@ export function CatalogView() {
     return (
         <main className="mx-auto max-w-[1600px] w-full px-4 py-10 sm:px-6 lg:px-8">
             <div className="mb-8">
-                <h1 className="font-heading text-2xl font-bold text-navy">Catalogue de pièces auto</h1>
+                <h1 className="font-heading text-2xl font-bold text-ink">Catalogue de pièces auto</h1>
                 <p className="mt-1 text-sm text-txt2">
                     Identifiez votre véhicule pour trouver les pièces compatibles.
                 </p>

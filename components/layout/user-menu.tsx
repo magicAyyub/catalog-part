@@ -47,11 +47,11 @@ export function UserMenu({ label, franchise }: UserMenuProps) {
                 <DropdownMenuTrigger
                     render={<Button variant="ghost" className="h-10 gap-2 px-2 sm:px-3" />}
                 >
-                    <span className="flex size-7 items-center justify-center rounded-full bg-royal/10 font-heading text-xs font-bold text-royal">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-pine/10 font-heading text-xs font-bold text-ink">
                         {label.slice(0, 2).toUpperCase()}
                     </span>
                     <span className="hidden flex-col items-start leading-tight sm:flex">
-                        <span className="text-sm font-medium text-navy">{label}</span>
+                        <span className="text-sm font-medium text-ink">{label}</span>
                         {franchise && (
                             <span className="text-[10px] uppercase tracking-wider text-txt2">
                                 {franchise}

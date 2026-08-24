@@ -114,20 +114,20 @@ export function AccountsManager() {
 
     return (
         <div className="flex flex-col gap-8 py-4">
-            <h1 className="font-heading text-xl font-bold text-navy">Comptes franchisés</h1>
+            <h1 className="font-heading text-xl font-bold text-ink">Comptes franchisés</h1>
 
             {handover && (
                 <div className="flex flex-col gap-2 rounded-xl border border-leaf/40 bg-leaf/5 p-5">
-                    <p className="text-sm font-semibold text-navy">
+                    <p className="text-sm font-semibold text-ink">
                         Mot de passe de {handover.username}
                     </p>
-                    <code className="rounded bg-white px-3 py-2 font-mono text-base text-navy select-all">
+                    <code className="rounded bg-white px-3 py-2 font-mono text-base text-ink select-all">
                         {handover.password}
                     </code>
                     <p className="text-xs text-txt2">Non récupérable ensuite.</p>
                     <button
                         onClick={() => setHandover(null)}
-                        className="self-start text-sm font-medium text-royal hover:text-royal-hover"
+                        className="self-start text-sm font-medium text-ink hover:text-ink-hover"
                     >
                         J&apos;ai noté
                     </button>
@@ -144,7 +144,7 @@ export function AccountsManager() {
                 onSubmit={handleCreate}
                 className="flex flex-col gap-4 rounded-xl border border-stroke bg-white p-6 shadow-sm"
             >
-                <h2 className="font-heading text-base font-bold text-navy">Créer un compte</h2>
+                <h2 className="font-heading text-base font-bold text-ink">Créer un compte</h2>
 
                 <div className="grid gap-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-1.5">
@@ -218,7 +218,7 @@ export function AccountsManager() {
                             return (
                                 <tr key={account.id} className="border-b border-stroke/60 last:border-0">
                                     <td className="px-4 py-3">
-                                        <div className="font-semibold text-navy">{account.username}</div>
+                                        <div className="font-semibold text-ink">{account.username}</div>
                                         {account.displayName && (
                                             <div className="text-xs text-txt2">{account.displayName}</div>
                                         )}
@@ -241,7 +241,7 @@ export function AccountsManager() {
                                             <button
                                                 onClick={() => act(account, "password")}
                                                 disabled={busy !== null}
-                                                className="text-sm font-medium text-royal hover:text-royal-hover disabled:opacity-50"
+                                                className="text-sm font-medium text-ink hover:text-ink-hover disabled:opacity-50"
                                             >
                                                 Nouveau mot de passe
                                             </button>

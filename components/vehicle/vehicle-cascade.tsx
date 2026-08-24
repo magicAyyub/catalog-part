@@ -124,7 +124,7 @@ export function VehicleCascade({
     }
 
     return (
-        <div className="rounded-lg bg-banner-navy p-6">
+        <div className="rounded-lg bg-banner-pine p-6">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-0">
                 {/* 1. Recherche par plaque d'immatriculation */}
                 <div className="flex-1">
@@ -173,7 +173,7 @@ export function VehicleCascade({
                                     render={
                                         <Button
                                             variant="outline"
-                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-navy shadow-sm hover:bg-white/90"
+                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
                                             disabled={mfLoading}
                                         />
                                     }
@@ -222,7 +222,7 @@ export function VehicleCascade({
                                     render={
                                         <Button
                                             variant="outline"
-                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-navy shadow-sm hover:bg-white/90"
+                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
                                             disabled={!manufacturer || mdLoading}
                                         />
                                     }
@@ -274,7 +274,7 @@ export function VehicleCascade({
                                     render={
                                         <Button
                                             variant="outline"
-                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-navy shadow-sm hover:bg-white/90"
+                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
                                             disabled={!model || etLoading}
                                         />
                                     }

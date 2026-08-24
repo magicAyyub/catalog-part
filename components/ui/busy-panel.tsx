@@ -17,7 +17,7 @@ export function BusyPanel({ title, description }: { title: string; description: 
             className="flex flex-col items-center gap-5 rounded-lg border border-stroke bg-card p-10"
         >
             <WheelSpinner className="size-16" />
-            <p className="font-heading text-base font-semibold text-navy">{title}</p>
+            <p className="font-heading text-base font-semibold text-ink">{title}</p>
             <p className="max-w-100 text-center text-sm text-txt2">{description}</p>
             <IndeterminateBar />
         </div>

@@ -61,7 +61,7 @@ export default async function ArticlePage({
 
             <header className="mb-8 flex flex-col gap-1">
                 <p className="text-sm font-medium text-txt2">{article.supplierName}</p>
-                <h1 className="font-heading text-2xl font-bold text-navy">{productName}</h1>
+                <h1 className="font-heading text-2xl font-bold text-ink">{productName}</h1>
                 <p className="font-mono text-sm text-muted-foreground">{article.articleNo}</p>
             </header>
 

@@ -82,11 +82,11 @@ export function FacetPanel({
         <aside className="flex flex-col rounded-lg border border-stroke bg-card p-4">
             {/* Header */}
             <div className="flex items-center justify-between pb-3">
-                <h2 className="font-heading text-base font-bold text-navy">Filtres</h2>
+                <h2 className="font-heading text-base font-bold text-ink">Filtres</h2>
                 {hasActiveFilter && (
                     <button
                         onClick={onReset}
-                        className="text-sm font-medium text-royal hover:text-royal-hover"
+                        className="text-sm font-medium text-ink hover:text-ink-hover"
                     >
                         Réinitialiser
                     </button>
@@ -178,7 +178,7 @@ function FilterSection({
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="flex w-full items-center justify-between rounded-md bg-muted px-3 py-2.5 font-heading text-sm font-bold uppercase tracking-wide text-navy"
+                className="flex w-full items-center justify-between rounded-md bg-muted px-3 py-2.5 font-heading text-sm font-bold uppercase tracking-wide text-ink"
             >
                 {title}
                 {open ? <MinusIcon size={14} /> : <PlusIcon size={14} />}
@@ -191,7 +191,7 @@ function FilterSection({
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Recherche"
-                            className="h-9 w-full rounded-md border border-stroke px-3 text-sm text-navy outline-none placeholder:text-txt2 focus:border-royal"
+                            className="h-9 w-full rounded-md border border-stroke px-3 text-sm text-ink outline-none placeholder:text-txt2 focus:border-pine"
                         />
                     )}
 
@@ -236,12 +236,12 @@ function CheckRow({
             type="button"
             onClick={onToggle}
             aria-pressed={checked}
-            className="flex w-full shrink-0 items-center gap-2.5 rounded-md px-1 py-2 text-sm text-navy transition-colors hover:bg-muted"
+            className="flex w-full shrink-0 items-center gap-2.5 rounded-md px-1 py-2 text-sm text-ink transition-colors hover:bg-muted"
         >
             <span
                 className={cn(
                     "flex size-4 flex-none items-center justify-center rounded-sm border",
-                    checked ? "border-navy bg-navy text-white" : "border-stroke bg-white"
+                    checked ? "border-pine bg-pine text-white" : "border-stroke bg-white"
                 )}
             >
                 {checked && <CheckIcon size={11} strokeWidth={3} />}

@@ -52,7 +52,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
         <article className="flex w-full flex-col gap-y-4 rounded-lg border border-stroke bg-card p-4 sm:flex-row sm:items-start sm:justify-between sm:py-4 sm:pr-5 sm:pl-4">
             {/* Marque + image + stock */}
             <div className="flex w-full shrink-0 flex-col items-center gap-3 sm:w-27.5">
-                <div className="font-heading text-base font-bold text-navy">
+                <div className="font-heading text-base font-bold text-ink">
                     {part.supplierName ?? "—"}
                 </div>
                 <div className="flex size-21.25 items-center justify-center rounded bg-ink-50">
@@ -73,16 +73,16 @@ export function PartCard({ part, detailHref }: PartCardProps) {
 
             {/* Titre + specs, séparé par un trait vertical */}
             <div className="w-full min-w-0 flex-1 border-stroke sm:border-l sm:pl-5 sm:pr-6">
-                <div className="font-heading text-lg font-bold leading-tight text-navy">
+                <div className="font-heading text-lg font-bold leading-tight text-ink">
                     {part.articleProductName}
                 </div>
-                <div className="mt-0.5 mb-3.5 font-heading text-sm font-medium text-navy">
+                <div className="mt-0.5 mb-3.5 font-heading text-sm font-medium text-ink">
                     Réf : {part.articleNo}
                 </div>
 
                 {part.specs.length > 0 && (
                     <>
-                        <div className="mb-2 flex items-center gap-3 font-heading text-sm font-semibold text-navy after:h-px after:flex-1 after:bg-stroke after:content-['']">
+                        <div className="mb-2 flex items-center gap-3 font-heading text-sm font-semibold text-ink after:h-px after:flex-1 after:bg-stroke after:content-['']">
                             Caractéristiques
                         </div>
                         <div className="flex flex-col">
@@ -92,7 +92,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                                         key={name}
                                         className="flex items-baseline justify-between gap-3 border-b border-stroke/60 py-1.5 text-sm"
                                     >
-                                        <span className="font-bold text-navy">{name}</span>
+                                        <span className="font-bold text-ink">{name}</span>
                                         <span className="text-right text-txt2">{values[0]}</span>
                                     </div>
                                 ) : (
@@ -101,7 +101,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                                         className="group border-b border-stroke/60 text-sm"
                                     >
                                         <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-1.5 marker:content-none">
-                                            <span className="font-bold text-navy">{name}</span>
+                                            <span className="font-bold text-ink">{name}</span>
                                             <span className="text-right text-txt2">
                                                 {values.length} valeurs
                                                 <span className="ml-1.5 inline-block transition-transform group-open:rotate-90">
@@ -136,9 +136,9 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                     // articles que personne n'ouvrira.
                     prefetch={false}
                     className={cn(
-                        "flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-royal",
+                        "flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-pine",
                         "px-4 font-heading text-sm font-bold text-white",
-                        "transition-colors hover:bg-royal-hover",
+                        "transition-colors hover:bg-pine-hover",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         "w-auto sm:w-full"
                     )}

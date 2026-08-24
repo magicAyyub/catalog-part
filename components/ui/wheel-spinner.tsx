@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export function WheelSpinner({ className }: { className?: string }) {
     return (
         <svg
-            className={cn("animate-spin text-royal motion-reduce:animate-none", className)}
+            className={cn("animate-spin text-ink motion-reduce:animate-none", className)}
             viewBox="0 0 64 64"
             aria-hidden="true"
         >
@@ -38,7 +38,7 @@ export function IndeterminateBar() {
             className="h-1.5 w-full max-w-100 overflow-hidden rounded-full bg-ink-100"
         >
             <div
-                className="h-full w-1/3 rounded-full bg-royal motion-reduce:w-full motion-reduce:animate-none motion-reduce:bg-royal/40"
+                className="h-full w-1/3 rounded-full bg-pine motion-reduce:w-full motion-reduce:animate-none motion-reduce:bg-pine/40"
                 style={{ animation: "buffer-slide 1.4s ease-in-out infinite" }}
             />
         </div>
