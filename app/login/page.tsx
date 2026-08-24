@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-    title: "Connexion · Catalogue Jumbo Pneus",
+    title: "Connexion",
 };
 
 /**

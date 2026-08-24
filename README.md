@@ -1,6 +1,9 @@
 ## catalog-part
 
-Auto parts catalog (Next.js, Drizzle ORM, SQLite, RapidAPI auto-parts-catalog).
+Catalogue de pièces de freinage pour les franchisés Jumbo Pneus.
+Next.js, Drizzle ORM, SQLite, RapidAPI auto-parts-catalog.
+
+L'architecture et les conventions sont décrites dans `CLAUDE.md`.
 
 ### Setup
 
@@ -19,10 +22,10 @@ pnpm db:migrate
 pnpm dev   # http://localhost:3000
 ```
 
-To reset and re-sync a vehicle manually:
+Créer le premier compte, aucune interface n'étant accessible sans :
 
 ```sh
-pnpm sync:vehicle [vehicleId]
+pnpm auth:user create <login> --password "..."
 ```
 
 ### Database

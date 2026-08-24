@@ -4,7 +4,7 @@ import { LogViewer } from "./log-viewer";
 import { UnlockForm } from "./unlock-form";
 
 export const metadata: Metadata = {
-    title: "Trace du système · Catalogue Jumbo Pneus",
+    title: "Trace du système",
 };
 
 export default async function LogsPage() {

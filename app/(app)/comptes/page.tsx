@@ -4,7 +4,7 @@ import { AccountsManager } from "./accounts-manager";
 import { UnlockForm } from "./unlock-form";
 
 export const metadata: Metadata = {
-    title: "Comptes franchisés · Catalogue Jumbo Pneus",
+    title: "Comptes franchisés",
 };
 
 export default async function AccountsPage() {
