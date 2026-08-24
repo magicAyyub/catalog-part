@@ -2,38 +2,18 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useSyncVehicle } from "@/hooks/parts/use-sync-vehicle";
 import { type PlateLookupResult, formatPlateInput } from "@/lib/vehicle/plate-resolver";
 
-interface VehiclePlateSearchProps {
-    /** Remonté pour que la page montre une attente, le formulaire étant trop haut. */
-    onIdentifyingChange?: (identifying: boolean) => void;
-    onVehicleSelected?: (vehicleId: number) => void;
-    onSyncComplete?: (
-        vehicleId: number,
-        details?: { label: string; plate?: string; vin?: string }
-    ) => void;
-    onSyncError?: (error: Error | null) => void;
-}
-
-export function VehiclePlateSearch({
-    onIdentifyingChange,
-    onVehicleSelected,
-    onSyncComplete,
-    onSyncError,
-}: VehiclePlateSearchProps) {
+export function VehiclePlateSearch() {
     const [rawInput, setRawInput] = useState("");
-    const [isLoadingPlate, setIsLoadingPlate] = useState(false);
+    const isLoadingPlate = false;
     const [plateError, setPlateError] = useState<string | null>(null);
     const [foundVehicle, setFoundVehicle] = useState<PlateLookupResult | null>(null);
 
-    const {
-        mutate: syncVehicle,
-        isPending: isSyncing,
-        isSuccess: isSynced,
-        error: syncError,
-        reset: resetSync,
-    } = useSyncVehicle();
+    // La recherche par plaque est mise de côté : sa route et sa résolution sont
+    // dans parked/plate, en attente d'être rebâties sur le nouveau schéma. Le
+    // formulaire reste affiché, il n'appelle simplement plus le serveur.
+    const isSyncing = false;
 
     function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
         const formatted = formatPlateInput(e.target.value);
@@ -49,7 +29,7 @@ export function VehiclePlateSearch({
         setPlateError(null);
     }
 
-    async function handleSearch(e?: React.FormEvent) {
+    function handleSearch(e?: React.FormEvent) {
         e?.preventDefault();
 
         if (!rawInput.trim()) {
@@ -57,67 +37,9 @@ export function VehiclePlateSearch({
             return;
         }
 
-        setIsLoadingPlate(true);
-        onIdentifyingChange?.(true);
-        setPlateError(null);
+        console.log("Recherche par plaque désactivée pour le moment :", rawInput);
         setFoundVehicle(null);
-        resetSync();
-        onSyncError?.(null);
-
-        try {
-            const res = await fetch("/api/vehicle/by-plate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plate: rawInput }),
-            });
-
-            const data = await res.json();
-
-            if (!res.ok || !data.success) {
-                throw new Error(data.error || "Impossible de trouver ce véhicule.");
-            }
-
-            const vehicle: PlateLookupResult = data.vehicle;
-
-            // Non confirmé veut dire mal nommé, pas inutilisable : la
-            // synchronisation part quand même et c'est elle qui tranche, sur les
-            // articles rendus par TecDoc plutôt que sur des libellés.
-            if (!vehicle.confirmed) {
-                setPlateError(data.notice ?? null);
-            }
-
-            setFoundVehicle(vehicle);
-            onVehicleSelected?.(vehicle.vehicleId);
-
-            syncVehicle(
-                {
-                    vehicleId: vehicle.vehicleId,
-                    manufacturerId: vehicle.manufacturerId,
-                    modelId: vehicle.modelId,
-                    engineType: vehicle.engineType,
-                },
-                {
-                    onSuccess: (syncData) => {
-                        onSyncComplete?.(syncData.vehicleId, {
-                            label: `${vehicle.manufacturerName} ${vehicle.modelName} | ${vehicle.typeEngineName}`,
-                            plate: vehicle.plate,
-                            vin: vehicle.vin,
-                        });
-                    },
-                    onError: (err: Error) => {
-                        onSyncError?.(err);
-                    },
-                }
-            );
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : "Erreur lors de la recherche.";
-            setPlateError(msg);
-        } finally {
-            setIsLoadingPlate(false);
-            // La section pièces prend le relais dès qu'un véhicule est retenu :
-            // on rend la main sans laisser de trou entre les deux attentes.
-            onIdentifyingChange?.(false);
-        }
+        setPlateError("La recherche par plaque est temporairement indisponible.");
     }
 
     return (

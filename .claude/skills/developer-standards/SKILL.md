@@ -21,8 +21,8 @@ Apply these guidelines strictly to ensure code quality, readability, and a natur
 
 ## Language Rules
 * Code syntax, variables, function names, and structural elements must be written in English.
-* Docstrings and in-code API documentation must be in English since they are part of the functional code contract.
-* Inline comments may be written in French.
+* Docstrings and in-code API documentation must be in French, Inline comments too.
+* Human readable, not too verbose. 
 
 ## Presentation and Formatting Style
 * Avoid synthetic indicators like emojis in files or commits.

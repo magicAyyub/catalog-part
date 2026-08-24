@@ -15,7 +15,6 @@ import {
     NativeSelect,
     NativeSelectOption,
 } from "@/components/ui/native-select";
-import { BusyPanel } from "@/components/ui/busy-panel";
 import {
     Empty,
     EmptyHeader,
@@ -109,14 +108,6 @@ function EmptyState({ categoryLabel }: { categoryLabel: string }) {
     );
 }
 
-function SyncingState() {
-    return (
-        <BusyPanel
-            title="Synchronisation du catalogue…"
-            description="Récupération des pièces disponibles pour ce véhicule."
-        />
-    );
-}
 
 function ErrorState() {
     return (
@@ -238,7 +229,6 @@ function PaginationBar({
 interface PartsGridProps {
     parts: PartItem[] | undefined;
     isLoading: boolean;
-    isSyncing: boolean;
     isError: boolean;
     categoryLabel: string;
     currentPage: number;
@@ -251,7 +241,6 @@ interface PartsGridProps {
 export function PartsGrid({
     parts,
     isLoading,
-    isSyncing,
     isError,
     categoryLabel,
     currentPage,
@@ -260,7 +249,6 @@ export function PartsGrid({
     onPageSizeChange,
     detailHref,
 }: PartsGridProps) {
-    if (isSyncing) return <SyncingState />;
     if (isLoading) return <SkeletonGrid />;
     if (isError) return <ErrorState />;
     if (!parts || parts.length === 0) return <EmptyState categoryLabel={categoryLabel} />;

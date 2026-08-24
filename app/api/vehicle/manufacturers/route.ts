@@ -1,22 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { rapidApi } from "@/lib/rapidapi/client";
-import { getWithCache } from "@/lib/vehicle/api-cache";
-import { rapidApiFailure } from "@/lib/rapidapi/errors";
-
 import { withRequestContext } from "@/lib/logs/request-context";
+import { rapidApiFailure } from "@/lib/rapidapi/errors";
+import { getManufacturers } from "@/lib/acquisition/cascade";
+import { toApiManufacturer } from "@/lib/api/shapes";
+
 async function handleGet() {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
     try {
-        const sorted = await getWithCache("manufacturers", async () => {
-            const { manufacturers } = await rapidApi.listManufacturers();
-            return [...manufacturers].sort((a, b) =>
-                a.manufacturerName.localeCompare(b.manufacturerName)
-            );
-        });
-        return NextResponse.json(sorted);
+        return NextResponse.json((await getManufacturers()).map(toApiManufacturer));
     } catch (error) {
         return rapidApiFailure(error);
     }

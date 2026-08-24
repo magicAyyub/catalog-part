@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { VehicleCascade } from "@/components/vehicle/vehicle-cascade";
 import { ActiveVehicleCard, type ActiveVehicleData } from "@/components/vehicle/active-vehicle-card";
 import { PartsSection } from "@/components/parts/parts-section";
-import { BusyPanel } from "@/components/ui/busy-panel";
+import { useSaveSelection } from "@/hooks/vehicle/use-selection";
 
 const STORAGE_KEY = "catalog_active_vehicle";
 const VEHICLE_PARAM = "vehicule";
@@ -47,6 +47,7 @@ export function CatalogView() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const saveSelection = useSaveSelection();
 
     const storedRaw = useSyncExternalStore(subscribeToStorage, readStoredVehicle, () => null);
     const storedVehicle = useMemo(() => parseVehicle(storedRaw), [storedRaw]);
@@ -54,10 +55,6 @@ export function CatalogView() {
     // `undefined` tant que rien n'a été choisi dans cette session : l'écran
     // reflète alors ce que portent l'URL et le stockage.
     const [chosen, setChosen] = useState<ActiveVehicleData | null | undefined>(undefined);
-    const [syncedOverride, setSyncedOverride] = useState<boolean | null>(null);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [isIdentifying, setIsIdentifying] = useState(false);
-    const [syncError, setSyncError] = useState<Error | null>(null);
 
     const urlVehicleId = Number(searchParams.get(VEHICLE_PARAM)) || null;
 
@@ -68,7 +65,6 @@ export function CatalogView() {
         : storedVehicle;
 
     const activeVehicleData = chosen !== undefined ? chosen : restored;
-    const isSynced = syncedOverride ?? Boolean(activeVehicleData);
 
     function setVehicleParam(vehicleId: number | null) {
         const params = new URLSearchParams(searchParams.toString());
@@ -87,27 +83,17 @@ export function CatalogView() {
 
     function handleVehicleSelected(vehicleId: number) {
         setChosen({ vehicleId, label: `Véhicule #${vehicleId}` });
-        setSyncedOverride(false);
-        setIsSyncing(true);
-        setSyncError(null);
     }
 
-    function handleSyncComplete(
-        vehicleId: number,
-        details?: { label: string; plate?: string; vin?: string }
-    ) {
+    function handleVehicleConfirmed(vehicleId: number, details?: { label: string }) {
         const vehicleData: ActiveVehicleData = {
             vehicleId,
             label: details?.label || `Véhicule #${vehicleId}`,
-            plate: details?.plate,
-            vin: details?.vin,
         };
 
         setChosen(vehicleData);
-        setSyncedOverride(true);
-        setIsSyncing(false);
-        setSyncError(null);
         setVehicleParam(vehicleId);
+        saveSelection(vehicleId);
 
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicleData));
@@ -116,16 +102,8 @@ export function CatalogView() {
         }
     }
 
-    function handleSyncError(error: Error | null) {
-        setIsSyncing(false);
-        setSyncError(error);
-    }
-
     function handleResetVehicle() {
         setChosen(null);
-        setSyncedOverride(false);
-        setIsSyncing(false);
-        setSyncError(null);
         router.replace(pathname, { scroll: false });
 
         try {
@@ -136,7 +114,7 @@ export function CatalogView() {
     }
 
     const selectedVehicleId = activeVehicleData?.vehicleId ?? null;
-    const isVehicleActive = selectedVehicleId && activeVehicleData && isSynced && !isSyncing;
+    const isVehicleActive = selectedVehicleId !== null && activeVehicleData !== null;
 
     return (
         <main className="mx-auto max-w-[1600px] w-full px-4 py-10 sm:px-6 lg:px-8">
@@ -152,38 +130,17 @@ export function CatalogView() {
                     <ActiveVehicleCard vehicle={activeVehicleData} onReset={handleResetVehicle} />
                 ) : (
                     <VehicleCascade
-                        onIdentifyingChange={setIsIdentifying}
                         onVehicleSelected={handleVehicleSelected}
-                        onSyncComplete={handleSyncComplete}
-                        onSyncError={handleSyncError}
+                        onVehicleConfirmed={handleVehicleConfirmed}
                     />
                 )}
             </section>
-
-            {/* Traduction de la plaque : aucun véhicule n'existe encore, donc la
-                section pièces ne peut rien montrer. Sans ce panneau l'écran ne
-                bouge pas pendant une à deux secondes. */}
-            {isIdentifying && !selectedVehicleId && (
-                <>
-                    <div className="mb-10 border-t border-border" />
-
-                    <BusyPanel
-                        title="Identification du véhicule…"
-                        description="Recherche de l'immatriculation chez le fournisseur, puis dans le référentiel TecDoc."
-                    />
-                </>
-            )}
 
             {selectedVehicleId && (
                 <>
                     <div className="mb-10 border-t border-border" />
 
-                    <PartsSection
-                        vehicleId={selectedVehicleId}
-                        isSyncing={isSyncing}
-                        isSynced={isSynced}
-                        syncError={syncError}
-                    />
+                    <PartsSection vehicleId={selectedVehicleId} />
                 </>
             )}
         </main>

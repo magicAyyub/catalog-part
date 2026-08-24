@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1785243890742,
-      "tag": "0000_ancient_lifeguard",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1785319656826,
-      "tag": "0001_broken_dust",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1785796137715,
-      "tag": "0002_same_la_nuit",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1785798405260,
-      "tag": "0003_skinny_falcon",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1786185089035,
-      "tag": "0004_uneven_red_hulk",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1786350944469,
-      "tag": "0005_nosy_bulldozer",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1786463572813,
-      "tag": "0006_smart_pet_avengers",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1786995114438,
-      "tag": "0007_cloudy_reavers",
+      "when": 1787520366243,
+      "tag": "0000_bouncy_vapor",
       "breakpoints": true
     }
   ]

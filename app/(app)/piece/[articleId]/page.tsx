@@ -3,21 +3,19 @@ import { notFound } from "next/navigation";
 import { ArticleGallery } from "@/components/parts/detail/article-gallery";
 import { CompatibleCars } from "@/components/parts/detail/compatible-cars";
 import { DetailRow } from "@/components/parts/detail/detail-row";
-import { OemReferences } from "@/components/parts/detail/oem-references";
 import { Specifications } from "@/components/parts/detail/specifications";
 import { withRequestContext } from "@/lib/logs/request-context";
-import { loadArticleDetail, loadArticleMedia } from "@/lib/parts/article-detail";
+import { getArticleDetail } from "@/lib/acquisition/catalog";
+import { listArticleVehicles } from "@/lib/db/queries/catalog";
 
 /**
- * Detail of one reference, at its own address.
+ * Fiche d'une référence, à son adresse propre.
  *
- * Rendered on the server through `loadArticleDetail`, the same function the API
- * route calls, so a page view costs exactly what a fetch cost before: nothing.
- * The remote half sits behind a permanent compressed cache.
+ * Rendue côté serveur par `getArticleDetail`, la même fonction que la route
+ * API : l'ouverture enrichit la référence une fois, puis ne coûte plus rien.
  *
- * `retour` carries the catalog querystring the visitor came from, so the back
- * link lands on the exact screen they left. Browser back does the same on its
- * own; the link exists for a URL received from someone else.
+ * `retour` porte la querystring du catalogue d'où vient le visiteur, pour que
+ * le lien de retour retombe sur l'écran qu'il a quitté.
  */
 export default async function ArticlePage({
     params,
@@ -30,18 +28,17 @@ export default async function ArticlePage({
     const id = Number(articleId);
     if (!id) notFound();
 
-    const [detail, media] = await withRequestContext("piece", async () =>
-        Promise.all([loadArticleDetail(id), loadArticleMedia(id)])
-    );
-
-    const article = detail?.article;
+    const article = await withRequestContext("piece", () => getArticleDetail(id));
     if (!article) notFound();
+
+    const compatibleCars = await listArticleVehicles(id);
 
     const { retour } = await searchParams;
     const backHref = retour ? `/?${retour}` : "/";
 
-    // L'image principale d'abord, puis la galerie, sans doublon.
-    const images = [...new Set([article.s3image, ...media.map((m) => m.s3image)].filter(Boolean))];
+    const images = [article.imageUrl].filter((url): url is string => Boolean(url));
+    const specs = article.criteria.map((c) => ({ criteriaName: c.name, criteriaValue: c.value }));
+    const productName = article.productName ?? article.articleNo;
 
     return (
         <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -64,15 +61,13 @@ export default async function ArticlePage({
 
             <header className="mb-8 flex flex-col gap-1">
                 <p className="text-sm font-medium text-txt2">{article.supplierName}</p>
-                <h1 className="font-heading text-2xl font-bold text-navy">
-                    {article.articleProductName}
-                </h1>
+                <h1 className="font-heading text-2xl font-bold text-navy">{productName}</h1>
                 <p className="font-mono text-sm text-muted-foreground">{article.articleNo}</p>
             </header>
 
             <div className="grid gap-10 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
                 <div className="lg:sticky lg:top-6">
-                    <ArticleGallery images={images} alt={article.articleProductName} />
+                    <ArticleGallery images={images} alt={productName} />
 
                     <dl className="mt-6 flex flex-col gap-4 rounded-lg border border-stroke p-4">
                         <DetailRow
@@ -80,21 +75,19 @@ export default async function ArticlePage({
                             value={<span className="font-mono">{article.articleNo}</span>}
                         />
                         <DetailRow label="Fournisseur" value={article.supplierName} />
-                        {article.eanNo && (
+                        {article.eanNumber && (
                             <DetailRow
                                 label="Code EAN"
-                                value={<span className="font-mono">{article.eanNo.eanNumbers}</span>}
+                                value={<span className="font-mono">{article.eanNumber}</span>}
                             />
                         )}
                     </dl>
                 </div>
 
-                {/* Les spécifications d'abord : c'est ce qu'on lit au comptoir.
-                    Les références OEM ferment la marche, repliées. */}
+                {/* Les spécifications d'abord : c'est ce qu'on lit au comptoir. */}
                 <div className="flex min-w-0 flex-col gap-8">
-                    <Specifications specs={article.allSpecifications} />
-                    <CompatibleCars cars={article.compatibleCars} />
-                    <OemReferences refs={article.oemNo} />
+                    <Specifications specs={specs} />
+                    <CompatibleCars cars={compatibleCars} />
                 </div>
             </div>
         </main>

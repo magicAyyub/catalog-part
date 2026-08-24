@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useManufacturers } from "@/hooks/vehicle/use-manufacturers";
 import { useModels } from "@/hooks/vehicle/use-models";
 import { useEngineTypes } from "@/hooks/vehicle/use-engine-types";
-import { useSyncVehicle } from "@/hooks/parts/use-sync-vehicle";
 import type { ApiManufacturer, ApiModel, ApiEngineType } from "@/lib/rapidapi/types";
 import { VehiclePlateSearch } from "./vehicle-plate-search";
 import { Button } from "@/components/ui/button";
@@ -20,17 +19,10 @@ import {
 } from "@/components/ui/combobox";
 
 interface VehicleCascadeProps {
-    /** Vrai pendant la traduction d'une plaque, avant qu'un vehicleId existe. */
-    onIdentifyingChange?: (identifying: boolean) => void;
-    /** Appelé dès qu'un vehicleId est sélectionné (avant sync) */
+    /** Appelé dès qu'un vehicleId est sélectionné. */
     onVehicleSelected?: (vehicleId: number) => void;
-    /** Appelé quand la sync SQLite est terminée (status synced ou cached) */
-    onSyncComplete?: (
-        vehicleId: number,
-        details?: { label: string; plate?: string; vin?: string }
-    ) => void;
-    /** Callback d'erreur de synchronisation pour le composant parent */
-    onSyncError?: (error: Error | null) => void;
+    /** Le véhicule est retenu : la section pièces peut charger. */
+    onVehicleConfirmed?: (vehicleId: number, details?: { label: string }) => void;
 }
 
 // ─── Icônes SVG sobres ───────────────────────────────────────────────────────
@@ -51,47 +43,15 @@ function AlertTriangleIcon() {
     );
 }
 
-function CheckIcon() {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="size-4"
-            aria-hidden="true"
-        >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-    );
-}
 
-function SpinnerIcon() {
-    return (
-        <svg
-            className="animate-spin size-4"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-        >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
-    );
-}
 
 export function VehicleCascade({
-    onIdentifyingChange,
     onVehicleSelected,
-    onSyncComplete,
-    onSyncError,
+    onVehicleConfirmed,
 }: VehicleCascadeProps) {
     const [manufacturer, setManufacturer] = useState<ApiManufacturer | null>(null);
     const [model, setModel] = useState<ApiModel | null>(null);
     const [engineType, setEngineType] = useState<ApiEngineType | null>(null);
-    const [showErrorDetails, setShowErrorDetails] = useState(false);
 
     const {
         data: manufacturers,
@@ -102,14 +62,6 @@ export function VehicleCascade({
     } = useManufacturers();
     const { data: models, isLoading: mdLoading } = useModels(manufacturer?.manufacturerId ?? null);
     const { data: engineTypes, isLoading: etLoading } = useEngineTypes(model?.modelId ?? null);
-
-    const {
-        mutate: syncVehicle,
-        isPending: isSyncing,
-        isSuccess: isSynced,
-        error: syncError,
-        reset: resetSync,
-    } = useSyncVehicle();
 
     const uniqueManufacturers = useMemo(() => {
         if (!manufacturers) return [];
@@ -126,29 +78,12 @@ export function VehicleCascade({
         return Array.from(new Map(engineTypes.map((et) => [et.vehicleId, et])).values());
     }, [engineTypes]);
 
-    function triggerSync(selectedEngine: ApiEngineType) {
+    function confirmVehicle(selectedEngine: ApiEngineType) {
         if (!manufacturer || !model) return;
-        onSyncError?.(null);
-        setShowErrorDetails(false);
-
-        syncVehicle(
-            {
-                vehicleId: selectedEngine.vehicleId,
-                manufacturerId: manufacturer.manufacturerId,
-                modelId: model.modelId,
-                engineType: selectedEngine,
-            },
-            {
-                onSuccess: (data) => {
-                    onSyncComplete?.(data.vehicleId, {
-                        label: `${manufacturer.manufacturerName} ${model.modelName} | ${selectedEngine.typeEngineName}`,
-                    });
-                },
-                onError: (err) => {
-                    onSyncError?.(err);
-                },
-            }
-        );
+        onVehicleSelected?.(selectedEngine.vehicleId);
+        onVehicleConfirmed?.(selectedEngine.vehicleId, {
+            label: `${manufacturer.manufacturerName} ${model.modelName} | ${selectedEngine.typeEngineName}`,
+        });
     }
 
     const [showMfErrorDetails, setShowMfErrorDetails] = useState(false);
@@ -188,10 +123,6 @@ export function VehicleCascade({
         );
     }
 
-    const vehicleLabel = engineType
-        ? `${manufacturer?.manufacturerName} ${model?.modelName} | ${engineType.typeEngineName}`
-        : null;
-
     return (
         <div className="rounded-lg bg-banner-navy p-6">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-0">
@@ -200,12 +131,7 @@ export function VehicleCascade({
                     <p className="mb-3.5 font-heading text-base font-semibold text-white">
                         Recherche par plaque d&apos;immatriculation
                     </p>
-                    <VehiclePlateSearch
-                        onIdentifyingChange={onIdentifyingChange}
-                        onVehicleSelected={onVehicleSelected}
-                        onSyncComplete={onSyncComplete}
-                        onSyncError={onSyncError}
-                    />
+                    <VehiclePlateSearch />
                 </div>
 
                 {/* Séparateur "OU" */}
@@ -239,8 +165,6 @@ export function VehicleCascade({
                                     setManufacturer(m);
                                     setModel(null);
                                     setEngineType(null);
-                                    resetSync();
-                                    onSyncError?.(null);
                                 }}
                                 itemToStringValue={(m) => m?.manufacturerName ?? ""}
                                 disabled={mfLoading}
@@ -284,8 +208,6 @@ export function VehicleCascade({
                                 onValueChange={(m) => {
                                     setModel(m);
                                     setEngineType(null);
-                                    resetSync();
-                                    onSyncError?.(null);
                                 }}
                                 itemToStringValue={(m) =>
                                     m
@@ -343,11 +265,7 @@ export function VehicleCascade({
                                 value={engineType}
                                 onValueChange={(et) => {
                                     setEngineType(et);
-                                    resetSync();
-                                    if (et && manufacturer && model) {
-                                        onVehicleSelected?.(et.vehicleId);
-                                        triggerSync(et);
-                                    }
+                                    if (et && manufacturer && model) confirmVehicle(et);
                                 }}
                                 itemToStringValue={(et) => (et ? `${et.typeEngineName} | ${et.powerKw} kW (${et.fuelType})` : "")}
                                 disabled={!model || etLoading}
@@ -392,56 +310,6 @@ export function VehicleCascade({
                 </div>
             </div>
 
-            {/* Bandeau de statut ou d'erreur */}
-            {engineType && (
-                <div className="mt-6 flex flex-col gap-3">
-                    {isSyncing && (
-                        <div className="flex items-center gap-3 rounded-md bg-white/10 px-4 py-3 text-sm">
-                            <SpinnerIcon />
-                            <span className="text-white/80">
-                                Synchronisation du catalogue en cours… (Cette opération peut prendre quelques secondes)
-                            </span>
-                        </div>
-                    )}
-
-                    {isSynced && !isSyncing && (
-                        <div className="flex items-center gap-2 rounded-md bg-white/10 px-4 py-3 text-sm text-white">
-                            <CheckIcon />
-                            <span className="font-medium">{vehicleLabel} prêt</span>
-                        </div>
-                    )}
-
-                    {syncError && !isSyncing && (
-                        <div className="flex flex-col gap-2 rounded-md bg-white/10 p-4 text-sm text-white">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 font-medium">
-                                    <AlertTriangleIcon />
-                                    <span>Erreur lors du chargement des pièces</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => setShowErrorDetails(!showErrorDetails)}
-                                        className="text-xs text-white/70 hover:text-white underline underline-offset-2"
-                                    >
-                                        {showErrorDetails ? "Masquer les détails" : "Afficher les détails"}
-                                    </button>
-                                    <button
-                                        onClick={() => triggerSync(engineType)}
-                                        className="rounded bg-white/10 px-2.5 py-1 text-xs font-semibold hover:bg-white/20 transition-colors"
-                                    >
-                                        Réessayer
-                                    </button>
-                                </div>
-                            </div>
-                            {showErrorDetails && (
-                                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-white/10 p-3 font-mono text-xs text-white/70 leading-relaxed">
-                                    {syncError.message}
-                                </pre>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     );
 }

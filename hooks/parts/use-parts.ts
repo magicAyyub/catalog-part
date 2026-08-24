@@ -31,15 +31,16 @@ async function fetchParts(vehicleId: number, categoryId: number): Promise<PartIt
 }
 
 /**
- * Loads every category at once and lets the panel filter them, so pads and
- * discs can be seen together. Both reads hit SQLite, never the upstream API.
+ * Charge les deux catégories d'un coup et laisse le panneau filtrer, pour voir
+ * plaquettes et disques ensemble. Le premier appel pour un véhicule déclenche
+ * l'acquisition côté serveur, il est donc plus long que les suivants.
  */
-export function useParts(vehicleId: number | null, categoryIds: readonly number[], isSynced: boolean) {
+export function useParts(vehicleId: number | null, categoryIds: readonly number[]) {
     return useQueries({
         queries: categoryIds.map((categoryId) => ({
             queryKey: ["parts", vehicleId, categoryId],
             queryFn: () => fetchParts(vehicleId!, categoryId),
-            enabled: !!vehicleId && isSynced,
+            enabled: !!vehicleId,
             staleTime: 1000 * 60 * 30,
         })),
         // `combine` mémoïse le résultat fusionné, ce qu'un useMemo sur un tableau
@@ -50,6 +51,7 @@ export function useParts(vehicleId: number | null, categoryIds: readonly number[
                 : undefined,
             isLoading: results.some((r) => r.isLoading),
             isError: results.some((r) => r.isError),
+            error: results.find((r) => r.error)?.error ?? null,
         }),
     });
 }

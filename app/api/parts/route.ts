@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { db } from "@/lib/db/client";
-import { articles, suppliers, articleSpecifications } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
-
 import { withRequestContext } from "@/lib/logs/request-context";
+import { rapidApiFailure } from "@/lib/rapidapi/errors";
+import { getVehicleArticles } from "@/lib/acquisition/catalog";
+import { toApiArticle } from "@/lib/api/shapes";
+
+/**
+ * GET /api/parts?vehicleId&categoryId
+ *
+ * Déclenche l'acquisition si le couple n'a jamais été interrogé, ce qui rend la
+ * première requête plus lente et les suivantes gratuites.
+ */
 async function handleGet(request: Request) {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
@@ -20,70 +26,11 @@ async function handleGet(request: Request) {
         );
     }
 
-    const rows = await db
-        .select({
-            articleId: articles.articleId,
-            articleNo: articles.articleNo,
-            articleProductName: articles.articleProductName,
-            productId: articles.productId,
-            supplierId: articles.supplierId,
-            supplierName: suppliers.supplierName,
-            supplierLogoName: suppliers.supplierLogoName,
-            articleMediaType: articles.articleMediaType,
-            articleMediaFileName: articles.articleMediaFileName,
-            s3image: articles.s3image,
-        })
-        .from(articles)
-        .leftJoin(suppliers, eq(articles.supplierId, suppliers.supplierId))
-        .where(
-            and(
-                eq(articles.vehicleId, vehicleId),
-                eq(articles.categoryId, categoryId)
-            )
-        );
-
-    if (rows.length === 0) {
-        return NextResponse.json([]);
+    try {
+        return NextResponse.json((await getVehicleArticles(vehicleId, categoryId)).map(toApiArticle));
+    } catch (error) {
+        return rapidApiFailure(error, { vehicleId, categoryId });
     }
-
-    const articleIds = rows.map((r) => r.articleId);
-    const specs = await db
-        .select({
-            articleId: articleSpecifications.articleId,
-            criteriaName: articleSpecifications.criteriaName,
-            criteriaValue: articleSpecifications.criteriaValue,
-        })
-        .from(articleSpecifications)
-        .where(inArray(articleSpecifications.articleId, articleIds));
-
-    // Grouper et dédoublonner les specs par articleId
-    const specsMap = new Map<number, Map<string, string>>();
-    for (const s of specs) {
-        let articleSpecs = specsMap.get(s.articleId);
-        if (!articleSpecs) {
-            articleSpecs = new Map<string, string>();
-            specsMap.set(s.articleId, articleSpecs);
-        }
-        if (!articleSpecs.has(s.criteriaName)) {
-            articleSpecs.set(s.criteriaName, s.criteriaValue);
-        }
-    }
-
-    const result = rows.map((r) => {
-        const articleSpecsMap = specsMap.get(r.articleId);
-        const specList: { criteriaName: string; criteriaValue: string }[] = [];
-        if (articleSpecsMap) {
-            for (const [criteriaName, criteriaValue] of articleSpecsMap.entries()) {
-                specList.push({ criteriaName, criteriaValue });
-            }
-        }
-        return {
-            ...r,
-            specs: specList,
-        };
-    });
-
-    return NextResponse.json(result);
 }
 
 export async function GET(request: Request) {

@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { ApiCompatibleCar } from "@/lib/rapidapi/types";
+/** Un véhicule appris par la cascade ou par les compatibilités d'un article. */
+interface CompatibleCar {
+    vehicleId: number;
+    manufacturerName: string;
+    modelName: string;
+    typeEngineName: string;
+    constructionIntervalStart: string | null;
+    constructionIntervalEnd: string | null;
+}
 
 /** TecDoc gives `YYYY-MM`; the catalog reads dates as MM/YYYY. */
 function formatDate(dateStr: string): string {
@@ -26,12 +34,12 @@ function Chevron({ open, className }: { open: boolean; className?: string }) {
     );
 }
 
-export function CompatibleCars({ cars }: { cars: ApiCompatibleCar[] }) {
+export function CompatibleCars({ cars }: { cars: CompatibleCar[] }) {
     const [openManufacturers, setOpenManufacturers] = useState<Set<string>>(new Set());
     const [openModels, setOpenModels] = useState<Set<string>>(new Set());
 
     const grouped = useMemo(() => {
-        const groups: Record<string, Record<string, ApiCompatibleCar[]>> = {};
+        const groups: Record<string, Record<string, CompatibleCar[]>> = {};
         for (const car of cars) {
             groups[car.manufacturerName] ??= {};
             groups[car.manufacturerName][car.modelName] ??= [];
@@ -116,7 +124,7 @@ export function CompatibleCars({ cars }: { cars: ApiCompatibleCar[] }) {
                                                                         {car.typeEngineName}
                                                                     </span>
                                                                     <span className="text-[10px] leading-none text-muted-foreground">
-                                                                        {formatDate(car.constructionIntervalStart)} -{" "}
+                                                                        {car.constructionIntervalStart ? formatDate(car.constructionIntervalStart) : "?"} -{" "}
                                                                         {car.constructionIntervalEnd
                                                                             ? formatDate(car.constructionIntervalEnd)
                                                                             : "aujourd'hui"}

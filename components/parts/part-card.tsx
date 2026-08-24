@@ -4,7 +4,25 @@ import Link from "next/link";
 
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PartItem } from "@/hooks/parts/use-parts";
+import type { PartItem, PartSpec } from "@/hooks/parts/use-parts";
+
+/**
+ * Regroupe les caractéristiques par libellé.
+ *
+ * TecDoc répète le même libellé pour un critère multivalué, comme les
+ * références d'accessoires recommandés. Les laisser à plat noie les dimensions,
+ * qui sont ce qu'on lit au comptoir.
+ */
+function groupSpecs(specs: PartSpec[]): [string, string[]][] {
+    const grouped = new Map<string, string[]>();
+    for (const spec of specs) {
+        grouped.set(spec.criteriaName, [
+            ...(grouped.get(spec.criteriaName) ?? []),
+            spec.criteriaValue,
+        ]);
+    }
+    return [...grouped.entries()];
+}
 
 interface PartCardProps {
     part: PartItem;
@@ -67,17 +85,39 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                         <div className="mb-2 flex items-center gap-3 font-heading text-sm font-semibold text-navy after:h-px after:flex-1 after:bg-stroke after:content-['']">
                             Caractéristiques
                         </div>
-                        <dl className="flex flex-col">
-                            {part.specs.map((s, idx) => (
-                                <div
-                                    key={`${s.criteriaName}-${s.criteriaValue}-${idx}`}
-                                    className="flex items-baseline justify-between gap-3 border-b border-stroke/60 py-1.5 text-sm"
-                                >
-                                    <dt className="font-bold text-navy">{s.criteriaName}</dt>
-                                    <dd className="text-right text-txt2">{s.criteriaValue}</dd>
-                                </div>
-                            ))}
-                        </dl>
+                        <div className="flex flex-col">
+                            {groupSpecs(part.specs).map(([name, values]) =>
+                                values.length === 1 ? (
+                                    <div
+                                        key={name}
+                                        className="flex items-baseline justify-between gap-3 border-b border-stroke/60 py-1.5 text-sm"
+                                    >
+                                        <span className="font-bold text-navy">{name}</span>
+                                        <span className="text-right text-txt2">{values[0]}</span>
+                                    </div>
+                                ) : (
+                                    <details
+                                        key={name}
+                                        className="group border-b border-stroke/60 text-sm"
+                                    >
+                                        <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-1.5 marker:content-none">
+                                            <span className="font-bold text-navy">{name}</span>
+                                            <span className="text-right text-txt2">
+                                                {values.length} valeurs
+                                                <span className="ml-1.5 inline-block transition-transform group-open:rotate-90">
+                                                    ›
+                                                </span>
+                                            </span>
+                                        </summary>
+                                        <ul className="mb-1.5 flex flex-col gap-0.5 pl-3 text-right text-txt2">
+                                            {values.map((value, idx) => (
+                                                <li key={`${value}-${idx}`}>{value}</li>
+                                            ))}
+                                        </ul>
+                                    </details>
+                                )
+                            )}
+                        </div>
                     </>
                 )}
             </div>

@@ -1,308 +1,174 @@
 import { sqliteTable, text, integer, real, primaryKey, index } from "drizzle-orm/sqlite-core";
 
-/**
- * Un véhicule sélectionné/synchronisé (issu de Engine_Types_by_Model).
- * On le cache pour ne pas rappeler la cascade marque/modèle/moteur à chaque affichage.
- */
-export const vehicles = sqliteTable("vehicles", {
-    vehicleId: integer("vehicle_id").primaryKey(),
-    manufacturerId: integer("manufacturer_id").notNull(),
-    manufacturerName: text("manufacturer_name").notNull(),
-    modelId: integer("model_id").notNull(),
-    modelName: text("model_name").notNull(),
-    typeEngineName: text("type_engine_name").notNull(),
-    powerKw: real("power_kw"),
-    powerPs: real("power_ps"),
-    fuelType: text("fuel_type"),
-    bodyType: text("body_type"),
-    constructionIntervalStart: text("construction_interval_start"),
-    constructionIntervalEnd: text("construction_interval_end"),
-    syncedAt: integer("synced_at", { mode: "timestamp" }),
+/** Constructeur automobile. Premier niveau de la cascade. */
+export const manufacturers = sqliteTable("manufacturers", {
+    manufacturerId: integer("manufacturer_id").primaryKey(),
+    name: text("name").notNull(),
 });
 
-/**
- * Catégories qu'on gère (en dur, pas besoin de synchroniser l'arbre complet TecDoc).
- * 100030 = Plaquettes de frein, 100032 = Disques de frein.
- */
-export const categories = sqliteTable("categories", {
-    categoryId: integer("category_id").primaryKey(),
-    labelFr: text("label_fr").notNull(),
-    labelEn: text("label_en"),
-});
-
-/**
- * Fournisseurs (référentiel global, indépendant du véhicule).
- * Alimenté une seule fois via List_All_Suppliers.
- */
-export const suppliers = sqliteTable("suppliers", {
-    supplierId: integer("supplier_id").primaryKey(),
-    supplierName: text("supplier_name").notNull(),
-    supplierMatchCode: text("supplier_match_code"),
-    supplierLogoName: text("supplier_logo_name"),
-    s3image: text("s3image"),
-});
-
-/**
- * Un article tel qu'il apparaît dans Article_List_by_Vehicle_ID__Category_ID
- * pour un véhicule + une catégorie donnés.
- * Clé composite car le même articleId peut apparaître pour plusieurs vehicleId/categoryId.
- */
-export const articles = sqliteTable(
-    "articles",
+/** Modèle d'un constructeur, avec sa période de commercialisation. */
+export const models = sqliteTable(
+    "models",
     {
-        articleId: integer("article_id").notNull(),
-        vehicleId: integer("vehicle_id")
+        modelId: integer("model_id").primaryKey(),
+        manufacturerId: integer("manufacturer_id")
             .notNull()
-            .references(() => vehicles.vehicleId),
-        categoryId: integer("category_id")
-            .notNull()
-            .references(() => categories.categoryId),
-        articleNo: text("article_no").notNull(),
-        articleProductName: text("article_product_name").notNull(),
-        productId: integer("product_id"),
-        supplierId: integer("supplier_id")
-            .notNull()
-            .references(() => suppliers.supplierId),
-        articleMediaType: text("article_media_type"),
-        articleMediaFileName: text("article_media_file_name"),
-        s3image: text("s3image"),
+            .references(() => manufacturers.manufacturerId),
+        name: text("name").notNull(),
+        yearFrom: text("year_from"),
+        yearTo: text("year_to"),
     },
-    (table) => ({
-        pk: primaryKey({ columns: [table.articleId, table.vehicleId, table.categoryId] }),
+    (t) => ({
+        byManufacturer: index("models_manufacturer_idx").on(t.manufacturerId),
     })
 );
 
 /**
- * Specs détaillées d'un article (allSpecifications d'Article_Details).
- * Rempli en lazy-load (cache-on-read) quand on ouvre une fiche produit,
- * pas préchargé pour tous les articles.
- */
-export const articleSpecifications = sqliteTable("article_specifications", {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    articleId: integer("article_id").notNull(),
-    criteriaName: text("criteria_name").notNull(),
-    criteriaValue: text("criteria_value").notNull(),
-});
-
-export const apiCache = sqliteTable("api_cache", {
-    key: text("key").primaryKey(),
-    valueJson: text("value_json").notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
-
-// Braking catalog: four natures of data, deliberately kept apart.
-//
-// Les tables ci-dessus (articles, article_specifications) mélangeaient trois
-// choses de durées de vie très différentes dans une même
-// ligne : le référentiel technique, l'applicabilité véhicule, et le prix. Elles
-// stockaient aussi une référence BOSCH autant de fois qu'elle équipe de
-// véhicules, ce qui interdit de partager ses caractéristiques.
-//
-//   REFERENCE      immutable      one row per reference, never duplicated
-//   APPLICABILITY  semi-stable    which reference fits which vehicle
-//
-// Intended consequence: adding a supplier later only requires indexing its
-// articles, not rescanning the fleet.
-
-/** REFERENCE: a TecDoc supplier (BOSCH, TRW, ETF and so on). */
-export const tdSupplier = sqliteTable("td_supplier", {
-    supplierId: integer("supplier_id").primaryKey(),
-    supplierName: text("supplier_name").notNull(),
-});
-
-/**
- * REFERENCE: one article, stored ONCE.
+ * Motorisation identifiée par son K-Type, pivot de toute l'application.
  *
- * `articleNoKey` is the normalized reference (uppercase, no separators, no
- * warehouse suffix). It is the join key with wholesaler offers, which know
- * nothing of TecDoc article ids.
+ * `modelId` n'est volontairement pas une clé étrangère : les véhicules
+ * compatibles d'un article arrivent avec leur modèle mais sans le constructeur,
+ * donc on apprend des véhicules dont le modèle n'est pas encore en base.
  */
-export const tdArticle = sqliteTable(
-    "td_article",
-    {
-        articleId: integer("article_id").primaryKey(),
-        articleNo: text("article_no").notNull(),
-        articleNoKey: text("article_no_key").notNull(),
-        supplierId: integer("supplier_id")
-            .notNull()
-            .references(() => tdSupplier.supplierId),
-        brandKey: text("brand_key").notNull(),
-        /** TecDoc generic article, which determines the set of criteria. */
-        productId: integer("product_id"),
-        productName: text("product_name"),
-        imageUrl: text("image_url"),
-        /** Set once the complete record has been fetched. */
-        detailsFetchedAt: integer("details_fetched_at", { mode: "timestamp" }),
-    },
-    (t) => ({
-        byKey: index("td_article_key_idx").on(t.brandKey, t.articleNoKey),
-        bySupplier: index("td_article_supplier_idx").on(t.supplierId),
-    })
-);
-
-/** REFERENCE: technical criteria of an article, 40 distinct names observed. */
-export const tdCriteria = sqliteTable(
-    "td_criteria",
-    {
-        articleId: integer("article_id")
-            .notNull()
-            .references(() => tdArticle.articleId),
-        criteriaName: text("criteria_name").notNull(),
-        criteriaValue: text("criteria_value").notNull(),
-    },
-    (t) => ({
-        pk: primaryKey({ columns: [t.articleId, t.criteriaName, t.criteriaValue] }),
-        byArticle: index("td_criteria_article_idx").on(t.articleId),
-        // Sert d'index inversé pour les facettes quand le filtrage passera côté serveur.
-        byValue: index("td_criteria_value_idx").on(t.criteriaName, t.criteriaValue),
-    })
-);
-
-/** REFERENCE: manufacturer references, source of "oem" equivalence edges. */
-export const tdOem = sqliteTable(
-    "td_oem",
-    {
-        articleId: integer("article_id")
-            .notNull()
-            .references(() => tdArticle.articleId),
-        oemBrand: text("oem_brand").notNull(),
-        oemNo: text("oem_no").notNull(),
-        oemNoKey: text("oem_no_key").notNull(),
-    },
-    (t) => ({
-        pk: primaryKey({ columns: [t.articleId, t.oemBrand, t.oemNoKey] }),
-        byKey: index("td_oem_key_idx").on(t.oemNoKey),
-    })
-);
-
-/** REFERENCE: WVA numbers, source of "wva" equivalence edges. */
-export const tdWva = sqliteTable(
-    "td_wva",
-    {
-        articleId: integer("article_id")
-            .notNull()
-            .references(() => tdArticle.articleId),
-        wva: text("wva").notNull(),
-    },
-    (t) => ({
-        pk: primaryKey({ columns: [t.articleId, t.wva] }),
-        byWva: index("td_wva_idx").on(t.wva),
-    })
-);
-
-/** APPLICABILITY: a vehicle, identified by its TecDoc K-Type. */
-export const tdVehicle = sqliteTable(
-    "td_vehicle",
+export const vehicles = sqliteTable(
+    "vehicles",
     {
         vehicleId: integer("vehicle_id").primaryKey(),
-        manufacturerId: integer("manufacturer_id"),
-        manufacturerName: text("manufacturer_name").notNull(),
         modelId: integer("model_id"),
+        manufacturerName: text("manufacturer_name").notNull(),
         modelName: text("model_name").notNull(),
         typeEngineName: text("type_engine_name").notNull(),
+        engineCodes: text("engine_codes"),
+        engineId: integer("engine_id"),
         powerKw: real("power_kw"),
         powerPs: real("power_ps"),
         fuelType: text("fuel_type"),
         bodyType: text("body_type"),
-        engineCodes: text("engine_codes"),
-        /** Production bounds, for model-year applicability queries. */
-        ctorStart: text("ctor_start"),
-        ctorEnd: text("ctor_end"),
+        numberOfCylinders: integer("number_of_cylinders"),
+        capacityLt: real("capacity_lt"),
+        capacityTech: real("capacity_tech"),
+        constructionIntervalStart: text("construction_interval_start"),
+        constructionIntervalEnd: text("construction_interval_end"),
     },
     (t) => ({
-        byModel: index("td_vehicle_model_idx").on(t.modelId),
-        byInterval: index("td_vehicle_interval_idx").on(t.ctorStart, t.ctorEnd),
+        byModel: index("vehicles_model_idx").on(t.modelId),
+        byEngineCodes: index("vehicles_engine_codes_idx").on(t.engineCodes),
+    })
+);
+
+/** Équipementier. Le catalogue se limite à ceux listés dans ALLOWED_SUPPLIER_IDS. */
+export const suppliers = sqliteTable("suppliers", {
+    supplierId: integer("supplier_id").primaryKey(),
+    name: text("name").notNull(),
+});
+
+/** Une référence, stockée une seule fois quel que soit le nombre de véhicules qu'elle équipe. */
+export const articles = sqliteTable(
+    "articles",
+    {
+        articleId: integer("article_id").primaryKey(),
+        articleNo: text("article_no").notNull(),
+        supplierId: integer("supplier_id")
+            .notNull()
+            .references(() => suppliers.supplierId),
+        productId: integer("product_id"), // Article générique TecDoc, il détermine les critères attendus.
+        productName: text("product_name"),
+        eanNumber: text("ean_number"),
+        mediaType: text("media_type"),
+        mediaFileName: text("media_file_name"),
+        imageUrl: text("image_url"),
+        detailsFetchedAt: integer("details_fetched_at", { mode: "timestamp" }), // Posé une fois la fiche complète récupérée, avec ses critères et ses compatibilités.
+    },
+    (t) => ({
+        bySupplier: index("articles_supplier_idx").on(t.supplierId),
+        byArticleNo: index("articles_article_no_idx").on(t.articleNo),
     })
 );
 
 /**
- * APPLICABILITY: which reference fits which vehicle, in which category.
+ * Compatibilité entre une référence et un véhicule, pour une catégorie.
  *
- * The many-to-many table replacing per-vehicle article duplication. It carries
- * the observed `productId`, because one article can belong to different generic
- * articles depending on the category.
+ * Elle s'acquiert dans les deux sens : par véhicule via la liste d'articles, ou
+ * par article via ses véhicules compatibles. Le second sens rend une centaine de
+ * véhicules par appel, il est bien moins coûteux.
  */
-export const tdFitment = sqliteTable(
-    "td_fitment",
+export const fitments = sqliteTable(
+    "fitments",
     {
         vehicleId: integer("vehicle_id")
             .notNull()
-            .references(() => tdVehicle.vehicleId),
+            .references(() => vehicles.vehicleId),
         articleId: integer("article_id")
             .notNull()
-            .references(() => tdArticle.articleId),
+            .references(() => articles.articleId),
         categoryId: integer("category_id").notNull(),
-        productId: integer("product_id"),
     },
     (t) => ({
         pk: primaryKey({ columns: [t.vehicleId, t.articleId, t.categoryId] }),
-        // Accès principal de l'application : les pièces d'un véhicule pour un onglet.
-        byVehicleCategory: index("td_fitment_vehicle_cat_idx").on(t.vehicleId, t.categoryId),
-        byArticle: index("td_fitment_article_idx").on(t.articleId),
+        byVehicleCategory: index("fitments_vehicle_category_idx").on(t.vehicleId, t.categoryId),
+        byArticle: index("fitments_article_idx").on(t.articleId),
     })
 );
 
-/**
- * TRACKING: one row per indexed (vehicle, category) pair.
- *
- * Makes indexing resumable and, above all, auditable: this table feeds the
- * coverage report and tells what the catalog actually cost in billed calls.
- */
-export const indexJob = sqliteTable(
-    "index_job",
+/** Critère technique d'une référence. `type` sépare un critère filtrant d'un critère informatif. */
+export const articleCriteria = sqliteTable(
+    "article_criteria",
     {
-        vehicleId: integer("vehicle_id").notNull(),
+        articleId: integer("article_id")
+            .notNull()
+            .references(() => articles.articleId),
+        name: text("name").notNull(),
+        value: text("value").notNull(),
+        type: text("type"),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.articleId, t.name, t.value] }),
+        byNameValue: index("article_criteria_name_value_idx").on(t.name, t.value),
+    })
+);
+
+/** Trace qu'un couple véhicule/catégorie a été interrogé, pour distinguer « aucune pièce » de « pas encore cherché ». */
+export const catalogSync = sqliteTable(
+    "catalog_sync",
+    {
+        vehicleId: integer("vehicle_id")
+            .notNull()
+            .references(() => vehicles.vehicleId),
         categoryId: integer("category_id").notNull(),
-        /** 'ok' | 'empty' | 'error' */
-        status: text("status").notNull(),
-        articlesFound: integer("articles_found").notNull().default(0),
-        articlesKept: integer("articles_kept").notNull().default(0),
-        criteriaRows: integer("criteria_rows").notNull().default(0),
-        apiCalls: integer("api_calls").notNull().default(0),
-        durationMs: integer("duration_ms"),
-        error: text("error"),
-        indexedAt: integer("indexed_at", { mode: "timestamp" }).notNull(),
+        articleCount: integer("article_count").notNull().default(0),
+        syncedAt: integer("synced_at", { mode: "timestamp" }).notNull(),
     },
     (t) => ({
         pk: primaryKey({ columns: [t.vehicleId, t.categoryId] }),
-        byStatus: index("index_job_status_idx").on(t.status),
     })
 );
 
 /**
- * ACCESS: an account allowed to open the catalog.
+ * Compte autorisé à ouvrir le catalogue.
  *
- * Franchisees get one account each, so revoking one leaves the others alone.
- * `passwordHash` carries its own scrypt parameters, which lets the cost be
- * raised later without invalidating existing hashes.
+ * Un compte par franchisé, pour qu'une révocation n'atteigne que lui.
+ * `passwordHash` embarque ses propres paramètres scrypt, ce qui permet de
+ * relever le coût plus tard sans invalider les hachages existants.
  */
 export const users = sqliteTable("users", {
     id: text("id").primaryKey(),
-    /** Lowercased at write time; the login form is case-insensitive. */
-    username: text("username").notNull().unique(),
+    username: text("username").notNull().unique(), // Mis en minuscules à l'écriture, le formulaire est insensible à la casse.
     passwordHash: text("password_hash").notNull(),
     displayName: text("display_name"),
-    /** Franchise label, informational for now. */
-    franchise: text("franchise"),
-    /** 'user' | 'admin' */
-    role: text("role").notNull().default("user"),
-    /** Set to revoke access without losing the audit trail. */
-    disabledAt: integer("disabled_at", { mode: "timestamp" }),
-    /** Consecutive failed sign-ins, reset on success. */
+    franchise: text("franchise"), 
+    role: text("role").notNull().default("user"), // 'user' ou 'admin' 
+    disabledAt: integer("disabled_at", { mode: "timestamp" }), // Renseigné pour révoquer l'accès sans perdre la trace du compte.
     failedAttempts: integer("failed_attempts").notNull().default(0),
-    /** Sign-in refused until this instant, regardless of the password. */
-    lockedUntil: integer("locked_until", { mode: "timestamp" }),
+    lockedUntil: integer("locked_until", { mode: "timestamp" }), // Connexion refusée jusqu'à cet instant, quel que soit le mot de passe.
     lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
 /**
- * ACCESS: an open session, one row per sign-in.
+ * Session ouverte, une ligne par connexion.
  *
- * `id` is the SHA-256 of the token held in the cookie, never the token itself,
- * so a dump of this table cannot be replayed as a cookie. Existence here is what
- * makes logout and revocation immediate; the cookie signature alone only proves
- * the token was issued by us.
+ * `id` est le SHA-256 du jeton porté par le cookie, jamais le jeton lui-même :
+ * un vol de cette table ne permet pas de rejouer un cookie.
  */
 export const sessions = sqliteTable(
     "sessions",
@@ -320,3 +186,14 @@ export const sessions = sqliteTable(
         byExpiry: index("sessions_expires_idx").on(t.expiresAt),
     })
 );
+
+/** Dernier véhicule consulté par un utilisateur, pour le resélectionner après expiration du cache client. */
+export const vehicleSelections = sqliteTable("vehicle_selections", {
+    userId: text("user_id")
+        .primaryKey()
+        .references(() => users.id, { onDelete: "cascade" }),
+    vehicleId: integer("vehicle_id")
+        .notNull()
+        .references(() => vehicles.vehicleId),
+    selectedAt: integer("selected_at", { mode: "timestamp" }).notNull(),
+});

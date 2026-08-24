@@ -45,19 +45,10 @@ function parseCriteria(values: string[]): Record<string, Set<string>> {
 
 interface PartsSectionProps {
     vehicleId: number;
-    isSyncing: boolean;
-    isSynced: boolean;
     vehicleLabel?: string;
-    syncError?: Error | null;
 }
 
-export function PartsSection({
-    vehicleId,
-    isSyncing,
-    isSynced,
-    vehicleLabel,
-    syncError,
-}: PartsSectionProps) {
+export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -82,7 +73,7 @@ export function PartsSection({
     const currentPage = Math.max(Number(searchParams.get(PARAM.page)) || 1, 1);
     const pageSize = Number(searchParams.get(PARAM.pageSize)) || DEFAULT_PAGE_SIZE;
 
-    const { data: parts, isLoading, isError } = useParts(vehicleId, CATEGORY_IDS, isSynced);
+    const { data: parts, isLoading, isError, error } = useParts(vehicleId, CATEGORY_IDS);
 
     /**
      * Replaces rather than pushes: a history entry per filter click would bury
@@ -199,7 +190,7 @@ export function PartsSection({
 
     const [showErrorDetails, setShowErrorDetails] = useState(false);
 
-    if (syncError) {
+    if (error) {
         return (
             <Empty className="my-6 border-destructive/15 bg-destructive/5 text-destructive-foreground p-10">
                 <EmptyMedia variant="icon" className="bg-destructive/10 text-destructive">
@@ -230,7 +221,7 @@ export function PartsSection({
                     </button>
                     {showErrorDetails && (
                         <pre className="mt-4 max-w-xl w-full overflow-x-auto text-left whitespace-pre-wrap rounded bg-muted/60 border border-border/40 p-3 font-mono text-xs text-muted-foreground leading-relaxed">
-                            {syncError.message}
+                            {error.message}
                         </pre>
                     )}
                 </div>
@@ -272,7 +263,6 @@ export function PartsSection({
                     <PartsGrid
                         parts={filteredParts}
                         isLoading={isLoading}
-                        isSyncing={isSyncing}
                         isError={isError}
                         categoryLabel={selectionLabel}
                         currentPage={currentPage}

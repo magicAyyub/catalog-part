@@ -1,45 +1,30 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { logger } from "@/lib/logger";
 import { withRequestContext } from "@/lib/logs/request-context";
-import { loadArticleDetail } from "@/lib/parts/article-detail";
+import { rapidApiFailure } from "@/lib/rapidapi/errors";
+import { getArticleDetail } from "@/lib/acquisition/catalog";
+import { toApiArticleDetail } from "@/lib/api/shapes";
 
-/**
- * GET /api/parts/[articleId]
- *
- * Thin wrapper over `loadArticleDetail`, which the detail page renders from as
- * well. Both go through the same permanent caches, so a page view and a fetch
- * cost the same: nothing.
- */
-async function handleGet(_request: Request, { params }: { params: Promise<{ articleId: string }> }) {
+async function handleGet(context: { params: Promise<{ articleId: string }> }) {
     const auth = await requireUser();
     if (auth instanceof NextResponse) return auth;
 
-    const { articleId } = await params;
-    const id = Number(articleId);
-
-    if (!id) {
+    const articleId = Number((await context.params).articleId);
+    if (!articleId) {
         return NextResponse.json({ error: "articleId invalide" }, { status: 400 });
     }
 
     try {
-        const detail = await loadArticleDetail(id);
+        const detail = await getArticleDetail(articleId);
         if (!detail) {
             return NextResponse.json({ error: "Article introuvable." }, { status: 404 });
         }
-        return NextResponse.json(detail);
+        return NextResponse.json(toApiArticleDetail(detail));
     } catch (error) {
-        logger.warn("Article detail lookup error", { action: "article-detail", articleId: id, error });
-        return NextResponse.json(
-            { error: "Impossible de charger les détails de l'article." },
-            { status: 500 }
-        );
+        return rapidApiFailure(error, { articleId });
     }
 }
 
-export async function GET(
-    request: Request,
-    context: { params: Promise<{ articleId: string }> }
-) {
-    return withRequestContext("parts/detail", () => handleGet(request, context));
+export async function GET(_request: Request, context: { params: Promise<{ articleId: string }> }) {
+    return withRequestContext("parts/detail", () => handleGet(context));
 }
