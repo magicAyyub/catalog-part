@@ -1,11 +1,15 @@
 /**
- * The account management door. Same mechanism as the trace, different secret.
+ * La porte d'administration, unique pour la trace et pour les comptes.
  *
- * Creating an account hands out a credential to the catalog, so this asks for
- * `ADMIN_PASSWORD` on top of being signed in. Unset, the page stays closed to
- * everyone, which is the safe default.
+ * Être connecté comme franchisé ne suffit pas : la trace montre des plaques et
+ * des appels facturés, la gestion des comptes distribue des identifiants. Les
+ * deux demandent `ADMIN_PASSWORD`, tenu hors de la table des comptes pour que
+ * l'accès ne dépende jamais d'un indicateur de rôle posé par mégarde.
  *
- * Server only.
+ * Un seul secret et un seul cookie : ouvrir une page ouvre l'autre. Sans la
+ * variable, tout reste fermé, ce qui est le défaut sûr.
+ *
+ * Serveur uniquement.
  */
 
 import { createGate } from "@/lib/auth/gate";

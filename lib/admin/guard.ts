@@ -1,8 +1,9 @@
 /**
- * Both doors in one call, for every account management route.
+ * Les deux portes en un appel, pour toute route d'administration.
  *
- * A signed-in franchisee is not enough; the unlock cookie is checked on the API
- * as well as on the page, so a request forged by hand meets the same gate.
+ * Être connecté ne suffit pas : le cookie d'ouverture est vérifié sur l'API
+ * comme sur la page, pour qu'une requête forgée à la main rencontre la même
+ * porte.
  */
 
 import { NextResponse } from "next/server";
@@ -15,7 +16,7 @@ export async function requireAdminAccess(): Promise<CurrentUser | NextResponse> 
     if (auth instanceof NextResponse) return auth;
 
     if (!(await adminUnlocked())) {
-        return NextResponse.json({ error: "Gestion des comptes verrouillée." }, { status: 403 });
+        return NextResponse.json({ error: "Administration verrouillée." }, { status: 403 });
     }
 
     return auth;

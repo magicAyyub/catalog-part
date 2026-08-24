@@ -4,7 +4,7 @@ import { withRequestContext } from "@/lib/logs/request-context";
 import { formatDisplayPlate, normalizePlate } from "@/lib/vehicle/plate-resolver";
 import { friendlyPlateError, PlateLookupError } from "@/lib/plate/errors";
 import { identifyPlate } from "@/lib/plate/identify";
-import { getVehicleForPlate } from "@/lib/acquisition/plate";
+import { getVehicleForPlate, suggestCascadeFromPlate } from "@/lib/acquisition/plate";
 import { toApiEngineType } from "@/lib/api/shapes";
 import { logger } from "@/lib/logger";
 
@@ -20,8 +20,12 @@ import { logger } from "@/lib/logger";
  * catégorie, qui sert à la fois de preuve et de première page de résultats :
  * le client enchaîne ensuite sur `GET /api/parts`, qui la trouve déjà en base.
  *
- * Un 404 signifie que TecDoc ne connaît pas cet identifiant, et renvoie donc
- * vers la cascade plutôt que d'afficher un véhicule sans pièce.
+ * Trois issues, dont deux sont des succès :
+ *
+ *   status "vehicle"     le véhicule, la cascade est court-circuitée
+ *   status "suggestion"  TecDoc ignore le K-Type, mais les libellés placent
+ *                        la cascade sur la bonne marque et le bon modèle
+ *   404                  Exadis lui-même ne connaît pas la plaque
  */
 async function handlePost(request: Request) {
     const auth = await requireUser();
@@ -45,35 +49,48 @@ async function handlePost(request: Request) {
         const identified = await identifyPlate(clean);
         const vehicle = await getVehicleForPlate(identified);
 
-        if (!vehicle) {
-            logger.warn("Plate identified but unknown to TecDoc", {
+        if (vehicle) {
+            logger.info("Plate lookup completed", {
+                action: "by-plate",
+                plate: clean,
+                vehicleId: vehicle.vehicleId,
+                durationMs: Date.now() - startTime,
+            });
+            return NextResponse.json({
+                status: "vehicle",
+                plate: formatDisplayPlate(clean),
+                vehicle: toApiEngineType(vehicle),
+            });
+        }
+
+        const suggestion = await suggestCascadeFromPlate(identified);
+
+        if (suggestion) {
+            logger.info("Plate resolved to a cascade suggestion", {
                 action: "by-plate",
                 plate: clean,
                 kType: identified.kType,
                 durationMs: Date.now() - startTime,
             });
-            const named = [identified.brand, identified.model].filter(Boolean).join(" ");
-            return NextResponse.json(
-                {
-                    error: named
-                        ? `Véhicule identifié (${named}) mais introuvable au catalogue : passez par la sélection marque / modèle / motorisation.`
-                        : "Véhicule introuvable au catalogue : passez par la sélection marque / modèle / motorisation.",
-                },
-                { status: 404 }
-            );
+            return NextResponse.json({
+                status: "suggestion",
+                plate: formatDisplayPlate(clean),
+                ...suggestion,
+            });
         }
 
-        logger.info("Plate lookup completed", {
+        logger.warn("Plate identified but nothing could be placed", {
             action: "by-plate",
             plate: clean,
-            vehicleId: vehicle.vehicleId,
+            kType: identified.kType,
             durationMs: Date.now() - startTime,
         });
-
-        return NextResponse.json({
-            plate: formatDisplayPlate(clean),
-            ...toApiEngineType(vehicle),
-        });
+        return NextResponse.json(
+            {
+                error: "Véhicule identifié mais introuvable au catalogue : passez par la sélection marque / modèle / motorisation.",
+            },
+            { status: 404 }
+        );
     } catch (error) {
         const status = error instanceof PlateLookupError ? error.status : 502;
         logger.warn("Plate lookup failed", {

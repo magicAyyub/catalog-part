@@ -8,7 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
-export function UnlockForm() {
+interface UnlockFormProps {
+    /** Titre de la page derrière la porte, pour savoir où l'on frappe. */
+    title: string;
+    submitLabel: string;
+}
+
+/**
+ * La porte d'administration, une seule pour la trace et pour les comptes.
+ *
+ * Le mot de passe est le même partout, `ADMIN_PASSWORD` dans `.env` : l'ouvrir
+ * une fois ouvre les deux pages, et le cookie posé vaut pour les deux.
+ */
+export function UnlockForm({ title, submitLabel }: UnlockFormProps) {
     const router = useRouter();
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -47,7 +59,7 @@ export function UnlockForm() {
                 <span className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-muted text-txt2">
                     <Lock className="size-5" />
                 </span>
-                <h1 className="font-heading text-2xl font-bold text-ink">Comptes franchisés</h1>
+                <h1 className="font-heading text-2xl font-bold text-ink">{title}</h1>
             </div>
 
             <form
@@ -77,7 +89,7 @@ export function UnlockForm() {
 
                 <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
                     {isSubmitting ? <Spinner /> : null}
-                    {isSubmitting ? "Ouverture…" : "Ouvrir la gestion des comptes"}
+                    {isSubmitting ? "Ouverture…" : submitLabel}
                 </Button>
             </form>
         </div>

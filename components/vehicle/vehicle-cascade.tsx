@@ -1,18 +1,24 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useManufacturers } from "@/hooks/vehicle/use-manufacturers";
 import { useModels } from "@/hooks/vehicle/use-models";
 import { useEngineTypes } from "@/hooks/vehicle/use-engine-types";
 import type { ApiManufacturer, ApiModel, ApiEngineType } from "@/lib/rapidapi/types";
 import { VehiclePlateSearch } from "./vehicle-plate-search";
+import { CascadeGuide } from "./cascade-guide";
+import type { PlateSuggestionResult } from "@/hooks/vehicle/use-plate-lookup";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
     Combobox,
     ComboboxContent,
     ComboboxEmpty,
     ComboboxInput,
+    ComboboxCollection,
+    ComboboxGroup,
     ComboboxItem,
+    ComboboxLabel,
     ComboboxList,
     ComboboxTrigger,
     ComboboxValue,
@@ -45,13 +51,25 @@ function AlertTriangleIcon() {
 
 
 
+const GUIDE_SEEN_KEY = "cascade_guide_seen";
+
+/** Le guide revient chaque jour : une fois suffit à l'apprendre, pas à le retenir. */
+function today(): string {
+    return new Date().toISOString().slice(0, 10);
+}
+
 export function VehicleCascade({
     onVehicleSelected,
     onVehicleConfirmed,
 }: VehicleCascadeProps) {
-    const [manufacturer, setManufacturer] = useState<ApiManufacturer | null>(null);
-    const [model, setModel] = useState<ApiModel | null>(null);
+    const [pickedManufacturer, setPickedManufacturer] = useState<ApiManufacturer | null>(null);
+    const [pickedModel, setPickedModel] = useState<ApiModel | null>(null);
     const [engineType, setEngineType] = useState<ApiEngineType | null>(null);
+    const [suggestion, setSuggestion] = useState<PlateSuggestionResult | null>(null);
+    const [guideOpen, setGuideOpen] = useState(false);
+
+    const modelFieldRef = useRef<HTMLDivElement | null>(null);
+    const engineFieldRef = useRef<HTMLDivElement | null>(null);
 
     const {
         data: manufacturers,
@@ -60,23 +78,92 @@ export function VehicleCascade({
         error: mfErrorObj,
         refetch: refetchManufacturers,
     } = useManufacturers();
-    const { data: models, isLoading: mdLoading } = useModels(manufacturer?.manufacturerId ?? null);
-    const { data: engineTypes, isLoading: etLoading } = useEngineTypes(model?.modelId ?? null);
-
     const uniqueManufacturers = useMemo(() => {
         if (!manufacturers) return [];
         return Array.from(new Map(manufacturers.map((m) => [m.manufacturerId, m])).values());
     }, [manufacturers]);
+
+    // Un choix manuel prime toujours. Sinon la suggestion tient, dès que la liste
+    // qui la porte est arrivée : on dérive plutôt que de recopier dans un état.
+    const manufacturer =
+        pickedManufacturer ??
+        uniqueManufacturers.find((m) => m.manufacturerId === suggestion?.manufacturerId) ??
+        null;
+
+    const { data: models, isLoading: mdLoading } = useModels(manufacturer?.manufacturerId ?? null);
 
     const uniqueModels = useMemo(() => {
         if (!models) return [];
         return Array.from(new Map(models.map((m) => [m.modelId, m])).values());
     }, [models]);
 
+    // Le modèle suggéré ne vaut que sous la marque suggérée : dès que le comptoir
+    // change de marque, la liste n'est plus la même.
+    const onSuggestedBrand =
+        suggestion !== null && manufacturer?.manufacturerId === suggestion.manufacturerId;
+
+    const model =
+        pickedModel ??
+        (onSuggestedBrand && suggestion.modelId !== null
+            ? uniqueModels.find((m) => m.modelId === suggestion.modelId) ?? null
+            : null);
+
+    const { data: engineTypes, isLoading: etLoading } = useEngineTypes(model?.modelId ?? null);
+
     const uniqueEngineTypes = useMemo(() => {
         if (!engineTypes) return [];
         return Array.from(new Map(engineTypes.map((et) => [et.vehicleId, et])).values());
     }, [engineTypes]);
+
+    const UNKNOWN_FUEL = "Carburant non précisé";
+
+    /**
+     * Motorisations groupées par carburant, le premier tri que fait le comptoir.
+     * Le libellé du groupe portant déjà le carburant, les lignes ne le répètent
+     * pas ; la recherche, elle, continue de le voir.
+     */
+    const engineGroups = useMemo(() => {
+        const groups = new Map<string, ApiEngineType[]>();
+        for (const engine of uniqueEngineTypes) {
+            const fuel = engine.fuelType?.trim() || UNKNOWN_FUEL;
+            const bucket = groups.get(fuel);
+            if (bucket) bucket.push(engine);
+            else groups.set(fuel, [engine]);
+        }
+
+        return [...groups.entries()]
+            .map(([value, items]) => ({ value, items }))
+            .sort((a, b) => {
+                if (a.value === UNKNOWN_FUEL) return 1;
+                if (b.value === UNKNOWN_FUEL) return -1;
+                return a.value.localeCompare(b.value, "fr");
+            });
+    }, [uniqueEngineTypes]);
+
+    function handleCascadeSuggested(next: PlateSuggestionResult) {
+        setPickedManufacturer(null);
+        setPickedModel(null);
+        setEngineType(null);
+        setSuggestion(next);
+
+        // Une fois par jour : assez pour que le geste s'installe, assez peu pour
+        // ne pas encombrer quelqu'un qui cherche vingt plaques dans la journée.
+        try {
+            if (localStorage.getItem(GUIDE_SEEN_KEY) !== today()) setGuideOpen(true);
+        } catch {
+            setGuideOpen(true);
+        }
+    }
+
+    function dismissGuide(open: boolean) {
+        setGuideOpen(open);
+        if (open) return;
+        try {
+            localStorage.setItem(GUIDE_SEEN_KEY, today());
+        } catch {
+            // Stockage indisponible : le guide reviendra, ce n'est pas grave.
+        }
+    }
 
     function confirmVehicle(selectedEngine: ApiEngineType) {
         if (!manufacturer || !model) return;
@@ -123,15 +210,45 @@ export function VehicleCascade({
         );
     }
 
+    const missingModel = suggestion !== null && suggestion.modelId === null;
+    const named = [suggestion?.manufacturerName, suggestion?.modelName].filter(Boolean).join(" ");
+    const supplierEngine = suggestion?.version
+        ? ` Le fournisseur annonce « ${suggestion.version} ».`
+        : "";
+
+    /**
+     * Le repère plutôt que l'explication. Le libellé du fournisseur se retrouve
+     * presque mot pour mot dans la liste TecDoc, carburant compris, alors on le
+     * donne à recopier au lieu de raconter pourquoi la plaque n'a pas suffi.
+     */
+    const guideHint = missingModel
+        ? `Ouvrez cette liste et choisissez le modèle de la ${suggestion?.manufacturerName ?? ""}.`
+        : suggestion?.version
+          ? `Ouvrez cette liste et cherchez « ${suggestion.version} ».`
+          : `Ouvrez cette liste et choisissez la motorisation de la ${named}.`;
+
     return (
         <div className="rounded-lg bg-banner-pine p-6">
+            {suggestion && (
+                <p className="mb-4 rounded-md bg-white/10 p-2.5 text-xs font-medium text-white">
+                    {named} reconnu depuis la plaque {suggestion.plate}.{" "}
+                    {missingModel
+                        ? "Choisissez le modèle, puis la motorisation."
+                        : "Il ne reste que la motorisation à choisir."}
+                    {supplierEngine}
+                </p>
+            )}
+
             <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-0">
                 {/* 1. Recherche par plaque d'immatriculation */}
                 <div className="flex-1">
                     <p className="mb-3.5 font-heading text-base font-semibold text-white">
                         Recherche par plaque d&apos;immatriculation
                     </p>
-                    <VehiclePlateSearch onVehicleConfirmed={onVehicleConfirmed} />
+                    <VehiclePlateSearch
+                        onVehicleConfirmed={onVehicleConfirmed}
+                        onCascadeSuggested={handleCascadeSuggested}
+                    />
                 </div>
 
                 {/* Séparateur "OU" */}
@@ -162,8 +279,8 @@ export function VehicleCascade({
                                 items={uniqueManufacturers}
                                 value={manufacturer}
                                 onValueChange={(m) => {
-                                    setManufacturer(m);
-                                    setModel(null);
+                                    setPickedManufacturer(m);
+                                    setPickedModel(null);
                                     setEngineType(null);
                                 }}
                                 itemToStringValue={(m) => m?.manufacturerName ?? ""}
@@ -201,12 +318,18 @@ export function VehicleCascade({
                         </div>
 
                         {/* Modèle */}
-                        <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+                        <div
+                            ref={modelFieldRef}
+                            className={cn(
+                                "flex flex-1 flex-col gap-1.5 min-w-0",
+                                guideOpen && missingModel && "relative z-50"
+                            )}
+                        >
                             <Combobox
                                 items={uniqueModels}
                                 value={model}
                                 onValueChange={(m) => {
-                                    setModel(m);
+                                    setPickedModel(m);
                                     setEngineType(null);
                                 }}
                                 itemToStringValue={(m) =>
@@ -259,9 +382,15 @@ export function VehicleCascade({
                         </div>
 
                         {/* Motorisation */}
-                        <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+                        <div
+                            ref={engineFieldRef}
+                            className={cn(
+                                "flex flex-1 flex-col gap-1.5 min-w-0",
+                                guideOpen && !missingModel && "relative z-50"
+                            )}
+                        >
                             <Combobox
-                                items={uniqueEngineTypes}
+                                items={engineGroups}
                                 value={engineType}
                                 onValueChange={(et) => {
                                     setEngineType(et);
@@ -297,10 +426,17 @@ export function VehicleCascade({
                                     <ComboboxInput showTrigger={false} placeholder="Rechercher une motorisation..." />
                                     <ComboboxEmpty>Aucune motorisation trouvée.</ComboboxEmpty>
                                     <ComboboxList>
-                                        {(et) => (
-                                            <ComboboxItem key={et.vehicleId} value={et}>
-                                                {et.typeEngineName} | {et.powerKw} kW ({et.fuelType})
-                                            </ComboboxItem>
+                                        {(group: { value: string; items: ApiEngineType[] }) => (
+                                            <ComboboxGroup key={group.value} items={group.items}>
+                                                <ComboboxLabel>{group.value}</ComboboxLabel>
+                                                <ComboboxCollection>
+                                                    {(et: ApiEngineType) => (
+                                                        <ComboboxItem key={et.vehicleId} value={et}>
+                                                            {et.typeEngineName} | {et.powerKw} kW
+                                                        </ComboboxItem>
+                                                    )}
+                                                </ComboboxCollection>
+                                            </ComboboxGroup>
                                         )}
                                     </ComboboxList>
                                 </ComboboxContent>
@@ -310,6 +446,15 @@ export function VehicleCascade({
                 </div>
             </div>
 
+            {suggestion && (
+                <CascadeGuide
+                    open={guideOpen}
+                    onOpenChange={dismissGuide}
+                    anchor={missingModel ? modelFieldRef : engineFieldRef}
+                    title={missingModel ? "Choisissez le modèle" : "Choisissez la motorisation"}
+                    description={guideHint}
+                />
+            )}
         </div>
     );
 }

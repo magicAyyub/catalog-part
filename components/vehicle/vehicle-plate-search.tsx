@@ -3,14 +3,19 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatPlateInput } from "@/lib/vehicle/plate-resolver";
-import { usePlateLookup } from "@/hooks/vehicle/use-plate-lookup";
+import { usePlateLookup, type PlateSuggestionResult } from "@/hooks/vehicle/use-plate-lookup";
 
 interface VehiclePlateSearchProps {
     /** Même contrat que la cascade : la plaque retenue devient le véhicule actif. */
     onVehicleConfirmed?: (vehicleId: number, details?: { label: string; plate?: string }) => void;
+    /** Le véhicule n'est pas au catalogue, mais la cascade peut être placée. */
+    onCascadeSuggested?: (suggestion: PlateSuggestionResult) => void;
 }
 
-export function VehiclePlateSearch({ onVehicleConfirmed }: VehiclePlateSearchProps) {
+export function VehiclePlateSearch({
+    onVehicleConfirmed,
+    onCascadeSuggested,
+}: VehiclePlateSearchProps) {
     const [rawInput, setRawInput] = useState("");
     const [plateError, setPlateError] = useState<string | null>(null);
     const { mutate: lookupPlate, isPending } = usePlateLookup();
@@ -39,12 +44,18 @@ export function VehiclePlateSearch({ onVehicleConfirmed }: VehiclePlateSearchPro
 
         setPlateError(null);
         lookupPlate(rawInput, {
-            // Le véhicule est retenu tout de suite : la carte véhicule remplace
-            // ce formulaire et affiche la plaque, il n'y a rien à confirmer.
-            onSuccess: (vehicle) => {
+            onSuccess: (result) => {
+                if (result.status === "suggestion") {
+                    onCascadeSuggested?.(result);
+                    return;
+                }
+
+                // Le véhicule est retenu tout de suite : la carte véhicule
+                // remplace ce formulaire et affiche la plaque, rien à confirmer.
+                const { vehicle } = result;
                 onVehicleConfirmed?.(vehicle.vehicleId, {
                     label: `${vehicle.manufacturerName} ${vehicle.modelName} | ${vehicle.typeEngineName}`,
-                    plate: vehicle.plate,
+                    plate: result.plate,
                 });
             },
             onError: (error) => setPlateError(error.message),

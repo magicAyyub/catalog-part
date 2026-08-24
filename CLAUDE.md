@@ -138,6 +138,17 @@ rend depuis un `vehicleId` seul, les motorisations ne venant que de
 `Engine_Types_by_Model`, qui exige un `modelId`. Elle est donc composee avec les
 libelles d'Exadis, dans `lib/acquisition/plate.ts`.
 
+`by-plate` a trois issues, dont deux sont des succes : le vehicule quand TecDoc
+connait le K-Type, sinon une suggestion qui place la cascade sur la bonne marque
+et le bon modele, et un 404 seulement quand Exadis lui-meme ignore la plaque.
+
+Le rapprochement des libelles est dans `lib/vehicle/label-match.ts`, herite du
+resolver parque mais avec la regle inversee : un seul candidat au meilleur
+palier, sinon rien. Le resolver classait plusieurs candidats parce que le cout
+des appels tranchait ensuite ; ici personne ne tranche derriere, et un
+preremplissage plausible et faux ne serait jamais verifie. Mesure sur PRIUS,
+dont sept modeles TecDoc commencent par ce mot : seule la marque est placee.
+
 Cette fiche n'est ecrite que si la premiere categorie ramene des articles.
 L'identifiant d'un fournisseur n'est pas toujours un K-Type, et une fiche
 inventee resterait au referentiel sans jamais porter de piece. Mesure sur le

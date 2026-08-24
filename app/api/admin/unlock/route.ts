@@ -1,9 +1,9 @@
 /**
- * Opens account management for one browser.
+ * Ouvre l'administration pour un navigateur : la trace et les comptes ensemble.
  *
- * Already behind `requireUser`, so only a signed-in franchisee can even try.
- * The attempt counter is per account and in memory, which is enough for a
- * secret shared between one or two people on a single process.
+ * Déjà derrière `requireUser`, donc seul un franchisé connecté peut essayer.
+ * Le compteur de tentatives est par compte et en mémoire, ce qui suffit pour un
+ * secret partagé entre une ou deux personnes sur un seul processus.
  */
 
 import { NextResponse } from "next/server";
@@ -28,7 +28,7 @@ async function handlePost(req: Request) {
 
     if (!adminPasswordConfigured()) {
         return NextResponse.json(
-            { error: "ADMIN_PASSWORD n'est pas défini dans .env : la gestion des comptes est fermée." },
+            { error: "ADMIN_PASSWORD n'est pas défini dans .env : l'administration est fermée." },
             { status: 503 }
         );
     }
@@ -59,7 +59,7 @@ async function handlePost(req: Request) {
             count,
             until: count >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : 0,
         });
-        logger.warn("Rejected accounts unlock", {
+        logger.warn("Rejected admin unlock", {
             action: "admin-unlock-failed",
             userId: auth.id,
             count,
@@ -68,7 +68,7 @@ async function handlePost(req: Request) {
     }
 
     attempts.delete(auth.id);
-    logger.info("Accounts unlocked", { action: "admin-unlock-success", userId: auth.id });
+    logger.info("Admin unlocked", { action: "admin-unlock-success", userId: auth.id });
 
     const { value, expiresAt } = await issueAdminCookie();
     const res = NextResponse.json({ ok: true });

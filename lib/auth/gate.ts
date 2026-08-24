@@ -1,14 +1,13 @@
 /**
- * A second door in front of a page, opened by a shared secret from `.env`.
+ * Seconde porte devant une page, ouverte par un secret partagé venu de `.env`.
  *
- * Being signed in as a franchisee is not enough for everything: the trace shows
- * plates and billed calls, account management hands out credentials. Both ask
- * for a secret held outside the accounts table, so who gets in never depends on
- * a role flag someone might set by accident.
+ * Le mécanisme est générique ; la seule porte du projet est décrite dans
+ * `lib/admin/access.ts`.
  *
- * Signing reuses `lib/auth/tokens.ts` rather than inventing a second scheme.
+ * La signature réutilise `lib/auth/tokens.ts` plutôt que d'inventer un second
+ * schéma.
  *
- * Server only.
+ * Serveur uniquement.
  */
 
 import { createHash, timingSafeEqual } from "node:crypto";

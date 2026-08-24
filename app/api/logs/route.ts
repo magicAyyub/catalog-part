@@ -1,22 +1,17 @@
 /**
- * Serves the structured logs to the trace page.
+ * Sert les logs structurés à la page de trace.
  *
- * Two doors, and both are checked here rather than on the page alone: a signed
- * in franchisee is not enough, the trace password is required as well.
+ * Les deux portes sont vérifiées ici et pas seulement sur la page : être
+ * connecté ne suffit pas, le mot de passe d'administration est exigé aussi.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { requireUser } from "@/lib/auth/guard";
-import { logsUnlocked } from "@/lib/logs/access";
+import { requireAdminAccess } from "@/lib/admin/guard";
 import { readLogPage } from "@/lib/logs/reader";
 
 export async function GET(request: NextRequest) {
-    const auth = await requireUser();
+    const auth = await requireAdminAccess();
     if (auth instanceof NextResponse) return auth;
-
-    if (!(await logsUnlocked())) {
-        return NextResponse.json({ error: "Trace verrouillée." }, { status: 403 });
-    }
 
     const { searchParams } = request.nextUrl;
 

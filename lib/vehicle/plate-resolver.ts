@@ -6,9 +6,8 @@
  * `by-plate` route sends back.
  */
 
+/** Véhicule rendu par `by-plate`. La plaque voyage à côté, sur l'enveloppe. */
 export interface PlateLookupResult {
-    /** Plaque formatée pour l'affichage, telle que la route la renvoie. */
-    plate: string;
     vehicleId: number;
     manufacturerName: string;
     modelName: string;

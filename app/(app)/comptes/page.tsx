@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { adminPasswordConfigured, adminUnlocked } from "@/lib/admin/access";
+import { UnlockForm } from "@/components/auth/unlock-form";
 import { AccountsManager } from "./accounts-manager";
-import { UnlockForm } from "./unlock-form";
 
 export const metadata: Metadata = {
     title: "Comptes franchisés",
@@ -16,11 +16,11 @@ export default async function AccountsPage() {
                 <AccountsManager />
             ) : !adminPasswordConfigured() ? (
                 <p className="mx-auto max-w-md rounded-xl border border-stroke bg-white p-6 text-center text-sm text-txt2">
-                    La gestion des comptes est fermée : définissez <code>ADMIN_PASSWORD</code> dans
+                    L&apos;administration est fermée : définissez <code>ADMIN_PASSWORD</code> dans
                     le fichier <code>.env</code> pour l&apos;activer.
                 </p>
             ) : (
-                <UnlockForm />
+                <UnlockForm title="Comptes franchisés" submitLabel="Ouvrir la gestion des comptes" />
             )}
         </main>
     );
