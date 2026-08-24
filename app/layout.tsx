@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Lato, Outfit } from "next/font/google";
+import { Exo_2, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "./providers";
 
-const lato = Lato({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-sans" });
-
-const outfit = Outfit({
+// Inter porte le contenu dense : chiffres nets, lisible en petit corps.
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+});
+
+// Exo 2 est la police de titres de la charte Jumbo Pneus.
+const exo2 = Exo_2({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
   variable: "--font-heading",
 });
 
@@ -36,7 +42,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={cn("h-full", "antialiased", geistMono.variable, "font-sans", lato.variable, outfit.variable)}
+      className={cn("h-full", "antialiased", geistMono.variable, "font-sans", inter.variable, exo2.variable)}
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>

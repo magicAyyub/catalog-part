@@ -76,7 +76,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                 <div className="font-heading text-lg font-bold leading-tight text-ink">
                     {part.articleProductName}
                 </div>
-                <div className="mt-0.5 mb-3.5 font-heading text-sm font-medium text-ink">
+                <div className="mt-1 mb-3.5 font-mono text-sm text-txt2">
                     Réf : {part.articleNo}
                 </div>
 
@@ -93,7 +93,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                                         className="flex items-baseline justify-between gap-3 border-b border-stroke/60 py-1.5 text-sm"
                                     >
                                         <span className="font-bold text-ink">{name}</span>
-                                        <span className="text-right text-txt2">{values[0]}</span>
+                                        <span className="text-right tabular-nums text-txt2">{values[0]}</span>
                                     </div>
                                 ) : (
                                     <details
@@ -109,7 +109,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
                                                 </span>
                                             </span>
                                         </summary>
-                                        <ul className="mb-1.5 flex flex-col gap-0.5 pl-3 text-right text-txt2">
+                                        <ul className="mb-1.5 flex flex-col gap-0.5 pl-3 text-right tabular-nums text-txt2">
                                             {values.map((value, idx) => (
                                                 <li key={`${value}-${idx}`}>{value}</li>
                                             ))}
