@@ -1,7 +1,4 @@
-/**
- * GWT-RPC plumbing: request headers, cookie jar, response string table.
- * Salvaged from `../app-etf`, trimmed to what the vehicle lookup needs.
- */
+/** Plomberie GWT-RPC : entêtes, pot à cookies, lecture des réponses. */
 
 import { EXADIS_USER_AGENT } from "./templates";
 
@@ -42,10 +39,8 @@ export function mergeCookies(existing: string, setCookieHeaders: string[]): stri
     return [...jar.entries()].map(([name, value]) => `${name}=${value}`).join("; ");
 }
 
-/** Pulls the trailing JSON string array out of a `//OK[...]` response. */
-export function extractStringTable(body: string): string[] | null {
-    if (!body.startsWith("//OK")) return null;
-
+/** Tableau de chaînes final d'une réponse GWT, quel que soit son préfixe. */
+function extractTail(body: string): string[] | null {
     const start = body.lastIndexOf('["');
     if (start < 0) return [];
 
@@ -69,4 +64,22 @@ export function extractStringTable(body: string): string[] | null {
     } catch {
         return null;
     }
+}
+
+/** Valeurs d'une réponse aboutie. Null si le portail a rendu autre chose. */
+export function extractStringTable(body: string): string[] | null {
+    return body.startsWith("//OK") ? extractTail(body) : null;
+}
+
+/**
+ * Nom de l'exception Java d'une réponse `//EX`.
+ *
+ * Le portail rend 200 là où une API rendrait un 4xx : ce nom est le seul
+ * élément qui distingue une plaque inconnue d'une panne.
+ */
+export function extractExceptionName(body: string): string | null {
+    if (!body.startsWith("//EX")) return null;
+
+    const thrown = extractTail(body)?.find((value) => value.includes("Exception"));
+    return thrown ? thrown.split("/")[0] : null;
 }

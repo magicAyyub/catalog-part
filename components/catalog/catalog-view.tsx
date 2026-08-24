@@ -85,10 +85,14 @@ export function CatalogView() {
         setChosen({ vehicleId, label: `Véhicule #${vehicleId}` });
     }
 
-    function handleVehicleConfirmed(vehicleId: number, details?: { label: string }) {
+    function handleVehicleConfirmed(
+        vehicleId: number,
+        details?: { label: string; plate?: string }
+    ) {
         const vehicleData: ActiveVehicleData = {
             vehicleId,
             label: details?.label || `Véhicule #${vehicleId}`,
+            plate: details?.plate,
         };
 
         setChosen(vehicleData);

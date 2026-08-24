@@ -1,14 +1,13 @@
 /**
- * Plate to K-Type through the Exadis portal, and nothing else.
+ * Traduction plaque vers K-Type par le portail Exadis, et rien d'autre.
  *
- * app-etf answers the same question but runs a full product scrape first, 8 to
- * 18 seconds of which we discard. The K-Type actually comes from one request,
- * `searchVehiculeByImmatOrVin`, and that is all this module does.
+ * Le K-Type sort d'une seule requête, `searchVehiculeByImmatOrVin`, précédée
+ * de quatre requêtes de connexion mutualisées entre les recherches.
  *
- * The boundary is deliberate: the project owner allows the K-Type from a
- * supplier and nothing else. No price, no stock, no article ever passes here.
+ * La frontière est volontaire : seul le K-Type vient d'un fournisseur, jamais
+ * un prix, un stock ou un article.
  *
- * Server only. Credentials must never reach the browser bundle.
+ * Serveur uniquement, les identifiants ne doivent jamais atteindre le bundle.
  */
 
 import { logger } from "@/lib/logger";
@@ -21,7 +20,12 @@ import {
     LOGIN_BODY_TPL,
     SEARCH_VEHICULE_BODY_TPL,
 } from "./templates";
-import { buildHeaders, extractStringTable, mergeCookies } from "./gwt-codec";
+import {
+    buildHeaders,
+    extractExceptionName,
+    extractStringTable,
+    mergeCookies,
+} from "./gwt-codec";
 import { exadisRequestFollowing, type ExadisResponse } from "./transport";
 import { normalizePlate, parseVehicleIdentity, type ExadisVehicle } from "./vehicle-parser";
 
@@ -45,10 +49,7 @@ interface Session {
     expiresAt: number;
 }
 
-/**
- * One session per process, reused until it expires. Logging in costs three
- * requests, so it is worth not repeating per plate.
- */
+/** Une session par processus : la connexion coûte quatre requêtes. */
 let current: Promise<Session> | null = null;
 let currentExpiry = 0;
 
@@ -171,9 +172,22 @@ async function requestVehicle(plate: string, active: Session): Promise<ExadisRes
 }
 
 /**
- * Returns the vehicle identity for a plate: the K-Type always, the labels when
- * they could be read from the same response. Retries once on an expired
- * session, which is the failure this portal produces most often.
+ * Session perdue côté portail.
+ *
+ * Il ne rend ni 401 ni 403 mais une redirection vers son SSO, mesurée en 501
+ * sur un jeton invalide. Les deux statuts restent testés par prudence.
+ */
+function sessionExpired(response: ExadisResponse): boolean {
+    return (
+        response.status === 401 ||
+        response.status === 403 ||
+        response.body.includes("SSO_REDIRECT_URL")
+    );
+}
+
+/**
+ * Identité véhicule d'une plaque : le kType toujours, les libellés quand ils
+ * ont pu être lus. Relance une fois si la session a expiré.
  */
 export async function lookupVehicleByPlate(rawPlate: string): Promise<ExadisVehicle> {
     const plate = normalizePlate(rawPlate);
@@ -184,7 +198,12 @@ export async function lookupVehicleByPlate(rawPlate: string): Promise<ExadisVehi
 
     try {
         response = await requestVehicle(plate, active);
-        if (response.status === 401 || response.status === 403) {
+        if (sessionExpired(response)) {
+            logger.info("Exadis session expired, logging in again", {
+                module: "exadis",
+                action: "session_retry",
+                supplier: "exadis",
+            });
             active = await session(true);
             response = await requestVehicle(plate, active);
         }
@@ -204,14 +223,24 @@ export async function lookupVehicleByPlate(rawPlate: string): Promise<ExadisVehi
         throw new ExadisLookupError(`Recherche véhicule Exadis en échec (HTTP ${response.status}).`, "transport");
     }
 
+    // Une plaque inconnue arrive en exception Java dans un 200. Toute autre
+    // exception est une panne de leur côté, pas une plaque absente.
+    const thrown = extractExceptionName(response.body);
+    if (thrown) {
+        if (thrown.endsWith("VehiculeNotFoundException")) {
+            throw new ExadisLookupError(`Plaque ${plate} inconnue chez Exadis.`, "not_found");
+        }
+        throw new ExadisLookupError(`Exadis a rejeté la recherche (${thrown}).`, "transport");
+    }
+
     const stringTable = extractStringTable(response.body);
     if (!stringTable || stringTable.length === 0) {
-        throw new ExadisLookupError(`Plaque ${plate} inconnue chez Exadis.`, "not_found");
+        throw new ExadisLookupError("Réponse Exadis illisible.", "transport");
     }
 
     const vehicle = parseVehicleIdentity(stringTable, plate);
     if (!vehicle) {
-        throw new ExadisLookupError(`Aucun K-Type dans la réponse Exadis pour ${plate}.`, "not_found");
+        throw new ExadisLookupError(`Aucun K-Type dans la réponse Exadis pour ${plate}.`, "transport");
     }
 
     logger.info("Plate translated to K-Type by Exadis", {

@@ -1,7 +1,7 @@
 "use client";
 
 import { PartCard } from "./part-card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BusyPanel } from "@/components/ui/busy-panel";
 import {
     Pagination,
     PaginationContent,
@@ -23,40 +23,6 @@ import {
     EmptyMedia,
 } from "@/components/ui/empty";
 import type { PartItem } from "@/hooks/parts/use-parts";
-
-// ─── Skeleton ────────────────────────────────────────────────────────────────
-
-function SkeletonCard() {
-    return (
-        <div className="flex w-full rounded-lg border border-stroke bg-card py-4 pr-5">
-            <div className="flex w-27.5 shrink-0 flex-col items-center gap-3">
-                <Skeleton className="h-5 w-16" />
-                <Skeleton className="size-21.25 rounded" />
-            </div>
-            <div className="flex flex-1 flex-col gap-2 border-l border-stroke pl-5">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-3.5 w-1/3" />
-                <Skeleton className="mt-2 h-3.5 w-full" />
-                <Skeleton className="h-3.5 w-full" />
-                <Skeleton className="h-3.5 w-2/3" />
-            </div>
-            <div className="flex w-47.5 shrink-0 flex-col items-end justify-center gap-3 border-l border-stroke pl-4">
-                <Skeleton className="h-7 w-24" />
-                <Skeleton className="h-11 w-full rounded-md" />
-            </div>
-        </div>
-    );
-}
-
-function SkeletonGrid({ count = 5 }: { count?: number }) {
-    return (
-        <div className="flex flex-col gap-4">
-            {Array.from({ length: count }).map((_, i) => (
-                <SkeletonCard key={i} />
-            ))}
-        </div>
-    );
-}
 
 // ─── États ───────────────────────────────────────────────────────────────────
 
@@ -249,7 +215,14 @@ export function PartsGrid({
     onPageSizeChange,
     detailHref,
 }: PartsGridProps) {
-    if (isLoading) return <SkeletonGrid />;
+    if (isLoading) {
+        return (
+            <BusyPanel
+                title="Recherche des pièces compatibles"
+                description="La première consultation d'un véhicule interroge le catalogue fournisseur, ce qui prend quelques secondes. Les suivantes sont immédiates."
+            />
+        );
+    }
     if (isError) return <ErrorState />;
     if (!parts || parts.length === 0) return <EmptyState categoryLabel={categoryLabel} />;
 

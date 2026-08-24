@@ -24,6 +24,9 @@ function groupSpecs(specs: PartSpec[]): [string, string[]][] {
     return [...grouped.entries()];
 }
 
+/** Critères affichés d'emblée. Au-delà, la carte d'une liste devient illisible. */
+const VISIBLE_SPECS = 6;
+
 interface PartCardProps {
     part: PartItem;
     /** Adresse de la fiche, construite par la section avec l'état du catalogue. */
@@ -47,86 +50,94 @@ function BrakeIcon() {
     );
 }
 
-export function PartCard({ part, detailHref }: PartCardProps) {
-    return (
-        <article className="flex w-full flex-col gap-y-4 rounded-lg border border-stroke bg-card p-4 sm:flex-row sm:items-start sm:justify-between sm:py-4 sm:pr-5 sm:pl-4">
-            {/* Marque + image + stock */}
-            <div className="flex w-full shrink-0 flex-col items-center gap-3 sm:w-27.5">
-                <div className="font-heading text-base font-bold text-ink">
-                    {part.supplierName ?? "—"}
-                </div>
-                <div className="flex size-21.25 items-center justify-center rounded bg-ink-50">
-                    {part.s3image ? (
-                        <img
-                            src={part.s3image}
-                            alt={part.articleProductName}
-                            className="max-h-full max-w-full object-contain"
-                            onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).style.display = "none";
-                            }}
-                        />
-                    ) : (
-                        <BrakeIcon />
-                    )}
-                </div>
+function SpecRow({ name, values }: { name: string; values: string[] }) {
+    if (values.length === 1) {
+        return (
+            <div className="flex items-baseline justify-between gap-3 border-b border-stroke/60 py-1 text-sm">
+                <span className="font-bold text-ink">{name}</span>
+                <span className="text-right tabular-nums text-txt2">{values[0]}</span>
             </div>
+        );
+    }
 
-            {/* Titre + specs, séparé par un trait vertical */}
-            <div className="w-full min-w-0 flex-1 border-stroke sm:border-l sm:pl-5 sm:pr-6">
-                <div className="font-heading text-lg font-bold leading-tight text-ink">
-                    {part.articleProductName}
-                </div>
-                <div className="mt-1 mb-3.5 font-mono text-sm text-txt2">
-                    Réf : {part.articleNo}
-                </div>
+    return (
+        <details className="group border-b border-stroke/60 text-sm">
+            <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-1 marker:content-none">
+                <span className="font-bold text-ink">{name}</span>
+                <span className="text-right text-txt2">
+                    {values.length} valeurs
+                    <span className="ml-1.5 inline-block transition-transform group-open:rotate-90">›</span>
+                </span>
+            </summary>
+            <ul className="mb-1.5 flex flex-col gap-0.5 pl-3 text-right tabular-nums text-txt2">
+                {values.map((value, idx) => (
+                    <li key={`${value}-${idx}`}>{value}</li>
+                ))}
+            </ul>
+        </details>
+    );
+}
 
-                {part.specs.length > 0 && (
-                    <>
-                        <div className="mb-2 flex items-center gap-3 font-heading text-sm font-semibold text-ink after:h-px after:flex-1 after:bg-stroke after:content-['']">
-                            Caractéristiques
-                        </div>
-                        <div className="flex flex-col">
-                            {groupSpecs(part.specs).map(([name, values]) =>
-                                values.length === 1 ? (
-                                    <div
-                                        key={name}
-                                        className="flex items-baseline justify-between gap-3 border-b border-stroke/60 py-1.5 text-sm"
-                                    >
-                                        <span className="font-bold text-ink">{name}</span>
-                                        <span className="text-right tabular-nums text-txt2">{values[0]}</span>
-                                    </div>
-                                ) : (
-                                    <details
-                                        key={name}
-                                        className="group border-b border-stroke/60 text-sm"
-                                    >
-                                        <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-1.5 marker:content-none">
-                                            <span className="font-bold text-ink">{name}</span>
-                                            <span className="text-right text-txt2">
-                                                {values.length} valeurs
-                                                <span className="ml-1.5 inline-block transition-transform group-open:rotate-90">
-                                                    ›
-                                                </span>
-                                            </span>
-                                        </summary>
-                                        <ul className="mb-1.5 flex flex-col gap-0.5 pl-3 text-right tabular-nums text-txt2">
-                                            {values.map((value, idx) => (
-                                                <li key={`${value}-${idx}`}>{value}</li>
-                                            ))}
-                                        </ul>
-                                    </details>
-                                )
-                            )}
-                        </div>
-                    </>
+export function PartCard({ part, detailHref }: PartCardProps) {
+    const specs = groupSpecs(part.specs);
+    const shown = specs.slice(0, VISIBLE_SPECS);
+    const hidden = specs.slice(VISIBLE_SPECS);
+
+    return (
+        <article className="flex w-full flex-col gap-y-4 rounded-lg border border-stroke bg-card p-4 sm:flex-row sm:items-start sm:gap-y-0">
+            {/* La photo prime : c'est elle qui fait reconnaître la pièce au comptoir. */}
+            <div className="flex size-32 shrink-0 items-center justify-center self-center sm:size-40 sm:self-start">
+                {part.s3image ? (
+                    <img
+                        src={part.s3image}
+                        alt={part.articleProductName}
+                        className="size-full object-contain"
+                        onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                        }}
+                    />
+                ) : (
+                    <BrakeIcon />
                 )}
             </div>
 
-            {/* Prix + action */}
-            <div className="flex w-full shrink-0 flex-row items-center justify-between gap-4 border-t border-stroke pt-4 sm:w-47.5 sm:flex-col sm:items-end sm:border-l sm:border-t-0 sm:pt-0 sm:pl-4 sm:text-right">
-                <div className="flex flex-col items-end gap-0.5">
-                    <span className="text-sm text-txt2">Prix sur devis</span>
+            <div className="w-full min-w-0 flex-1 border-stroke sm:border-l sm:pl-5 sm:pr-6">
+                <div className="font-heading text-base font-bold text-ink">
+                    {part.supplierName ?? "—"}
                 </div>
+                <h3 className="font-heading text-lg font-bold leading-tight text-ink">
+                    {part.articleProductName}
+                </h3>
+                <div className="mt-1 mb-3 font-mono text-sm text-txt2">Réf : {part.articleNo}</div>
+
+                {specs.length > 0 && (
+                    <div className="flex flex-col">
+                        {shown.map(([name, values]) => (
+                            <SpecRow key={name} name={name} values={values} />
+                        ))}
+
+                        {hidden.length > 0 && (
+                            <details className="group">
+                                <summary className="flex cursor-pointer list-none items-center gap-1.5 py-1.5 text-sm font-semibold text-pine marker:content-none">
+                                    <span className="group-open:hidden">
+                                        Voir les {hidden.length} autres caractéristiques
+                                    </span>
+                                    <span className="hidden group-open:inline">Réduire</span>
+                                    <span className="inline-block transition-transform group-open:rotate-90">›</span>
+                                </summary>
+                                <div className="flex flex-col">
+                                    {hidden.map(([name, values]) => (
+                                        <SpecRow key={name} name={name} values={values} />
+                                    ))}
+                                </div>
+                            </details>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="flex w-full shrink-0 flex-row items-center justify-between gap-4 border-t border-stroke pt-4 sm:w-47.5 sm:flex-col sm:items-end sm:border-l sm:border-t-0 sm:pt-0 sm:pl-4 sm:text-right">
+                <span className="text-sm text-txt2">Prix sur devis</span>
 
                 <Link
                     id={`part-detail-${part.articleId}`}

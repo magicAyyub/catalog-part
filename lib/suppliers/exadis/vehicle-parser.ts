@@ -1,26 +1,27 @@
 /**
- * Reads the vehicle identity out of an Exadis RPC #4 string table.
+ * Lecture de l'identité véhicule dans la table de chaînes d'Exadis.
  *
- * Positions were derived from real responses rather than guessed, on a PEUGEOT
- * 307 and a FIAT PUNTO EVO, whose tables have different lengths:
+ * La table est une liste à plat, sans clés : les champs se repèrent par
+ * position, relevée sur des réponses réelles de longueurs différentes.
  *
- *   plate     the anchor, matched after normalisation
- *   brand     three entries after the plate
- *   kType     first nine digit group, zero padded
- *   version   the entry right after the K-Type
- *   model     the last entry, and it matches app-etf's label exactly
+ *   plaque    l'ancre, comparée après normalisation
+ *   marque    trois entrées après la plaque
+ *   kType     premier groupe de neuf chiffres
+ *   version   l'entrée qui suit le kType
+ *   modèle    la dernière entrée
  *
- * Only the K-Type is required. The labels are a bonus taken from the same
- * response, so a layout change costs the shortcut, never the identification.
+ * Seul le kType est indispensable, et il se reconnaît à sa forme plutôt qu'à
+ * sa position. Les libellés sont un bonus qu'un changement de gabarit fait
+ * disparaître sans casser l'identification.
  */
 
 export interface ExadisVehicle {
     kType: number;
-    /** TecDoc model label, "307 (3A/C)". Empty when it could not be trusted. */
+    /** Libellé modèle TecDoc, "307 (3A/C)". Vide si illisible. */
     model: string;
-    /** Manufacturer label, "PEUGEOT". Empty when it could not be trusted. */
+    /** Libellé constructeur, "PEUGEOT". Vide si illisible. */
     brand: string;
-    /** Engine line as the portal words it, "1.6 Passion 16V". */
+    /** Motorisation telle que le portail la nomme, "1.6 Passion 16V". */
     version: string;
 }
 
@@ -30,7 +31,7 @@ export function normalizePlate(raw: string): string {
     return raw.trim().toUpperCase().replace(/[\s-]/g, "");
 }
 
-/** A brand is alphabetic, possibly hyphenated, never a code or a number. */
+/** Une marque est alphabétique, jamais un code ni un nombre. */
 function plausibleBrand(value: string | undefined): string {
     if (!value || JAVA_TYPE.test(value)) return "";
     const trimmed = value.trim();
@@ -38,7 +39,7 @@ function plausibleBrand(value: string | undefined): string {
     return /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]*$/.test(trimmed) ? trimmed : "";
 }
 
-/** A model label carries at least one letter and is not a bare number. */
+/** Un libellé modèle porte au moins une lettre et n'est pas un nombre nu. */
 function plausibleModel(value: string | undefined): string {
     if (!value || JAVA_TYPE.test(value)) return "";
     const trimmed = value.trim();
@@ -47,7 +48,7 @@ function plausibleModel(value: string | undefined): string {
     return /[A-Za-z]/.test(trimmed) ? trimmed : "";
 }
 
-/** Returns null when no K-Type is present, which makes the source unusable. */
+/** Rend null sans kType, ce qui rend la réponse inexploitable. */
 export function parseVehicleIdentity(stringTable: string[], plate: string): ExadisVehicle | null {
     const wanted = normalizePlate(plate);
 

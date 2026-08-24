@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { type PlateLookupResult, formatPlateInput } from "@/lib/vehicle/plate-resolver";
+import { formatPlateInput } from "@/lib/vehicle/plate-resolver";
+import { usePlateLookup } from "@/hooks/vehicle/use-plate-lookup";
 
-export function VehiclePlateSearch() {
+interface VehiclePlateSearchProps {
+    /** Même contrat que la cascade : la plaque retenue devient le véhicule actif. */
+    onVehicleConfirmed?: (vehicleId: number, details?: { label: string; plate?: string }) => void;
+}
+
+export function VehiclePlateSearch({ onVehicleConfirmed }: VehiclePlateSearchProps) {
     const [rawInput, setRawInput] = useState("");
-    const isLoadingPlate = false;
     const [plateError, setPlateError] = useState<string | null>(null);
-    const [foundVehicle, setFoundVehicle] = useState<PlateLookupResult | null>(null);
-
-    // La recherche par plaque est mise de côté : sa route et sa résolution sont
-    // dans parked/plate, en attente d'être rebâties sur le nouveau schéma. Le
-    // formulaire reste affiché, il n'appelle simplement plus le serveur.
-    const isSyncing = false;
+    const { mutate: lookupPlate, isPending } = usePlateLookup();
 
     function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
         const formatted = formatPlateInput(e.target.value);
@@ -37,9 +37,18 @@ export function VehiclePlateSearch() {
             return;
         }
 
-        console.log("Recherche par plaque désactivée pour le moment :", rawInput);
-        setFoundVehicle(null);
-        setPlateError("La recherche par plaque est temporairement indisponible.");
+        setPlateError(null);
+        lookupPlate(rawInput, {
+            // Le véhicule est retenu tout de suite : la carte véhicule remplace
+            // ce formulaire et affiche la plaque, il n'y a rien à confirmer.
+            onSuccess: (vehicle) => {
+                onVehicleConfirmed?.(vehicle.vehicleId, {
+                    label: `${vehicle.manufacturerName} ${vehicle.modelName} | ${vehicle.typeEngineName}`,
+                    plate: vehicle.plate,
+                });
+            },
+            onError: (error) => setPlateError(error.message),
+        });
     }
 
     return (
@@ -60,16 +69,16 @@ export function VehiclePlateSearch() {
                         placeholder="AA-123-BB"
                         maxLength={9}
                         className="w-full bg-transparent px-3 text-center font-mono text-lg font-bold tracking-widest text-ink placeholder:text-ink/30 focus:outline-none uppercase"
-                        disabled={isLoadingPlate || isSyncing}
+                        disabled={isPending}
                     />
                 </div>
 
                 <Button
                     type="submit"
-                    disabled={isLoadingPlate || isSyncing || !rawInput.trim()}
+                    disabled={isPending || !rawInput.trim()}
                     className="h-12 shrink-0 bg-pine px-6 font-heading font-bold text-white hover:bg-pine-hover"
                 >
-                    {isLoadingPlate || isSyncing ? "Identification…" : "Rechercher"}
+                    {isPending ? "Identification…" : "Rechercher"}
                 </Button>
             </form>
 
@@ -77,31 +86,6 @@ export function VehiclePlateSearch() {
             {plateError && (
                 <div className="rounded-md bg-white/10 p-2.5 text-xs font-medium text-white">
                     {plateError}
-                </div>
-            )}
-
-            {/* Véhicule trouvé */}
-            {foundVehicle && (
-                <div className="flex flex-col gap-1.5 rounded-md bg-white/10 p-3 text-sm text-white">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 font-medium">
-                            <span className="flex size-5 items-center justify-center rounded-full bg-white/20 text-xs">
-                                {foundVehicle.confirmed ? "✓" : "!"}
-                            </span>
-                            <span>
-                                {foundVehicle.manufacturerName} {foundVehicle.modelName} | {foundVehicle.typeEngineName}
-                            </span>
-                        </div>
-                        <span className="font-mono text-xs rounded bg-white/10 px-2 py-0.5">
-                            {foundVehicle.plate}
-                        </span>
-                    </div>
-
-                    {isSyncing && (
-                        <p className="text-xs text-white/70 animate-pulse">
-                            Chargement du catalogue de pièces pour ce véhicule…
-                        </p>
-                    )}
                 </div>
             )}
         </div>

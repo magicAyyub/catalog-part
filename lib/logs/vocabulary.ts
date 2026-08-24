@@ -20,6 +20,9 @@ const MESSAGES: Record<string, string> = {
     "Plate lookup succeeded": "Plaque identifiée",
     "Plate lookup completed": "Plaque identifiée",
     "Plate lookup failed": "Échec de l'identification",
+    "Plate identified but unknown to TecDoc": "Plaque identifiée, véhicule inconnu au catalogue",
+    "Plate vehicle acquisition attempted": "Fiche véhicule apprise depuis la plaque",
+    "Plate vehicle unknown and labels unusable": "Plaque identifiée sans libellé exploitable",
     "Plate translated to K-Type": "Plaque traduite en K-Type",
     "Plate translated to K-Type by Exadis": "Plaque traduite en K-Type par Exadis",
     "Plate identified by Exadis, vehicle already in the local index":
@@ -118,6 +121,9 @@ const ACTIONS: Record<string, { tone: Tone; keys: string[] }> = {
     session_retry: { tone: "supplier", keys: ["supplier"] },
     login: { tone: "supplier", keys: ["supplier"] },
     exadis_login: { tone: "supplier", keys: [] },
+    exadis_error: { tone: "supplier", keys: ["plate"] },
+    plate_vehicle_learned: { tone: "batch", keys: ["kType", "acquired"] },
+    plate_vehicle_skipped: { tone: "supplier", keys: ["kType"] },
 
     articles_synced: {
         tone: "batch",

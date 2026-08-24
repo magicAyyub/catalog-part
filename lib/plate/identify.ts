@@ -1,29 +1,30 @@
 /**
- * Plate to vehicle identity. Exadis is the only provider: one request yields the
- * K-Type plus the brand and model labels.
+ * Identité véhicule d'une plaque. Exadis est le seul fournisseur.
  *
- * The labels are load-bearing. The identifier Exadis returns is usually a K-Type
- * but not always, and the engine label is what recovers the vehicle when it is
- * not, so unreadable labels leave the identification unconfirmed.
+ * L'identification s'arrête ici : placer le kType dans le référentiel revient
+ * à l'appelant. Les libellés sont conservés parce qu'eux seuls savent nommer
+ * un véhicule que le référentiel ne porte pas.
  *
- * A second provider must not read its K-Type from Exadis: app-etf did, and fell
- * with the source it was meant to cover.
+ * C'est ici que se brancherait un second fournisseur, et il ne devrait pas
+ * lire son kType chez Exadis : app-etf le faisait et tombait avec la source
+ * qu'il était censé couvrir.
  */
 
-import { ExadisLookupError, exadisConfigured, lookupVehicleByPlate } from "@/lib/suppliers/exadis/vehicle-lookup";
-import { findVehicleByKType } from "@/lib/vehicle/vehicle-index";
+import {
+    ExadisLookupError,
+    exadisConfigured,
+    lookupVehicleByPlate,
+} from "@/lib/suppliers/exadis/vehicle-lookup";
 import { PlateLookupError } from "@/lib/plate/errors";
 import { logger } from "@/lib/logger";
 
 export interface PlateIdentity {
     kType: number;
-    /** Empty when the Exadis string table could not be read with confidence. */
+    /** Vide quand la table de chaînes n'a pas pu être lue avec certitude. */
     brand: string;
     model: string;
-    /** Engine line as the supplier words it, "1.8 Hybrid (ZVW3_)". Absent on older cached entries. */
+    /** Motorisation telle que le fournisseur la nomme, "1.6 Passion 16V". */
     version?: string;
-    /** Diagnostics only. Older cached entries may name another provider. */
-    source?: string;
 }
 
 const STATUS_BY_CODE: Record<ExadisLookupError["code"], number> = {
@@ -40,7 +41,7 @@ function asPlateLookupError(error: unknown): PlateLookupError {
     return new PlateLookupError("Identification du véhicule en échec.", 502, "transport");
 }
 
-/** Throws `PlateLookupError`, which the route turns into a status and a message. */
+/** Lève `PlateLookupError`, que la route traduit en statut et en message. */
 export async function identifyPlate(plate: string): Promise<PlateIdentity> {
     if (!exadisConfigured()) {
         throw new PlateLookupError(
@@ -63,26 +64,12 @@ export async function identifyPlate(plate: string): Promise<PlateIdentity> {
         throw asPlateLookupError(error);
     }
 
-    const known = Boolean(await findVehicleByKType(vehicle.kType));
-
-    // Libellés illisibles sur un K-Type que l'index ne connaît pas : la remontée
-    // TecDoc ne pourra pas nommer le véhicule. Les pièces restent justes.
-    if (!known && (!vehicle.brand || !vehicle.model)) {
-        logger.warn("Exadis gave a K-Type but no usable labels", {
-            module: "plate-identify",
-            action: "plate_labels_missing",
-            plate,
-            kType: vehicle.kType,
-        });
-    }
-
     logger.info("Plate identified by Exadis", {
         module: "plate-identify",
         action: "plate_source",
         plate,
         kType: vehicle.kType,
         source: "exadis",
-        indexed: known,
     });
 
     return {
@@ -90,7 +77,6 @@ export async function identifyPlate(plate: string): Promise<PlateIdentity> {
         brand: vehicle.brand,
         model: vehicle.model,
         version: vehicle.version,
-        source: "exadis",
     };
 }
 

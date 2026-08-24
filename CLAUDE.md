@@ -47,12 +47,17 @@ ete paye une fois y reste et se sert gratuitement ensuite.
 ## Le flux
 
 ```
-  Cascade                       (la recherche par plaque est parquee)
-    |
-  GET /api/vehicle/manufacturers   -> 698 constructeurs, 1 appel
-  GET /api/vehicle/models          -> ~130 modeles, 1 appel par constructeur
-  GET /api/vehicle/engine-types    -> ~20 vehicules complets, 1 appel par modele
-    |
+  Cascade                                        Plaque
+    |                                              |
+  GET /api/vehicle/manufacturers                 POST /api/vehicle/by-plate
+    |  698 constructeurs, 1 appel                  |  Exadis rend un K-Type
+  GET /api/vehicle/models                          |  qui est deja le vehicleId
+    |  ~130 modeles, 1 appel par constructeur      |  0 appel si deja connu,
+  GET /api/vehicle/engine-types                    |  sinon la 1re categorie
+    |  ~20 vehicules complets, 1 appel par modele  |  est acquise ici
+    |                                              |
+    +----------------------+-----------------------+
+                           |
   vehicleId (= K-Type TecDoc, pivot de toute l'application)
     |
   GET /api/parts?vehicleId&categoryId
@@ -112,6 +117,39 @@ l'article, sans type et plus maigre.
 Les deux ne doivent jamais se melanger dans `article_criteria` : `getArticleDetail`
 n'ecrit `allSpecifications` que si l'article n'a pas deja de criteres de vehicule.
 
+## La plaque
+
+`POST /api/vehicle/by-plate` traduit une immatriculation en `vehicleId` :
+
+    plaque -> Exadis -> K-Type -> `vehicles` -> vehicleId
+
+Exadis est du GWT-RPC scrape (`lib/suppliers/exadis/`), pas une API : les corps
+de requete de `templates.ts` sont des captures a recopier au caractere pres, et
+`transport.ts` passe par `node:https` pour fournir l'intermediaire de certificat
+que leur serveur omet, plutot que de couper la verification TLS du process.
+Seul le K-Type vient du fournisseur, jamais un prix ni un article.
+
+Le K-Type est le `vehicleId` TecDoc, verifie sur une 307 dont Exadis rend 15901,
+que `articles/list` sert directement. La plaque court-circuite donc entierement
+la cascade, et coute moins qu'elle, qui depense trois appels avant les pieces.
+
+Ce qui manque n'est pas les pieces mais la fiche vehicule : aucun endpoint ne la
+rend depuis un `vehicleId` seul, les motorisations ne venant que de
+`Engine_Types_by_Model`, qui exige un `modelId`. Elle est donc composee avec les
+libelles d'Exadis, dans `lib/acquisition/plate.ts`.
+
+Cette fiche n'est ecrite que si la premiere categorie ramene des articles.
+L'identifiant d'un fournisseur n'est pas toujours un K-Type, et une fiche
+inventee resterait au referentiel sans jamais porter de piece. Mesure sur le
+31134 d'une PRIUS : un appel, aucune ligne ecrite, retour a la cascade. La
+preuve ne coute rien de plus, c'est l'appel que la categorie aurait paye.
+
+`listArticles` rend `articles: null`, et non pas un tableau vide, sur un
+`vehicleId` inconnu.
+
+La traduction plaque vers K-Type n'est pas bancarisee : chaque recherche repasse
+par le portail. La session Exadis, elle, est mutualisee par processus.
+
 ## Conventions
 
 **Erreurs.** `RapidApiError` dans `lib/rapidapi/errors.ts`, avec son code decide
@@ -143,11 +181,12 @@ charte.
 
 `parked/` est exclu du `tsconfig`, donc jamais compile.
 
-`parked/plate/` contient la recherche par plaque : route `by-plate`, resolution
-Exadis, `ktype-resolver`. Reportee, mais prevue. Elle se rebranchera assez bien
-sur le nouveau schema, le K-Type etant devenu `vehicles.vehicleId`. Le composant
-`vehicle-plate-search.tsx` est reste en place et fait un `console.log` : ne pas
-le supprimer.
+`parked/plate/ktype-resolver.ts` est ce qui reste de la recherche par plaque :
+la remontee par libelles, qui retrouve le vrai K-Type quand le fournisseur en
+rend un autre. Mesure sur une TOYOTA PRIUS III, dont Exadis annonce 31134 alors
+que son libelle moteur nomme le K-Type 115456. Reportee parce qu'elle marche a
+coups d'appels RapidAPI sur les vehicules inconnus, alors que la voie courte
+n'en depense aucun.
 
 `parked/normalize.ts` contient les regles de normalisation marque/reference pour
 raccrocher des offres grossistes, donnees comme eprouvees en production. Hors

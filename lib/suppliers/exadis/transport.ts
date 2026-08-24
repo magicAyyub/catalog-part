@@ -1,19 +1,17 @@
 /**
- * HTTP transport for the Exadis portal.
+ * Transport HTTPS du portail Exadis.
  *
- * Uses `node:https` rather than `fetch` for one reason: their server omits its
- * intermediate certificate, and only the low level API lets the missing link be
- * supplied per request. Global `fetch` would need the trust store weakened for
- * the whole process.
+ * `node:https` plutôt que `fetch` : leur serveur omet son certificat
+ * intermédiaire, et seule l'API bas niveau permet de le fournir par requête.
  *
- * Server only.
+ * Serveur uniquement.
  */
 
 import { request as httpsRequest } from "node:https";
 import { rootCertificates } from "node:tls";
 import { GANDI_INTERMEDIATE_PEM } from "./ca";
 
-/** System roots plus the link Exadis fails to send. Verification stays on. */
+/** Racines système plus le maillon manquant. La vérification reste active. */
 const TRUSTED = [...rootCertificates, GANDI_INTERMEDIATE_PEM];
 
 export interface ExadisResponse {
@@ -28,11 +26,11 @@ export interface ExadisRequestOptions {
     headers?: Record<string, string>;
     body?: string;
     timeoutMs: number;
-    /** The SSO exchange answers with a redirect chain that must be walked. */
+    /** L'échange SSO répond par une chaîne de redirections à suivre. */
     follow?: number;
 }
 
-/** Walks redirects, accumulating every `set-cookie` seen along the way. */
+/** Suit les redirections en accumulant tous les `set-cookie` rencontrés. */
 export async function exadisRequestFollowing(
     url: string,
     options: ExadisRequestOptions

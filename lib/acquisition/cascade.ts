@@ -100,11 +100,15 @@ export async function getVehicles(modelId: number): Promise<Vehicle[]> {
                     }))
                 )
                 // La cascade est la source la plus riche : elle écrase une fiche
-                // apprise par les véhicules compatibles, qui n'a que sept champs.
+                // apprise par les véhicules compatibles ou par une plaque, y
+                // compris ses libellés, qui viennent alors d'un fournisseur.
                 .onConflictDoUpdate({
                     target: vehicles.vehicleId,
                     set: {
                         modelId,
+                        manufacturerName: sql`excluded.manufacturer_name`,
+                        modelName: sql`excluded.model_name`,
+                        typeEngineName: sql`excluded.type_engine_name`,
                         engineCodes: sql`excluded.engine_codes`,
                         engineId: sql`excluded.engine_id`,
                         powerKw: sql`excluded.power_kw`,

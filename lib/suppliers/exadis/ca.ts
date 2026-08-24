@@ -1,15 +1,12 @@
 /**
- * The intermediate certificate that ecat.exadis.fr does not send.
+ * Certificat intermédiaire que ecat.exadis.fr n'envoie pas.
  *
- * Their server presents only its leaf, so Node cannot build a chain to a root
- * and every request fails with UNABLE_TO_VERIFY_LEAF_SIGNATURE. The neighbouring
- * app-etf works around this by switching NODE_TLS_REJECT_UNAUTHORIZED off, which
- * disables verification for every outbound request of the process, RapidAPI
- * included.
+ * Sans lui, Node ne peut pas remonter jusqu'à une racine et tout échoue en
+ * UNABLE_TO_VERIFY_LEAF_SIGNATURE. Le fournir ici garde la vérification TLS
+ * active, là où couper NODE_TLS_REJECT_UNAUTHORIZED l'aurait désactivée pour
+ * tout le processus, RapidAPI compris.
  *
- * Supplying the missing link instead keeps verification fully on. This is Gandi
- * SAS's public intermediate, issued by DigiCert Global Root G2, valid until
- * 2034-04-16, fetched from http://cacerts.digicert.com/GandiCert.crt
+ * Gandi SAS, émis par DigiCert Global Root G2, valide jusqu'au 2034-04-16.
  */
 
 export const GANDI_INTERMEDIATE_PEM = `-----BEGIN CERTIFICATE-----

@@ -1,8 +1,8 @@
 /**
- * Plate lookup failures, and the French sentence the counter reads.
+ * Échecs d'identification par plaque, et la phrase que lit le comptoir.
  *
- * Kept outside the provider modules so a route catches one type whatever
- * answered, and so adding a provider does not move the error handling again.
+ * Hors des modules fournisseur pour qu'une route n'attrape qu'un seul type,
+ * quel que soit celui qui a répondu.
  */
 
 export type PlateErrorCode =
@@ -23,7 +23,7 @@ export class PlateLookupError extends Error {
     }
 }
 
-/** French end-user message for a plate resolution failure. */
+/** Message affiché au comptoir pour un échec d'identification. */
 export function friendlyPlateError(error: unknown): string {
     if (!(error instanceof PlateLookupError)) {
         return "Une erreur est survenue lors de l'identification du véhicule.";

@@ -69,7 +69,8 @@ export interface ApiArticleListResponse {
     vehicleId: string;
     categoryId: string;
     countArticles: number;
-    articles: ApiArticleListItem[];
+    /** Null, et non pas vide, sur un vehicleId que TecDoc ne connaît pas. */
+    articles: ApiArticleListItem[] | null;
 }
 
 export interface ApiCompatibleCar {

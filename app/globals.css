@@ -92,7 +92,9 @@
 :root {
   --background: #f2f2f4;
   --foreground: #1f2937;
-  --card: #fbfbfb;
+  /* Blanc franc : les photos d'articles sont sur fond blanc et se fondent dans
+     la carte, la separation venant du fond de page et de la bordure. */
+  --card: #ffffff;
   --card-foreground: #1f2937;
   --popover: #fbfbfb;
   --popover-foreground: #1f2937;

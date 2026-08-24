@@ -22,7 +22,7 @@ interface VehicleCascadeProps {
     /** Appelé dès qu'un vehicleId est sélectionné. */
     onVehicleSelected?: (vehicleId: number) => void;
     /** Le véhicule est retenu : la section pièces peut charger. */
-    onVehicleConfirmed?: (vehicleId: number, details?: { label: string }) => void;
+    onVehicleConfirmed?: (vehicleId: number, details?: { label: string; plate?: string }) => void;
 }
 
 // ─── Icônes SVG sobres ───────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ export function VehicleCascade({
                     <p className="mb-3.5 font-heading text-base font-semibold text-white">
                         Recherche par plaque d&apos;immatriculation
                     </p>
-                    <VehiclePlateSearch />
+                    <VehiclePlateSearch onVehicleConfirmed={onVehicleConfirmed} />
                 </div>
 
                 {/* Séparateur "OU" */}

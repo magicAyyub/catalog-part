@@ -2,26 +2,17 @@
  * French plate formatting and normalisation (SIV and FNI).
  *
  * Resolution itself lives in `lib/plate/identify.ts`, which asks Exadis for the
- * K-Type. This file only shapes what the user types.
+ * K-Type. This file only shapes what the user types, and names what the
+ * `by-plate` route sends back.
  */
 
-import type { ApiEngineType } from "@/lib/rapidapi/types";
-
 export interface PlateLookupResult {
+    /** Plaque formatée pour l'affichage, telle que la route la renvoie. */
     plate: string;
     vehicleId: number;
-    manufacturerId: number;
-    modelId: number;
     manufacturerName: string;
     modelName: string;
     typeEngineName: string;
-    powerKw: string;
-    fuelType: string;
-    vin?: string;
-    /** Vrai quand le véhicule a été confirmé dans le référentiel TecDoc. */
-    confirmed: boolean;
-    matchedBy?: "index" | "ktype" | "engine_label" | null;
-    engineType: ApiEngineType;
 }
 
 /**

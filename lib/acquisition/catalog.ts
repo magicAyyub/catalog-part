@@ -40,20 +40,40 @@ interface CriteriaRow {
  * d'attendre une promesse à l'intérieur.
  */
 
+/**
+ * Articles d'un véhicule pour une catégorie, acquis au premier passage.
+ *
+ * `vehicleIfMissing` sert la recherche par plaque, qui arrive avec un
+ * identifiant fournisseur et aucune fiche en base. La fiche n'est écrite que
+ * si TecDoc rend au moins un article : c'est la preuve que cet identifiant est
+ * bien un `vehicleId`, et elle ne coûte pas un appel de plus puisque c'est
+ * celui que la catégorie aurait payé de toute façon.
+ */
 export async function getVehicleArticles(
     vehicleId: number,
-    categoryId: number
+    categoryId: number,
+    vehicleIfMissing?: typeof vehicles.$inferInsert
 ): Promise<CatalogArticle[]> {
     if (!ALLOWED_CATEGORY_IDS.has(categoryId)) return [];
     if (await isCategorySynced(vehicleId, categoryId)) {
         return listVehicleArticles(vehicleId, categoryId);
     }
 
-    const { articles: fetched } = await rapidApi.listArticles(vehicleId, categoryId);
+    // TecDoc rend `null`, et pas un tableau vide, sur un vehicleId qu'il ignore.
+    const fetched = (await rapidApi.listArticles(vehicleId, categoryId)).articles ?? [];
+
+    // Véhicule inconnu et catalogue muet : on ne laisse aucune trace, sans quoi
+    // un mauvais identifiant s'installerait dans le référentiel.
+    if (vehicleIfMissing && fetched.length === 0) return [];
+
     const kept = fetched.filter((a) => ALLOWED_SUPPLIER_IDS.has(a.supplierId));
     const criteria = await fetchCriteria(vehicleId, kept);
 
     db.transaction((tx) => {
+        if (vehicleIfMissing) {
+            tx.insert(vehicles).values(vehicleIfMissing).onConflictDoNothing().run();
+        }
+
         insertSuppliers(
             tx,
             kept.map((a) => ({ supplierId: a.supplierId, name: a.supplierName }))
