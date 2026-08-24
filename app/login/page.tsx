@@ -28,25 +28,42 @@ export default async function LoginPage({
     if (user) redirect(target);
 
     return (
-        <main className="flex flex-1 items-center justify-center px-4 py-12">
-            <div className="w-full max-w-sm">
-                <div className="mb-6 flex flex-col items-center text-center">
-                    <span className="mb-5 flex items-center rounded-lg bg-pine px-5 py-3 shadow-sm">
-                        <Image
-                            src="/jumbo-pneus.svg"
-                            alt="Jumbo Pneus"
-                            width={200}
-                            height={37}
-                            priority
-                            className="h-8 w-auto"
-                        />
-                    </span>
-                    <h1 className="font-heading text-xl font-bold text-ink">Espace franchisé</h1>
-                    <p className="mt-1 text-sm text-txt2">
-                        Catalogue freinage réservé aux franchisés Jumbo Pneus.
+        <main className="flex min-h-dvh flex-col lg:flex-row">
+            {/* Le logo est dessiné pour un fond sombre : ce panneau est son support,
+                pas une décoration. */}
+            <aside className="flex flex-col justify-between gap-10 bg-pine px-8 py-10 lg:w-2/5 lg:max-w-xl lg:px-12 lg:py-14">
+                <Image
+                    src="/jumbo-pneus.svg"
+                    alt="Jumbo Pneus"
+                    width={260}
+                    height={48}
+                    priority
+                    className="h-8 w-auto lg:h-11"
+                />
+                <p className="max-w-sm font-heading text-2xl leading-snug font-semibold text-white lg:text-3xl">
+                    Le catalogue pièces,
+                    <br />
+                    réservé aux franchisés.
+                </p>
+                <p className="text-sm text-white/70">
+                    Les références compatibles avec le véhicule que vous identifiez, avec leurs
+                    caractéristiques techniques.
+                </p>
+            </aside>
+
+            <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-12">
+                <div className="w-full max-w-md">
+                    <h1 className="font-heading text-2xl font-bold text-ink">Espace franchisé</h1>
+                    <p className="mt-2 mb-10 text-base text-txt2">
+                        Connectez-vous pour accéder au catalogue.
+                    </p>
+
+                    <LoginForm next={target} />
+
+                    <p className="mt-8 border-t border-stroke pt-6 text-sm text-txt2">
+                        Identifiants oubliés ? Contactez l&apos;administrateur du catalogue.
                     </p>
                 </div>
-                <LoginForm next={target} />
             </div>
         </main>
     );

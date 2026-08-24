@@ -120,7 +120,7 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
     const selectionLabel =
         activeCategories.size === 1
             ? (BRAKE_CATEGORIES.find((c) => activeCategories.has(c.categoryId))?.label ?? "pièces")
-            : "pièces de frein";
+            : "pièces";
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -233,7 +233,7 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
         <section className="flex flex-col gap-6">
             {/* En-tête */}
             <div className="flex flex-col gap-1">
-                <h2 className="font-heading text-xl font-bold text-foreground">Pièces de frein</h2>
+                <h2 className="font-heading text-lg font-bold text-ink">Pièces compatibles</h2>
                 {vehicleLabel && (
                     <p className="text-sm text-muted-foreground">
                         Résultats pour :{" "}

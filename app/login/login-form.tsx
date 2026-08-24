@@ -46,7 +46,7 @@ export function LoginForm({ next }: { next: string }) {
     return (
         <form
             onSubmit={handleSubmit}
-            className="flex flex-col gap-4 rounded-xl border border-stroke bg-white p-6 shadow-sm"
+            className="flex flex-col gap-5"
         >
             <div className="flex flex-col gap-1.5">
                 <Label htmlFor="username">Identifiant</Label>
@@ -56,7 +56,7 @@ export function LoginForm({ next }: { next: string }) {
                     autoComplete="username"
                     autoFocus
                     required
-                    className="h-9"
+                    className="h-11"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     disabled={isSubmitting}
@@ -71,7 +71,7 @@ export function LoginForm({ next }: { next: string }) {
                     type="password"
                     autoComplete="current-password"
                     required
-                    className="h-9"
+                    className="h-11"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isSubmitting}
@@ -88,10 +88,6 @@ export function LoginForm({ next }: { next: string }) {
                 {isSubmitting ? <Spinner /> : null}
                 {isSubmitting ? "Connexion…" : "Se connecter"}
             </Button>
-
-            <p className="text-center text-xs text-txt2">
-                Identifiants oubliés ? Contactez l&apos;administrateur du catalogue.
-            </p>
         </form>
     );
 }

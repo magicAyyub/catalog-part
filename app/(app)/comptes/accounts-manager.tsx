@@ -114,7 +114,7 @@ export function AccountsManager() {
 
     return (
         <div className="flex flex-col gap-8 py-4">
-            <h1 className="font-heading text-xl font-bold text-ink">Comptes franchisés</h1>
+            <h1 className="font-heading text-2xl font-bold text-ink">Comptes franchisés</h1>
 
             {handover && (
                 <div className="flex flex-col gap-2 rounded-xl border border-leaf/40 bg-leaf/5 p-5">

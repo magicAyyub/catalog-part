@@ -47,7 +47,7 @@ export function UnlockForm() {
                 <span className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-muted text-txt2">
                     <Lock className="size-5" />
                 </span>
-                <h1 className="font-heading text-lg font-bold text-ink">Trace du système</h1>
+                <h1 className="font-heading text-2xl font-bold text-ink">Trace du système</h1>
             </div>
 
             <form

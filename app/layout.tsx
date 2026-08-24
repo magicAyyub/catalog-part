@@ -3,7 +3,6 @@ import { Geist_Mono, Lato, Outfit } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "./providers";
-import { SiteHeader } from "@/components/layout/site-header";
 
 const lato = Lato({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-sans" });
 
@@ -24,7 +23,7 @@ export const metadata: Metadata = {
     template: "%s · Catalogue Jumbo Pneus",
   },
   description:
-    "Catalogue de pièces de freinage réservé aux franchisés Jumbo Pneus : plaquettes et disques compatibles avec un véhicule identifié.",
+    "Catalogue de pièces réservé aux franchisés Jumbo Pneus : les références compatibles avec un véhicule identifié, avec leurs caractéristiques techniques.",
   // Outil interne derrière authentification : rien à indexer.
   robots: { index: false, follow: false },
 };
@@ -40,10 +39,7 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", geistMono.variable, "font-sans", lato.variable, outfit.variable)}
     >
       <body className="min-h-full flex flex-col">
-        <Providers>
-          <SiteHeader />
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

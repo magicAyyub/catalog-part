@@ -236,7 +236,7 @@ export function LogViewer() {
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 className="font-heading text-xl font-bold text-ink">Trace du système</h1>
+                    <h1 className="font-heading text-2xl font-bold text-ink">Trace du système</h1>
                     <p className="text-sm text-txt2">
                         Chaque étape d&apos;une recherche, dans l&apos;ordre. Le point orange marque un appel payé.
                     </p>

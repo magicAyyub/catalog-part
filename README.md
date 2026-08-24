@@ -1,6 +1,6 @@
 ## catalog-part
 
-Catalogue de pièces de freinage pour les franchisés Jumbo Pneus.
+Catalogue de pièces pour les franchisés Jumbo Pneus.
 Next.js, Drizzle ORM, SQLite, RapidAPI auto-parts-catalog.
 
 L'architecture et les conventions sont décrites dans `CLAUDE.md`.
