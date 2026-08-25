@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import { rapidApi } from "@/lib/rapidapi/client";
+import { and, eq, notInArray } from "drizzle-orm";
+import { billedCallCount, rapidApi } from "@/lib/rapidapi/client";
 import { db, type Tx } from "@/lib/db/client";
 import { ALLOWED_CATEGORY_IDS, ALLOWED_SUPPLIER_IDS } from "@/lib/config";
 import {
@@ -11,8 +11,8 @@ import {
     vehicles,
 } from "@/lib/db/schema";
 import {
+    categorySyncState,
     findArticle,
-    isCategorySynced,
     listVehicleArticles,
     type ArticleDetail,
     type CatalogArticle,
@@ -41,13 +41,17 @@ interface CriteriaRow {
  */
 
 /**
- * Articles d'un véhicule pour une catégorie, acquis au premier passage.
+ * Articles d'un véhicule pour une catégorie, acquis au premier passage puis
+ * réacquis une fois `SYNC_TTL_MS` écoulé.
  *
  * `vehicleIfMissing` sert la recherche par plaque, qui arrive avec un
  * identifiant fournisseur et aucune fiche en base. La fiche n'est écrite que
  * si TecDoc rend au moins un article : c'est la preuve que cet identifiant est
  * bien un `vehicleId`, et elle ne coûte pas un appel de plus puisque c'est
  * celui que la catégorie aurait payé de toute façon.
+ *
+ * Une réacquisition qui échoue rend le catalogue précédent plutôt qu'une
+ * erreur : au comptoir, une donnée d'un semestre vaut mieux qu'un écran vide.
  */
 export async function getVehicleArticles(
     vehicleId: number,
@@ -55,12 +59,31 @@ export async function getVehicleArticles(
     vehicleIfMissing?: typeof vehicles.$inferInsert
 ): Promise<CatalogArticle[]> {
     if (!ALLOWED_CATEGORY_IDS.has(categoryId)) return [];
-    if (await isCategorySynced(vehicleId, categoryId)) {
+
+    const state = await categorySyncState(vehicleId, categoryId);
+    if (state === "fresh") {
+        // Tracé pour lui-même : c'est le dénominateur du taux de service, que
+        // `scripts/catalog-stats.ts` ne saurait pas reconstituer autrement.
+        logger.info("Catalog served from the referential", {
+            module: "acquisition",
+            action: "vehicle_articles_hit",
+            vehicleId,
+            categoryId,
+        });
         return listVehicleArticles(vehicleId, categoryId);
     }
 
-    // TecDoc rend `null`, et pas un tableau vide, sur un vehicleId qu'il ignore.
-    const fetched = (await rapidApi.listArticles(vehicleId, categoryId)).articles ?? [];
+    const startedAt = Date.now();
+    const callsBefore = billedCallCount();
+
+    let fetched: ApiArticleListItem[];
+    try {
+        // TecDoc rend `null`, et pas un tableau vide, sur un vehicleId qu'il ignore.
+        fetched = (await rapidApi.listArticles(vehicleId, categoryId)).articles ?? [];
+    } catch (error) {
+        if (state === "stale") return staleFallback(vehicleId, categoryId, error);
+        throw error;
+    }
 
     // Véhicule inconnu et catalogue muet : on ne laisse aucune trace, sans quoi
     // un mauvais identifiant s'installerait dans le référentiel.
@@ -97,6 +120,10 @@ export async function getVehicleArticles(
                 .run();
         }
 
+        if (state === "stale") {
+            pruneFitments(tx, vehicleId, categoryId, kept);
+        }
+
         insertFitments(
             tx,
             kept.map((a) => ({ vehicleId, articleId: a.articleId, categoryId }))
@@ -120,9 +147,12 @@ export async function getVehicleArticles(
         action: "vehicle_articles",
         vehicleId,
         categoryId,
+        refresh: state === "stale",
         fetched: fetched.length,
         kept: kept.length,
         criteriaRows: criteria.length,
+        billedCalls: billedCallCount() - callsBefore,
+        durationMs: Date.now() - startedAt,
     });
 
     return listVehicleArticles(vehicleId, categoryId);
@@ -233,33 +263,92 @@ async function fetchCriteria(
         });
     }
 
-    const rows = new Map<string, CriteriaRow>();
-
-    for (const { productId, supplierId } of pairs.values()) {
-        try {
-            const res = await rapidApi.getSparePartCriteria(productId, vehicleId, supplierId);
-            for (const row of res?.articles ?? []) {
-                if (!keptIds.has(row.articleId)) continue;
-                rows.set(`${row.articleId}|${row.criteriaName}|${row.criteriaValue}`, {
-                    articleId: row.articleId,
-                    name: row.criteriaName,
-                    value: row.criteriaValue,
-                    type: row.type,
+    // Les paires partent ensemble : il y en a au plus une par équipementier
+    // autorisé, donc cinq appels de front, loin des vingt-cinq par seconde du
+    // plan. C'est `ALLOWED_SUPPLIER_IDS` qui borne la concurrence, pas un limiteur.
+    const responses = await Promise.all(
+        [...pairs.values()].map(async ({ productId, supplierId }) => {
+            try {
+                const res = await rapidApi.getSparePartCriteria(productId, vehicleId, supplierId);
+                return res?.articles ?? [];
+            } catch (error) {
+                logger.warn("Spare part criteria lookup failed", {
+                    module: "acquisition",
+                    action: "criteria_error",
+                    vehicleId,
+                    productId,
+                    supplierId,
+                    error,
                 });
+                return [];
             }
-        } catch (error) {
-            logger.warn("Spare part criteria lookup failed", {
-                module: "acquisition",
-                action: "criteria_error",
-                vehicleId,
-                productId,
-                supplierId,
-                error,
-            });
-        }
+        })
+    );
+
+    // La clé porte la valeur, donc l'ordre d'arrivée ne change pas le résultat.
+    const rows = new Map<string, CriteriaRow>();
+    for (const row of responses.flat()) {
+        if (!keptIds.has(row.articleId)) continue;
+        rows.set(`${row.articleId}|${row.criteriaName}|${row.criteriaValue}`, {
+            articleId: row.articleId,
+            name: row.criteriaName,
+            value: row.criteriaValue,
+            type: row.type,
+        });
     }
 
     return [...rows.values()];
+}
+
+/**
+ * Réacquisition impossible : on rend ce que la base contient déjà.
+ *
+ * Le catalogue est périmé, pas absent. `catalog_sync` reste sur sa date
+ * d'origine, donc le passage suivant réessaiera.
+ */
+async function staleFallback(
+    vehicleId: number,
+    categoryId: number,
+    error: unknown
+): Promise<CatalogArticle[]> {
+    logger.warn("Catalog refresh failed, serving stale entries", {
+        module: "acquisition",
+        action: "vehicle_articles_stale",
+        vehicleId,
+        categoryId,
+        error,
+    });
+    return listVehicleArticles(vehicleId, categoryId);
+}
+
+/**
+ * Retire les compatibilités que TecDoc ne renvoie plus pour ce couple.
+ *
+ * Sans cet élagage le TTL ne saurait qu'ajouter, et une référence retirée du
+ * catalogue resterait proposée au comptoir indéfiniment. Une réponse vide
+ * n'élague rien : elle ressemble trop à un incident amont pour qu'on lui confie
+ * une suppression.
+ */
+function pruneFitments(
+    tx: Tx,
+    vehicleId: number,
+    categoryId: number,
+    kept: ApiArticleListItem[]
+): void {
+    if (kept.length === 0) return;
+
+    tx.delete(fitments)
+        .where(
+            and(
+                eq(fitments.vehicleId, vehicleId),
+                eq(fitments.categoryId, categoryId),
+                notInArray(
+                    fitments.articleId,
+                    kept.map((a) => a.articleId)
+                )
+            )
+        )
+        .run();
 }
 
 async function articleCategories(articleId: number): Promise<number[]> {

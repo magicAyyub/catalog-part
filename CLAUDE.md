@@ -16,6 +16,9 @@ npx drizzle-kit studio # inspection de la base
 
 pnpm auth:user list                                   # comptes existants
 pnpm auth:user create <login> --password "..."        # creer un compte
+
+pnpm catalog:stats                                    # taux de service du referentiel
+pnpm catalog:stats --weeks 12                         # sur douze semaines
 ```
 
 Aucun test et aucun lanceur de test ne sont installes. `npx tsc --noEmit` et
@@ -41,8 +44,16 @@ RapidAPI est facture a l'appel avec un quota mensuel. Presque toutes les
 decisions structurantes existent pour ne pas payer deux fois la meme
 information. Sans cette cle de lecture le design parait arbitraire.
 
-Consequence : la base n'est pas un cache, c'est le referentiel. Tout ce qui a
-ete paye une fois y reste et se sert gratuitement ensuite.
+Consequence : la base n'est pas un cache, c'est le referentiel. Ce qui a ete
+paye y reste et se sert gratuitement ensuite, jusqu'a `SYNC_TTL_DAYS` ou le
+couple vehicule/categorie est reacquis, les equipementiers ajoutant des
+references en continu. Le cout n'est donc pas paye une fois pour toutes mais
+une fois par TTL, et seulement sur les vehicules reellement consultes.
+
+Corollaire a garder en tete : le prechauffage speculatif ne fait jamais baisser
+la facture. A la demande on paie les vehicules vus au comptoir ; en prechauffant
+on paie ceux-la **plus** ceux qui ne viendront jamais. Ce qu'il achete est de la
+latence, pas des appels. `pnpm catalog:stats` donne les chiffres.
 
 ## Le flux
 
@@ -73,13 +84,26 @@ l'acquisition. Toute route ou hook qui parlerait de "sync" est obsolete.
 ## Les trois couches
 
 **`lib/db/queries/`** lit la base, jamais le reseau. Un resultat vide veut dire
-"pas encore acquis", ce que `isCategorySynced` permet de distinguer de
-"aucune piece".
+"pas encore acquis", ce que `categorySyncState` permet de distinguer de
+"aucune piece". Ce tri-etat rend `missing`, `stale` ou `fresh` : le deuxieme
+fait vivre le TTL, le troisieme est le chemin gratuit.
 
 **`lib/acquisition/`** enveloppe ces lectures : base d'abord, appel RapidAPI
-seulement si absent, ecriture, puis relecture. Les ecritures sont dans une
-transaction. L'appel reseau reste toujours **avant** la transaction, le driver
-`better-sqlite3` refusant un callback qui rend une promesse.
+seulement si absent ou perime, ecriture, puis relecture. Les ecritures sont dans
+une transaction. L'appel reseau reste toujours **avant** la transaction, le
+driver `better-sqlite3` refusant un callback qui rend une promesse.
+
+Une reacquisition qui echoue ne remonte pas l'erreur : elle sert le catalogue
+precedent et laisse `catalog_sync` sur sa date d'origine, donc le passage suivant
+reessaiera. Au comptoir une donnee d'un semestre vaut mieux qu'un ecran vide.
+Elle elague aussi les compatibilites que TecDoc ne renvoie plus, sans quoi le TTL
+ne saurait qu'ajouter — sauf sur une reponse vide, trop proche d'un incident
+amont pour qu'on lui confie une suppression.
+
+Les appels de criteres partent ensemble. Il y en a au plus un par equipementier
+autorise, donc cinq de front : c'est `ALLOWED_SUPPLIER_IDS` qui borne la
+concurrence, pas un limiteur, et on reste loin des 25 requetes par seconde du
+plan.
 
 **`app/api/`** ne fait que du HTTP : garde d'auth, validation, delegation. Une
 route type tient en vingt lignes de guard clauses et un `catch` d'une ligne.
@@ -103,6 +127,17 @@ une plaquette.
 
 Une fiche venue de la cascade porte 16 champs, une fiche apprise par
 compatibilite seulement 7. La cascade ecrase donc la seconde, jamais l'inverse.
+
+Les deux sens ne se remplacent pas, et c'est facile a lire de travers.
+`getArticleDetail` ecrit `vehicles` et `fitments` mais jamais `catalog_sync`, or
+`categorySyncState` n'interroge que cette table. Une compatibilite apprise par
+l'envers est donc invisible au chemin de lecture, qui repaiera l'acquisition
+complete du vehicule. Ce n'est pas un defaut a corriger : une liste de vehicules
+compatibles ne dit pas quelles **autres** references equipent ce vehicule, elle
+est partielle par nature, et la marquer synchronisee servirait un catalogue
+incomplet au comptoir. L'envers economise l'identification du vehicule,
+c'est-a-dire la cascade et la fiche vehicule d'une plaque, jamais les appels
+d'articles.
 
 ## Les caracteristiques techniques ont deux sources
 

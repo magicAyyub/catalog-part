@@ -1,11 +1,12 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { articleCriteria, articles, catalogSync, fitments, suppliers, vehicles } from "@/lib/db/schema";
+import { SYNC_TTL_MS } from "@/lib/config";
 import type { Vehicle } from "@/lib/db/queries/vehicles";
 
 /**
  * Lecture du catalogue pièces. Aucun appel réseau : ce qui manque en base
- * signifie que l'acquisition n'a pas encore eu lieu, ce que dit `isCategorySynced`.
+ * signifie que l'acquisition n'a pas encore eu lieu, ce que dit `categorySyncState`.
  */
 
 export interface Criteria {
@@ -114,15 +115,27 @@ export async function listArticleVehicles(articleId: number): Promise<Vehicle[]>
     return rows.map((r) => r.vehicle);
 }
 
+/** Ce que la base sait d'un couple véhicule/catégorie avant tout appel réseau. */
+export type CategorySyncState = "missing" | "stale" | "fresh";
+
 /**
- * Distingue « aucune pièce pour ce véhicule » de « pas encore interrogé ».
- * Sans ça, une catégorie vide déclencherait un appel à chaque affichage.
+ * Distingue « aucune pièce pour ce véhicule » de « pas encore interrogé », et
+ * signale un catalogue périmé.
+ *
+ * Sans le premier écart, une catégorie vide déclencherait un appel à chaque
+ * affichage. Le second fait vivre `SYNC_TTL_MS` : passé ce délai le catalogue
+ * est réacquis, les équipementiers ajoutant des références en continu.
  */
-export async function isCategorySynced(vehicleId: number, categoryId: number): Promise<boolean> {
+export async function categorySyncState(
+    vehicleId: number,
+    categoryId: number
+): Promise<CategorySyncState> {
     const [row] = await db
-        .select({ vehicleId: catalogSync.vehicleId })
+        .select({ syncedAt: catalogSync.syncedAt })
         .from(catalogSync)
         .where(and(eq(catalogSync.vehicleId, vehicleId), eq(catalogSync.categoryId, categoryId)))
         .limit(1);
-    return Boolean(row);
+
+    if (!row) return "missing";
+    return row.syncedAt.getTime() > Date.now() - SYNC_TTL_MS ? "fresh" : "stale";
 }
