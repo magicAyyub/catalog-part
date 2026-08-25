@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BusyPanel } from "@/components/ui/busy-panel";
 import { formatPlateInput } from "@/lib/vehicle/plate-resolver";
 import { usePlateLookup, type PlateSuggestionResult } from "@/hooks/vehicle/use-plate-lookup";
 
@@ -60,6 +61,19 @@ export function VehiclePlateSearch({
             },
             onError: (error) => setPlateError(error.message),
         });
+    }
+
+    // La roue doit tourner des le clic : l'identification acquiert deja la
+    // premiere categorie, et sans ce panneau le comptoir n'a que le libelle du
+    // bouton pendant plusieurs secondes. C'est le meme panneau que la grille,
+    // donc l'attente ne change pas de forme quand les pieces prennent le relais.
+    if (isPending) {
+        return (
+            <BusyPanel
+                title="Identification du véhicule"
+                description="La plaque est transmise au fournisseur, puis le catalogue est interrogé pour ce véhicule. Comptez quelques secondes."
+            />
+        );
     }
 
     return (

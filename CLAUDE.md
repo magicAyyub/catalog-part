@@ -23,8 +23,9 @@ pnpm catalog:stats --weeks 12                         # sur douze semaines
 
 Aucun test et aucun lanceur de test ne sont installes. `npx tsc --noEmit` et
 `pnpm lint` sont les seules verifications automatiques : les lancer avant de
-committer. Deux erreurs eslint preexistent, des apostrophes non echappees dans
-`parts-grid.tsx` et `vehicle-cascade.tsx`.
+committer. Les deux doivent sortir propres. `pnpm lint` laisse six
+avertissements, tous sur `<img>` non converti en `next/image` et sur les fichiers
+de demonstration `components/examples/`.
 
 Le proprietaire lance lui-meme les serveurs et juge lui-meme les rendus visuels.
 Ne pas demarrer `pnpm dev` en tache de fond, ne pas conclure sur une capture.

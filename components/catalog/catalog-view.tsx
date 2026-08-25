@@ -6,8 +6,8 @@ import { VehicleCascade } from "@/components/vehicle/vehicle-cascade";
 import { ActiveVehicleCard, type ActiveVehicleData } from "@/components/vehicle/active-vehicle-card";
 import { PartsSection } from "@/components/parts/parts-section";
 import { useSaveSelection } from "@/hooks/vehicle/use-selection";
+import { ACTIVE_VEHICLE_KEY as STORAGE_KEY } from "@/lib/catalog/active-vehicle";
 
-const STORAGE_KEY = "catalog_active_vehicle";
 const VEHICLE_PARAM = "vehicule";
 
 function subscribeToStorage(onChange: () => void): () => void {

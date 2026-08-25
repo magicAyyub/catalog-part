@@ -84,7 +84,7 @@ function ErrorState() {
             <EmptyHeader>
                 <EmptyTitle className="text-destructive font-semibold">Impossible de charger les pièces</EmptyTitle>
                 <EmptyDescription>
-                    Une erreur s'est produite lors de la récupération des articles.
+                    Une erreur s&apos;est produite lors de la récupération des articles.
                 </EmptyDescription>
             </EmptyHeader>
         </Empty>

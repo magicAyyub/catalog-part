@@ -199,7 +199,7 @@ export function VehicleCascade({
                     </div>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                    Une erreur s'est produite lors de la connexion au service de catalogue.
+                    Une erreur s&apos;est produite lors de la connexion au service de catalogue.
                 </p>
                 {showMfErrorDetails && (
                     <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-muted/50 border border-border/40 p-3 font-mono text-xs text-muted-foreground leading-relaxed">
