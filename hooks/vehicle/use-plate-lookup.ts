@@ -46,6 +46,9 @@ async function lookupPlate(plate: string): Promise<PlateLookupResponse> {
     return payload as PlateLookupResponse;
 }
 
+/** Clé partagée : le catalogue s'en sert pour afficher l'attente là où les pièces apparaîtront. */
+export const PLATE_LOOKUP_KEY = ["plate-lookup"] as const;
+
 export function usePlateLookup() {
-    return useMutation({ mutationFn: lookupPlate });
+    return useMutation({ mutationKey: PLATE_LOOKUP_KEY, mutationFn: lookupPlate });
 }

@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useIsMutating } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { VehicleCascade } from "@/components/vehicle/vehicle-cascade";
 import { ActiveVehicleCard, type ActiveVehicleData } from "@/components/vehicle/active-vehicle-card";
 import { PartsSection } from "@/components/parts/parts-section";
 import { useSaveSelection } from "@/hooks/vehicle/use-selection";
+import { PLATE_LOOKUP_KEY } from "@/hooks/vehicle/use-plate-lookup";
+import { BusyPanel } from "@/components/ui/busy-panel";
 import { ACTIVE_VEHICLE_KEY as STORAGE_KEY } from "@/lib/catalog/active-vehicle";
 
 const VEHICLE_PARAM = "vehicule";
@@ -120,6 +123,12 @@ export function CatalogView() {
     const selectedVehicleId = activeVehicleData?.vehicleId ?? null;
     const isVehicleActive = selectedVehicleId !== null && activeVehicleData !== null;
 
+    // L'identification acquiert deja la premiere categorie : sans cette attente,
+    // le comptoir reste plusieurs secondes devant un ecran qui ne bouge pas. Elle
+    // est posee ici, a l'emplacement ou les pieces vont paraitre, et non dans le
+    // bandeau de recherche.
+    const isIdentifying = useIsMutating({ mutationKey: PLATE_LOOKUP_KEY }) > 0;
+
     return (
         <main className="mx-auto max-w-[1600px] w-full px-4 py-10 sm:px-6 lg:px-8">
             <div className="mb-8">
@@ -140,12 +149,23 @@ export function CatalogView() {
                 )}
             </section>
 
-            {selectedVehicleId && (
+            {isIdentifying ? (
                 <>
                     <div className="mb-10 border-t border-border" />
 
-                    <PartsSection vehicleId={selectedVehicleId} />
+                    <BusyPanel
+                        title="Identification du véhicule"
+                        description="La plaque est transmise au fournisseur, puis le catalogue est interrogé pour ce véhicule. Comptez quelques secondes."
+                    />
                 </>
+            ) : (
+                selectedVehicleId && (
+                    <>
+                        <div className="mb-10 border-t border-border" />
+
+                        <PartsSection vehicleId={selectedVehicleId} />
+                    </>
+                )
             )}
         </main>
     );
