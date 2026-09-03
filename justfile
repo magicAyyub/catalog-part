@@ -38,41 +38,15 @@ health:
 shell:
     cd {{APP_DIR}} && exec bash
 
-# Deploy latest code from repository
-deploy:
-    #!/usr/bin/env bash
-    set -euo pipefail
+# Build project and restart application to apply changes
+build:
+    cd {{APP_DIR}} && npm run build && pm2 restart {{APP_NAME}}
 
-    cd "{{APP_DIR}}"
+# Rebuild and reload application gracefully
+reload:
+    cd {{APP_DIR}} && npm run build && pm2 reload {{APP_NAME}}
 
-    echo "Checking Git status..."
-    if [[ -n "$(git status --porcelain)" ]]; then
-        echo "Error: Local uncommitted changes detected. Commit or stash before deploying."
-        exit 1
-    fi
-
-    echo "Creating database backup..."
-    sudo systemctl start "{{BACKUP_SERVICE}}" || true
-
-    echo "Pulling latest code..."
-    git pull --ff-only
-
-    echo "Installing dependencies..."
-    npm ci
-
-    echo "Building application..."
-    npm run build
-
-    echo "Restarting application..."
-    pm2 restart "{{APP_NAME}}"
-
-    echo "Verifying application status..."
-    sleep 2
-    pm2 status "{{APP_NAME}}"
-    curl -fsS -o /dev/null -w "Local HTTP %{http_code}\n" http://127.0.0.1:3000
-    echo "Deployment completed successfully."
-
-# Update dependencies without full deployment
+# Update dependencies
 update-deps:
     cd {{APP_DIR}} && npm update
 
