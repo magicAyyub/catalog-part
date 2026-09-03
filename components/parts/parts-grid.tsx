@@ -1,7 +1,7 @@
 "use client";
 
 import { PartCard } from "./part-card";
-import { BusyPanel } from "@/components/ui/busy-panel";
+import { PartCardSkeleton } from "@/components/vehicle/vehicle-identification-skeleton";
 import {
     Pagination,
     PaginationContent,
@@ -217,10 +217,12 @@ export function PartsGrid({
 }: PartsGridProps) {
     if (isLoading) {
         return (
-            <BusyPanel
-                title="Recherche des pièces compatibles"
-                description="La première consultation d'un véhicule interroge le catalogue fournisseur, ce qui prend quelques secondes. Les suivantes sont immédiates."
-            />
+            <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+                <PartCardSkeleton />
+                <PartCardSkeleton />
+                <PartCardSkeleton />
+                <PartCardSkeleton />
+            </div>
         );
     }
     if (isError) return <ErrorState />;

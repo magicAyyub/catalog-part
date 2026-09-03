@@ -204,3 +204,10 @@
     transform: translateX(-100%);
   }
 }
+
+/* Effet Shimmer façon YouTube / REUI pour les Skeletons */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

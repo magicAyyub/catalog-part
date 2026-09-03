@@ -1,41 +1,39 @@
 import { cn } from "@/lib/utils";
 
-/** Loader "roue" — clin d'œil au métier (pneus). Tourne via `animate-spin`,
- *  s'arrête pour les utilisateurs qui ont désactivé les animations. */
+/** Loader minimaliste et fluide pour l'interface comptoir. */
 export function WheelSpinner({ className }: { className?: string }) {
     return (
         <svg
-            className={cn("animate-spin text-ink motion-reduce:animate-none", className)}
-            viewBox="0 0 64 64"
+            className={cn("animate-spin text-pine motion-reduce:animate-none", className)}
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
             aria-hidden="true"
         >
-            <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="4" fill="none" />
-            <circle cx="32" cy="32" r="22" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.4" />
-            <circle cx="32" cy="32" r="6" fill="currentColor" />
-            {[0, 60, 120, 180, 240, 300].map((a) => (
-                <line
-                    key={a}
-                    x1="32"
-                    y1="32"
-                    x2="32"
-                    y2="10"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    transform={`rotate(${a} 32 32)`}
-                />
-            ))}
+            <circle
+                className="opacity-20"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+            />
+            <path
+                className="opacity-90"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
         </svg>
     );
 }
 
-/** Barre de progression indéterminée — jamais présentée comme une vraie progression. */
+/** Barre de progression indéterminée — discrète et moderne. */
 export function IndeterminateBar() {
     return (
         <div
             role="progressbar"
             aria-label="Progression indéterminée"
-            className="h-1.5 w-full max-w-100 overflow-hidden rounded-full bg-ink-100"
+            className="h-1.5 w-full max-w-72 overflow-hidden rounded-full bg-ink-100"
         >
             <div
                 className="h-full w-1/3 rounded-full bg-pine motion-reduce:w-full motion-reduce:animate-none motion-reduce:bg-pine/40"

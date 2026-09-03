@@ -8,7 +8,7 @@ import { ActiveVehicleCard, type ActiveVehicleData } from "@/components/vehicle/
 import { PartsSection } from "@/components/parts/parts-section";
 import { useSaveSelection } from "@/hooks/vehicle/use-selection";
 import { PLATE_LOOKUP_KEY } from "@/hooks/vehicle/use-plate-lookup";
-import { BusyPanel } from "@/components/ui/busy-panel";
+import { VehicleIdentificationSkeleton } from "@/components/vehicle/vehicle-identification-skeleton";
 import { ACTIVE_VEHICLE_KEY as STORAGE_KEY } from "@/lib/catalog/active-vehicle";
 
 const VEHICLE_PARAM = "vehicule";
@@ -123,10 +123,8 @@ export function CatalogView() {
     const selectedVehicleId = activeVehicleData?.vehicleId ?? null;
     const isVehicleActive = selectedVehicleId !== null && activeVehicleData !== null;
 
-    // L'identification acquiert deja la premiere categorie : sans cette attente,
-    // le comptoir reste plusieurs secondes devant un ecran qui ne bouge pas. Elle
-    // est posee ici, a l'emplacement ou les pieces vont paraitre, et non dans le
-    // bandeau de recherche.
+    // L'identification acquiert déjà la première catégorie : sans cette attente,
+    // le comptoir reste plusieurs secondes devant un écran qui ne bouge pas.
     const isIdentifying = useIsMutating({ mutationKey: PLATE_LOOKUP_KEY }) > 0;
 
     return (
@@ -152,11 +150,7 @@ export function CatalogView() {
             {isIdentifying ? (
                 <>
                     <div className="mb-10 border-t border-border" />
-
-                    <BusyPanel
-                        title="Identification du véhicule"
-                        description="La plaque est transmise au fournisseur, puis le catalogue est interrogé pour ce véhicule. Comptez quelques secondes."
-                    />
+                    <VehicleIdentificationSkeleton />
                 </>
             ) : (
                 selectedVehicleId && (
