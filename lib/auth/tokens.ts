@@ -79,6 +79,9 @@ export interface VerifiedToken {
     expiresAt: Date;
 }
 
+/** 32 random bytes in unpadded base64url produced by `newSessionId()` is 43 chars. */
+const SESSION_ID_REGEX = /^[A-Za-z0-9_-]{43}$/;
+
 /**
  * Returns null on anything suspect: malformed token, bad signature, past
  * expiry. Comparison goes through `crypto.subtle.verify` rather than a string
@@ -92,7 +95,7 @@ export async function verifyToken(token: string | undefined): Promise<VerifiedTo
 
     const [sessionId, expiresAtRaw, signature] = parts;
     const expiresAtSeconds = Number(expiresAtRaw);
-    if (!sessionId || !Number.isSafeInteger(expiresAtSeconds)) return null;
+    if (!sessionId || !SESSION_ID_REGEX.test(sessionId) || !Number.isSafeInteger(expiresAtSeconds)) return null;
 
     let valid: boolean;
     try {

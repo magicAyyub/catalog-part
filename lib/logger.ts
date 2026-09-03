@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, appendFileSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { currentRequestContext } from './logs/request-context';
 
@@ -13,6 +13,27 @@ export interface LogContext {
   statusCode?: number;
   error?: unknown;
   [key: string]: unknown;
+}
+
+const LOG_RETENTION_DAYS = 7;
+const LOG_FILE_PATTERN = /^app-(\d{4}-\d{2}-\d{2})\.log$/;
+
+function cleanupOldLogs(logDir: string, now: Date): void {
+  const cutoff = new Date(now);
+  cutoff.setUTCHours(0, 0, 0, 0);
+  cutoff.setUTCDate(cutoff.getUTCDate() - LOG_RETENTION_DAYS);
+  for (const name of readdirSync(logDir)) {
+    const match = LOG_FILE_PATTERN.exec(name);
+    if (!match) continue;
+    const fileDate = new Date(`${match[1]}T00:00:00.000Z`);
+    if (fileDate < cutoff) {
+      try {
+        unlinkSync(join(logDir, name));
+      } catch {
+        // Un fichier de log ne doit jamais faire échouer une requête.
+      }
+    }
+  }
 }
 
 function formatError(err: unknown): Record<string, unknown> {
@@ -65,6 +86,7 @@ class StructuredLogger {
       if (!existsSync(this.logDir)) {
         mkdirSync(this.logDir, { recursive: true });
       }
+      cleanupOldLogs(this.logDir, new Date(timestamp));
       const dateStr = timestamp.split('T')[0];
       const logFile = join(this.logDir, `app-${dateStr}.log`);
       appendFileSync(logFile, jsonStr + '\n', 'utf-8');

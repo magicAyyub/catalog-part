@@ -20,7 +20,15 @@ export async function GET(request: NextRequest) {
         level: searchParams.get("level") ?? undefined,
         action: searchParams.get("action") ?? undefined,
         search: searchParams.get("q") ?? undefined,
-        limit: Number(searchParams.get("limit")) || undefined,
+        limit: (() => {
+            const raw = searchParams.get("limit");
+            if (raw === null) return undefined;
+
+            const value = Number(raw);
+            if (!Number.isSafeInteger(value) || value <= 0) return undefined;
+
+            return Math.min(value, 2000);
+        })(),
     });
 
     return NextResponse.json(page, {

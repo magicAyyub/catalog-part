@@ -10,7 +10,7 @@ async function handleGet(context: { params: Promise<{ articleId: string }> }) {
     if (auth instanceof NextResponse) return auth;
 
     const articleId = Number((await context.params).articleId);
-    if (!articleId) {
+    if (!Number.isSafeInteger(articleId) || articleId <= 0) {
         return NextResponse.json({ error: "articleId invalide" }, { status: 400 });
     }
 

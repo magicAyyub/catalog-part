@@ -10,8 +10,8 @@ async function handleGet(request: Request) {
     if (auth instanceof NextResponse) return auth;
 
     const modelId = Number(new URL(request.url).searchParams.get("modelId"));
-    if (!modelId) {
-        return NextResponse.json({ error: "modelId requis" }, { status: 400 });
+    if (!Number.isSafeInteger(modelId) || modelId <= 0) {
+        return NextResponse.json({ error: "modelId invalide" }, { status: 400 });
     }
 
     try {

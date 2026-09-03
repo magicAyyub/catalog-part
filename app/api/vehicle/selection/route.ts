@@ -24,8 +24,8 @@ async function handlePut(request: Request) {
     const body = await request.json().catch(() => ({}));
     const vehicleId = Number((body as { vehicleId?: unknown }).vehicleId);
 
-    if (!vehicleId) {
-        return NextResponse.json({ error: "vehicleId requis" }, { status: 400 });
+    if (!Number.isSafeInteger(vehicleId) || vehicleId <= 0) {
+        return NextResponse.json({ error: "vehicleId invalide" }, { status: 400 });
     }
 
     await saveLastSelection(auth.id, vehicleId);

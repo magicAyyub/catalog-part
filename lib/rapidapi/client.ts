@@ -80,7 +80,7 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
             // à la limite par seconde : inutile de réessayer.
             if (lowerBody.includes("monthly") || lowerBody.includes("quota")) {
                 throw new RapidApiError(
-                    `RapidAPI ${path} -> 429 Too Many Requests : ${body}`,
+                    `RapidAPI ${path} -> 429 Too Many Requests`,
                     "quota_exceeded",
                     429
                 );
@@ -99,16 +99,15 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
             }
 
             throw new RapidApiError(
-                `RapidAPI ${path} -> 429 Too Many Requests après ${retries} tentatives : ${body}`,
+                `RapidAPI ${path} -> 429 Too Many Requests après ${retries} tentatives`,
                 "rate_limited",
                 429
             );
         }
 
         if (!res.ok) {
-            const body = await res.text().catch(() => "");
             throw new RapidApiError(
-                `RapidAPI ${path} -> ${res.status} ${res.statusText} : ${body}`,
+                `RapidAPI ${path} -> ${res.status} ${res.statusText}`,
                 res.status === 401 || res.status === 403 ? "unauthorized" : "upstream",
                 res.status
             );

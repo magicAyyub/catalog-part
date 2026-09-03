@@ -19,9 +19,14 @@ async function handleGet(request: Request) {
     const vehicleId = Number(searchParams.get("vehicleId"));
     const categoryId = Number(searchParams.get("categoryId"));
 
-    if (!vehicleId || !categoryId) {
+    if (!Number.isSafeInteger(vehicleId) ||
+        vehicleId <= 0 ||
+        !Number.isSafeInteger(categoryId) ||
+        categoryId <= 0
+
+    ) {
         return NextResponse.json(
-            { error: "vehicleId et categoryId sont requis" },
+            { error: "vehicleId ou categoryId invalide" },
             { status: 400 }
         );
     }

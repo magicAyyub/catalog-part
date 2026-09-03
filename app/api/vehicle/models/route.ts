@@ -10,7 +10,7 @@ async function handleGet(request: Request) {
     if (auth instanceof NextResponse) return auth;
 
     const manufacturerId = Number(new URL(request.url).searchParams.get("manufacturerId"));
-    if (!manufacturerId) {
+    if (!Number.isSafeInteger(manufacturerId) || manufacturerId <= 0) {
         return NextResponse.json({ error: "manufacturerId requis" }, { status: 400 });
     }
 

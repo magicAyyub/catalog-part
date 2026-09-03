@@ -12,8 +12,8 @@ import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, findUserByUsername, sessionCookieOptions } from "@/lib/auth/session";
+import { checkRateLimit } from "@/lib/auth/rate-limit";
 import { logger } from "@/lib/logger";
-
 import { withRequestContext } from "@/lib/logs/request-context";
 /** Consecutive failures before the account stops answering. */
 const MAX_FAILED_ATTEMPTS = 5;
@@ -43,6 +43,17 @@ async function handlePost(req: NextRequest) {
         return NextResponse.json({ error: "Identifiant et mot de passe requis." }, { status: 400 });
     }
 
+    const ip = req.headers.get("x-real-ip")?.trim() || "unknown";
+    const rateLimit = checkRateLimit(ip, 10, 15 * 60 * 1000);
+    if (!rateLimit.success) {
+        logger.warn("Rejected sign-in due to IP rate limit", { action: "auth-login-ratelimited", ip });
+        const minutes = Math.ceil(rateLimit.resetMs / 60000);
+        return NextResponse.json(
+            { error: `Trop de tentatives de connexion depuis cette adresse IP. Réessayez dans ${minutes} minute${minutes > 1 ? "s" : ""}.` },
+            { status: 429 }
+        );
+    }
+
     const user = await findUserByUsername(username);
 
     if (!user || user.disabledAt) {
@@ -53,11 +64,13 @@ async function handlePost(req: NextRequest) {
 
     const now = new Date();
     if (user.lockedUntil && user.lockedUntil.getTime() > now.getTime()) {
-        const minutes = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
-        logger.warn("Rejected sign-in on locked account", { action: "auth-login-locked", userId: user.id });
+        logger.warn("Rejected sign-in on locked account", {
+            action: "auth-login-locked",
+            userId: user.id,
+        });
         return NextResponse.json(
-            { error: `Compte temporairement bloqué. Réessayez dans ${minutes} minute${minutes > 1 ? "s" : ""}.` },
-            { status: 429 }
+            { error: GENERIC_FAILURE },
+            { status: 401 }
         );
     }
 
