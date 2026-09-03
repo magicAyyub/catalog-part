@@ -8,6 +8,8 @@ import { PartsGrid } from "./parts-grid";
 import { useParts } from "@/hooks/parts/use-parts";
 import { canonicalCriteriaValue } from "@/lib/parts/facets";
 
+import { Button } from "@/components/ui/button";
+import { SlidersHorizontal, X } from "lucide-react";
 import {
     Empty,
     EmptyHeader,
@@ -188,6 +190,13 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
         return back ? `/piece/${articleId}?retour=${encodeURIComponent(back)}` : `/piece/${articleId}`;
     }
 
+    const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+
+    const activeFilterCount =
+        activeSuppliers.size +
+        activeCategories.size +
+        Object.values(activeCriteria).reduce((acc, s) => acc + s.size, 0);
+
     const [showErrorDetails, setShowErrorDetails] = useState(false);
 
     if (error) {
@@ -231,20 +240,38 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
 
     return (
         <section className="flex flex-col gap-6">
-            {/* En-tête */}
-            <div className="flex flex-col gap-1">
-                <h2 className="font-heading text-lg font-bold text-ink">Pièces compatibles</h2>
-                {vehicleLabel && (
-                    <p className="text-sm text-muted-foreground">
-                        Résultats pour :{" "}
-                        <span className="font-medium text-foreground">{vehicleLabel}</span>
-                    </p>
-                )}
+            {/* En-tête + Bouton filtres mobile */}
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                    <h2 className="font-heading text-lg font-bold text-ink">Pièces compatibles</h2>
+                    {vehicleLabel && (
+                        <p className="text-sm text-muted-foreground">
+                            Résultats pour :{" "}
+                            <span className="font-medium text-foreground">{vehicleLabel}</span>
+                        </p>
+                    )}
+                </div>
+
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsMobileFiltersOpen(true)}
+                    className="flex md:hidden items-center gap-2 border-stroke bg-card shadow-xs"
+                >
+                    <SlidersHorizontal className="size-4 text-txt2" />
+                    <span className="text-xs font-semibold text-ink">Filtres</span>
+                    {activeFilterCount > 0 && (
+                        <span className="rounded-full bg-pine px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                            {activeFilterCount}
+                        </span>
+                    )}
+                </Button>
             </div>
 
             {/* Layout : filtres + grille */}
             <div className="flex items-start gap-6">
-                {/* Panneau latéral */}
+                {/* Panneau latéral desktop */}
                 <div className="hidden w-64 shrink-0 md:block sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2">
                     <FacetPanel
                         parts={parts}
@@ -273,6 +300,46 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
                     />
                 </div>
             </div>
+
+            {/* Drawer / Overlay de filtres mobile */}
+            {isMobileFiltersOpen && (
+                <div className="fixed inset-0 z-50 flex md:hidden bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="relative ml-auto flex h-full w-full max-w-xs flex-col bg-card p-6 shadow-2xl overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-stroke pb-4 mb-4">
+                            <h3 className="font-heading text-base font-bold text-ink">Filtres de recherche</h3>
+                            <button
+                                type="button"
+                                onClick={() => setIsMobileFiltersOpen(false)}
+                                className="rounded-md p-1.5 text-txt2 hover:bg-muted hover:text-ink transition-colors"
+                                aria-label="Fermer les filtres"
+                            >
+                                <X className="size-5" />
+                            </button>
+                        </div>
+
+                        <FacetPanel
+                            parts={parts}
+                            activeCategories={activeCategories}
+                            activeSuppliers={activeSuppliers}
+                            activeCriteria={activeCriteria}
+                            onToggleCategory={toggleCategory}
+                            onToggleSupplier={toggleSupplier}
+                            onToggleCriteria={toggleCriteria}
+                            onReset={resetFilters}
+                        />
+
+                        <div className="mt-6 pt-4 border-t border-stroke sticky bottom-0 bg-card">
+                            <Button
+                                type="button"
+                                className="w-full bg-pine hover:bg-pine-hover text-white font-medium"
+                                onClick={() => setIsMobileFiltersOpen(false)}
+                            >
+                                Afficher les résultats ({filteredParts?.length ?? 0})
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }
