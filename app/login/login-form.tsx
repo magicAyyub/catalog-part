@@ -33,9 +33,7 @@ export function LoginForm({ next }: { next: string }) {
                 return;
             }
 
-            // refresh() pour que le layout serveur relise la session et affiche l'utilisateur.
-            router.replace(next);
-            router.refresh();
+            window.location.href = next;
         } catch {
             setError("Serveur injoignable. Vérifiez votre connexion.");
         } finally {

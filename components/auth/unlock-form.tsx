@@ -45,7 +45,7 @@ export function UnlockForm({ title, submitLabel }: UnlockFormProps) {
                 return;
             }
 
-            router.refresh();
+            window.location.reload();
         } catch {
             setError("Serveur injoignable.");
         } finally {
