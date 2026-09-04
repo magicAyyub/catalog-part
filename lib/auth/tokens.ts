@@ -79,8 +79,8 @@ export interface VerifiedToken {
     expiresAt: Date;
 }
 
-/** 32 random bytes in unpadded base64url produced by `newSessionId()` is 43 chars. */
-const SESSION_ID_REGEX = /^[A-Za-z0-9_-]{43}$/;
+/** 32 random bytes in unpadded base64url produced by `newSessionId()` is 43 chars, or subjects like "admin". */
+const SESSION_ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/;
 
 /**
  * Returns null on anything suspect: malformed token, bad signature, past
