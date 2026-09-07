@@ -58,18 +58,74 @@ function AlertTriangleIcon() {
     );
 }
 
-function EmptyState({ categoryLabel }: { categoryLabel: string }) {
+import { Button } from "@/components/ui/button";
+
+function EmptyState({
+    categoryLabel,
+    emptyReason,
+    onClearBrandFilter,
+    onResetAllFilters,
+}: {
+    categoryLabel: string;
+    emptyReason?: "no_vehicle_parts" | "no_category_parts" | "no_filter_matches";
+    onClearBrandFilter?: () => void;
+    onResetAllFilters?: () => void;
+}) {
+    if (emptyReason === "no_vehicle_parts") {
+        return (
+            <Empty className="py-20 bg-muted/5">
+                <EmptyMedia variant="icon">
+                    <SearchIcon />
+                </EmptyMedia>
+                <EmptyHeader>
+                    <EmptyTitle>Aucune pièce référencée</EmptyTitle>
+                    <EmptyDescription>
+                        Aucune pièce n&apos;est référencée pour ce véhicule.
+                    </EmptyDescription>
+                </EmptyHeader>
+            </Empty>
+        );
+    }
+
+    if (emptyReason === "no_category_parts") {
+        return (
+            <Empty className="py-20 bg-muted/5">
+                <EmptyMedia variant="icon">
+                    <SearchIcon />
+                </EmptyMedia>
+                <EmptyHeader>
+                    <EmptyTitle>Aucune pièce dans cette catégorie</EmptyTitle>
+                    <EmptyDescription>
+                        Aucun {categoryLabel.toLowerCase()} n&apos;est référencé pour ce véhicule.
+                    </EmptyDescription>
+                </EmptyHeader>
+            </Empty>
+        );
+    }
+
     return (
         <Empty className="py-20 bg-muted/5">
             <EmptyMedia variant="icon">
                 <SearchIcon />
             </EmptyMedia>
             <EmptyHeader>
-                <EmptyTitle>Aucune pièce trouvée</EmptyTitle>
+                <EmptyTitle>Aucun résultat pour ces filtres</EmptyTitle>
                 <EmptyDescription>
-                    Pas de {categoryLabel.toLowerCase()} disponibles pour ce véhicule.
+                    Aucune pièce ne correspond aux filtres sélectionnés.
                 </EmptyDescription>
             </EmptyHeader>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                {onClearBrandFilter && (
+                    <Button type="button" variant="outline" size="sm" onClick={onClearBrandFilter}>
+                        Retirer le filtre marque
+                    </Button>
+                )}
+                {onResetAllFilters && (
+                    <Button type="button" variant="default" size="sm" className="bg-pine hover:bg-pine-hover text-white" onClick={onResetAllFilters}>
+                        Réinitialiser tous les filtres
+                    </Button>
+                )}
+            </div>
         </Empty>
     );
 }
@@ -197,6 +253,9 @@ interface PartsGridProps {
     isLoading: boolean;
     isError: boolean;
     categoryLabel: string;
+    emptyReason?: "no_vehicle_parts" | "no_category_parts" | "no_filter_matches";
+    onClearBrandFilter?: () => void;
+    onResetAllFilters?: () => void;
     currentPage: number;
     pageSize: number;
     onPageChange: (page: number) => void;
@@ -209,6 +268,9 @@ export function PartsGrid({
     isLoading,
     isError,
     categoryLabel,
+    emptyReason,
+    onClearBrandFilter,
+    onResetAllFilters,
     currentPage,
     pageSize,
     onPageChange,
@@ -226,7 +288,16 @@ export function PartsGrid({
         );
     }
     if (isError) return <ErrorState />;
-    if (!parts || parts.length === 0) return <EmptyState categoryLabel={categoryLabel} />;
+    if (!parts || parts.length === 0) {
+        return (
+            <EmptyState
+                categoryLabel={categoryLabel}
+                emptyReason={emptyReason}
+                onClearBrandFilter={onClearBrandFilter}
+                onResetAllFilters={onResetAllFilters}
+            />
+        );
+    }
 
     const totalItems = parts.length;
     const totalPages = Math.ceil(totalItems / pageSize);

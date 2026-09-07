@@ -18,6 +18,9 @@ import {
     EmptyMedia,
 } from "@/components/ui/empty";
 
+import { isEtfSupplier } from "@/lib/parts/suppliers";
+import { SortSelect, type SortOption } from "./sort-select";
+
 const DEFAULT_PAGE_SIZE = 10;
 
 /**
@@ -29,6 +32,7 @@ const PARAM = {
     category: "cat",
     supplier: "f",
     criteria: "c",
+    sort: "tri",
     page: "page",
     pageSize: "taille",
 } as const;
@@ -72,6 +76,7 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
         () => parseCriteria(searchParams.getAll(PARAM.criteria)),
         [searchParams]
     );
+    const activeSort = (searchParams.get(PARAM.sort) as SortOption) || "pertinence";
     const currentPage = Math.max(Number(searchParams.get(PARAM.page)) || 1, 1);
     const pageSize = Number(searchParams.get(PARAM.pageSize)) || DEFAULT_PAGE_SIZE;
 
@@ -88,7 +93,7 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
         router.replace(params.size > 0 ? `${pathname}?${params}` : pathname, { scroll: false });
     }
 
-    // Filtrage client
+    // Filtrage & Tri client
     const filteredParts = useMemo(() => {
         if (!parts) return undefined;
         let result = parts;
@@ -101,9 +106,6 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
             result = result.filter((p) => activeCategories.has(p.categoryId));
         }
 
-        // ET logique entre groupes de critères, OU entre valeurs d'un même groupe.
-        // La valeur comparée est la forme canonique, sinon une URL portant
-        // « Essieu avant » raterait les articles étiquetés « avant ».
         for (const [criteriaName, values] of Object.entries(activeCriteria)) {
             if (values.size === 0) continue;
             result = result.filter((p) =>
@@ -115,8 +117,43 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
             );
         }
 
-        return result;
-    }, [parts, activeCategories, activeSuppliers, activeCriteria]);
+        // Application du tri
+        const sorted = [...result];
+        if (activeSort === "pertinence") {
+            // Épinglage ETF en tête de résultats
+            sorted.sort((a, b) => {
+                const aEtf = isEtfSupplier(a.supplierId, a.supplierName);
+                const bEtf = isEtfSupplier(b.supplierId, b.supplierName);
+                if (aEtf && !bEtf) return -1;
+                if (!aEtf && bEtf) return 1;
+                return 0;
+            });
+        } else if (activeSort === "brand_asc") {
+            sorted.sort((a, b) => (a.supplierName ?? "").localeCompare(b.supplierName ?? ""));
+        } else if (activeSort === "name_asc") {
+            sorted.sort((a, b) => a.articleProductName.localeCompare(b.articleProductName));
+        } else if (activeSort === "position") {
+            sorted.sort((a, b) => {
+                const aFront = a.specs.some((s) => s.criteriaValue.toLowerCase().includes("avant"));
+                const bFront = b.specs.some((s) => s.criteriaValue.toLowerCase().includes("avant"));
+                if (aFront && !bFront) return -1;
+                if (!aFront && bFront) return 1;
+                return 0;
+            });
+        }
+
+        return sorted;
+    }, [parts, activeCategories, activeSuppliers, activeCriteria, activeSort]);
+
+    // Raison de l'état vide
+    const emptyReason = useMemo((): "no_vehicle_parts" | "no_category_parts" | "no_filter_matches" => {
+        if (!parts || parts.length === 0) return "no_vehicle_parts";
+        if (activeCategories.size > 0) {
+            const catParts = parts.filter((p) => activeCategories.has(p.categoryId));
+            if (catParts.length === 0) return "no_category_parts";
+        }
+        return "no_filter_matches";
+    }, [parts, activeCategories]);
 
     /** Ce que la grille annonce quand elle est vide, au plus près de la sélection. */
     const selectionLabel =
@@ -125,6 +162,21 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
             : "pièces";
 
     // ── Handlers ──────────────────────────────────────────────────────────────
+
+    function handleSortChange(sort: SortOption) {
+        commit((params) => {
+            if (sort === "pertinence") params.delete(PARAM.sort);
+            else params.set(PARAM.sort, sort);
+            params.delete(PARAM.page);
+        });
+    }
+
+    function clearBrandFilter() {
+        commit((params) => {
+            params.delete(PARAM.supplier);
+            params.delete(PARAM.page);
+        });
+    }
 
     function toggleSupplier(name: string) {
         commit((params) => {
@@ -240,8 +292,8 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
 
     return (
         <section className="flex flex-col gap-6">
-            {/* En-tête + Bouton filtres mobile */}
-            <div className="flex items-center justify-between gap-4">
+            {/* En-tête + Sort + Bouton filtres mobile */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h2 className="font-heading text-lg font-bold text-ink">Pièces compatibles</h2>
                     {vehicleLabel && (
@@ -252,21 +304,25 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
                     )}
                 </div>
 
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsMobileFiltersOpen(true)}
-                    className="flex md:hidden items-center gap-2 border-stroke bg-card shadow-xs"
-                >
-                    <SlidersHorizontal className="size-4 text-txt2" />
-                    <span className="text-xs font-semibold text-ink">Filtres</span>
-                    {activeFilterCount > 0 && (
-                        <span className="rounded-full bg-pine px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
-                            {activeFilterCount}
-                        </span>
-                    )}
-                </Button>
+                <div className="flex items-center gap-3">
+                    <SortSelect value={activeSort} onChange={handleSortChange} />
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsMobileFiltersOpen(true)}
+                        className="flex md:hidden items-center gap-2 border-stroke bg-card shadow-xs"
+                    >
+                        <SlidersHorizontal className="size-4 text-txt2" />
+                        <span className="text-xs font-semibold text-ink">Filtres</span>
+                        {activeFilterCount > 0 && (
+                            <span className="rounded-full bg-pine px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                                {activeFilterCount}
+                            </span>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {/* Layout : filtres + grille */}
@@ -292,6 +348,9 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
                         isLoading={isLoading}
                         isError={isError}
                         categoryLabel={selectionLabel}
+                        emptyReason={emptyReason}
+                        onClearBrandFilter={activeSuppliers.size > 0 ? clearBrandFilter : undefined}
+                        onResetAllFilters={resetFilters}
                         currentPage={currentPage}
                         pageSize={pageSize}
                         onPageChange={handlePageChange}

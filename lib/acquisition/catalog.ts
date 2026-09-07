@@ -4,6 +4,7 @@ import { db, type Tx } from "@/lib/db/client";
 import { ALLOWED_CATEGORY_IDS, ALLOWED_SUPPLIER_IDS } from "@/lib/config";
 import {
     articleCriteria,
+    articleOemNumbers,
     articles,
     catalogSync,
     fitments,
@@ -206,6 +207,22 @@ export async function getArticleDetail(articleId: number): Promise<ArticleDetail
                     }))
                 )
             );
+
+            if (article.oemNo && article.oemNo.length > 0) {
+                for (const rows of chunked(article.oemNo)) {
+                    tx.insert(articleOemNumbers)
+                        .values(
+                            rows.map((oem) => ({
+                                articleId,
+                                oemBrand: oem.oemBrand,
+                                oemDisplayNo: oem.oemDisplayNo,
+                                cleanedNo: oem.oemDisplayNo.toUpperCase().replace(/[^A-Z0-9]/g, ""),
+                            }))
+                        )
+                        .onConflictDoNothing()
+                        .run();
+                }
+            }
 
             tx.update(articles)
                 .set({

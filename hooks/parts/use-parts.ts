@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 export interface PartSpec {
     criteriaName: string;
@@ -19,39 +19,25 @@ export interface PartItem {
     articleMediaFileName: string | null;
     s3image: string | null;
     specs: PartSpec[];
-    /** Added client side: the route answers per category, so it never sends it back. */
     categoryId: number;
 }
 
-async function fetchParts(vehicleId: number, categoryId: number): Promise<PartItem[]> {
-    const res = await fetch(`/api/parts?vehicleId=${vehicleId}&categoryId=${categoryId}`);
+async function fetchBatchParts(vehicleId: number, categoryIds: readonly number[]): Promise<PartItem[]> {
+    const idsParam = categoryIds.join(",");
+    const res = await fetch(`/api/parts?vehicleId=${vehicleId}&categoryIds=${idsParam}`);
     if (!res.ok) throw new Error("Impossible de charger les articles");
-    const parts = (await res.json()) as Omit<PartItem, "categoryId">[];
-    return parts.map((part) => ({ ...part, categoryId }));
+    return (await res.json()) as PartItem[];
 }
 
 /**
- * Charge les deux catégories d'un coup et laisse le panneau filtrer, pour voir
- * plaquettes et disques ensemble. Le premier appel pour un véhicule déclenche
- * l'acquisition côté serveur, il est donc plus long que les suivants.
+ * Charge l'ensemble des catégories en 1 seul appel groupé (`categoryIds=100030,100032`).
  */
 export function useParts(vehicleId: number | null, categoryIds: readonly number[]) {
-    return useQueries({
-        queries: categoryIds.map((categoryId) => ({
-            queryKey: ["parts", vehicleId, categoryId],
-            queryFn: () => fetchParts(vehicleId!, categoryId),
-            enabled: !!vehicleId,
-            staleTime: 1000 * 60 * 30,
-        })),
-        // `combine` mémoïse le résultat fusionné, ce qu'un useMemo sur un tableau
-        // de longueur variable ne peut pas faire proprement.
-        combine: (results) => ({
-            data: results.every((r) => r.data !== undefined)
-                ? results.flatMap((r) => r.data ?? [])
-                : undefined,
-            isLoading: results.some((r) => r.isLoading),
-            isError: results.some((r) => r.isError),
-            error: results.find((r) => r.error)?.error ?? null,
-        }),
+    const idsString = categoryIds.join(",");
+    return useQuery({
+        queryKey: ["parts", vehicleId, idsString],
+        queryFn: () => fetchBatchParts(vehicleId!, categoryIds),
+        enabled: !!vehicleId && categoryIds.length > 0,
+        staleTime: 1000 * 60 * 30,
     });
 }

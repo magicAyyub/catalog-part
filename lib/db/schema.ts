@@ -127,6 +127,24 @@ export const articleCriteria = sqliteTable(
     })
 );
 
+/** Numéros OE constructeur associés à une référence, enrichis lors de l'ouverture de la fiche détaillée. */
+export const articleOemNumbers = sqliteTable(
+    "article_oem_numbers",
+    {
+        articleId: integer("article_id")
+            .notNull()
+            .references(() => articles.articleId),
+        oemBrand: text("oem_brand").notNull(),
+        oemDisplayNo: text("oem_display_no").notNull(),
+        cleanedNo: text("cleaned_no").notNull(),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.articleId, t.oemDisplayNo] }),
+        byCleanedNo: index("article_oem_numbers_cleaned_idx").on(t.cleanedNo),
+    })
+);
+
+
 /** Trace qu'un couple véhicule/catégorie a été interrogé, pour distinguer « aucune pièce » de « pas encore cherché ». */
 export const catalogSync = sqliteTable(
     "catalog_sync",

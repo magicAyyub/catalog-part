@@ -84,6 +84,35 @@ export function CatalogView() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [needsUrlSync]);
 
+    // Résolution de l'intitulé lisible lors d'un accès direct par URL (ex: ?vehicule=57281)
+    useEffect(() => {
+        if (!urlVehicleId) return;
+        if (activeVehicleData && !activeVehicleData.label.startsWith("Véhicule #")) return;
+
+        let isMounted = true;
+        fetch(`/api/vehicle/${urlVehicleId}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data: { label?: string } | null) => {
+                if (isMounted && data?.label) {
+                    const vehicleData: ActiveVehicleData = {
+                        vehicleId: urlVehicleId,
+                        label: data.label,
+                    };
+                    setChosen(vehicleData);
+                    try {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicleData));
+                    } catch {
+                        // Ignorer
+                    }
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            isMounted = false;
+        };
+    }, [urlVehicleId, activeVehicleData]);
+
     function handleVehicleSelected(vehicleId: number) {
         setChosen({ vehicleId, label: `Véhicule #${vehicleId}` });
     }

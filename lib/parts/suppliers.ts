@@ -3,13 +3,23 @@
  * ETF est toujours affiché en premier s'il est présent dans les résultats.
  * Les autres sont affichés dans cet ordre, puis les fournisseurs non listés à la suite.
  */
+export const ETF_SUPPLIER_ID = 7657;
+
 export const PRIORITY_SUPPLIERS: { supplierId: number; name: string }[] = [
-    { supplierId: 7657, name: "RTF" },
+    { supplierId: ETF_SUPPLIER_ID, name: "ETF" },
     { supplierId: 161, name: "TRW" },
     { supplierId: 30, name: "BOSCH" },
     { supplierId: 21, name: "VALEO" },
     { supplierId: 39, name: "TEXTAR" },
 ];
+
+export function isEtfSupplier(supplierId: number, supplierName?: string | null): boolean {
+    if (supplierId === ETF_SUPPLIER_ID) return true;
+    if (supplierName && (supplierName.toUpperCase() === "ETF" || supplierName.toUpperCase() === "RTF")) {
+        return true;
+    }
+    return false;
+}
 
 export const PRIORITY_SUPPLIER_IDS = new Set(PRIORITY_SUPPLIERS.map((s) => s.supplierId));
 

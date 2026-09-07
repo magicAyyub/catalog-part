@@ -38,13 +38,17 @@ health:
 shell:
     cd {{APP_DIR}} && exec bash
 
-# Build project and restart application to apply changes
-build:
-    cd {{APP_DIR}} && npm run build && pm2 restart {{APP_NAME}}
+# Run database migrations
+db-migrate:
+    cd {{APP_DIR}} && npm run db:migrate
 
-# Rebuild and reload application gracefully
+# Build project, run DB migrations and restart application to apply changes
+build:
+    cd {{APP_DIR}} && npm run db:migrate && npm run build && pm2 restart {{APP_NAME}}
+
+# Rebuild, run DB migrations and reload application gracefully
 reload:
-    cd {{APP_DIR}} && npm run build && pm2 reload {{APP_NAME}}
+    cd {{APP_DIR}} && npm run db:migrate && npm run build && pm2 reload {{APP_NAME}}
 
 # Update dependencies
 update-deps:

@@ -76,8 +76,16 @@ export function VehiclePlateSearch({
     function handleSearch(e?: React.FormEvent) {
         e?.preventDefault();
 
-        if (!rawInput.trim()) {
+        const clean = rawInput.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+        if (!clean) {
             setPlateError("Veuillez entrer un numéro d'immatriculation.");
+            return;
+        }
+
+        // Validation stricte du format SIV français : 2 lettres, 3 chiffres, 2 lettres
+        if (!/^[A-Z]{2}\d{3}[A-Z]{2}$/.test(clean)) {
+            setPlateError("Format de plaque non reconnu. Saisissez une plaque au format AA-123-BB.");
             return;
         }
 
@@ -97,7 +105,14 @@ export function VehiclePlateSearch({
                     plate: result.plate,
                 });
             },
-            onError: (error) => setPlateError(error.message),
+            onError: (error) => {
+                const msg = error.message || "";
+                if (msg.includes("404") || msg.toLowerCase().includes("inconnu") || msg.toLowerCase().includes("introuvable")) {
+                    setPlateError("Aucun véhicule trouvé pour cette immatriculation.");
+                } else {
+                    setPlateError(msg || "Le service d'identification est momentanément indisponible.");
+                }
+            },
         });
     }
 

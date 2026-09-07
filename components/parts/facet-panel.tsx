@@ -25,6 +25,38 @@ interface FacetPanelProps {
     onReset: () => void;
 }
 
+function filterPartsExcept(
+    parts: PartItem[] | undefined,
+    activeCategories: Set<number>,
+    activeSuppliers: Set<string>,
+    activeCriteria: Record<string, Set<string>>,
+    excludeFacet: "category" | "supplier" | string
+): PartItem[] {
+    if (!parts) return [];
+    let result = parts;
+
+    if (excludeFacet !== "supplier" && activeSuppliers.size > 0) {
+        result = result.filter((p) => p.supplierName && activeSuppliers.has(p.supplierName));
+    }
+
+    if (excludeFacet !== "category" && activeCategories.size > 0) {
+        result = result.filter((p) => activeCategories.has(p.categoryId));
+    }
+
+    for (const [cName, values] of Object.entries(activeCriteria)) {
+        if (excludeFacet === cName || values.size === 0) continue;
+        result = result.filter((p) =>
+            p.specs.some(
+                (s) =>
+                    s.criteriaName === cName &&
+                    values.has(canonicalCriteriaValue(cName, s.criteriaValue))
+            )
+        );
+    }
+
+    return result;
+}
+
 export function FacetPanel({
     parts,
     activeCategories,
@@ -35,14 +67,16 @@ export function FacetPanel({
     onToggleCriteria,
     onReset,
 }: FacetPanelProps) {
-    // ── Catégories ────────────────────────────────────────────────────────────
+    // ── Catégories (compteurs calculés sans filtre de catégorie) ──────────────
+    const partsWithoutCat = filterPartsExcept(parts, activeCategories, activeSuppliers, activeCriteria, "category");
     const categoryOptions: FacetOption[] = BRAKE_CATEGORIES.map(({ categoryId, label }) => ({
         label,
-        count: (parts ?? []).filter((p) => p.categoryId === categoryId).length,
+        count: partsWithoutCat.filter((p) => p.categoryId === categoryId).length,
         checked: activeCategories.has(categoryId),
     }));
 
-    // ── Fournisseurs ──────────────────────────────────────────────────────────
+    // ── Fournisseurs (compteurs calculés sans filtre de marque) ───────────────
+    const partsWithoutSup = filterPartsExcept(parts, activeCategories, activeSuppliers, activeCriteria, "supplier");
     const supplierIdMap = new Map<string, number>();
     for (const p of parts ?? []) {
         if (p.supplierName && !supplierIdMap.has(p.supplierName)) {
@@ -53,13 +87,11 @@ export function FacetPanel({
     const sortedSuppliers = sortSupplierNames(presentNames, supplierIdMap);
     const supplierOptions: FacetOption[] = sortedSuppliers.map((name) => ({
         label: name,
-        count: (parts ?? []).filter((p) => p.supplierName === name).length,
+        count: partsWithoutSup.filter((p) => p.supplierName === name).length,
         checked: activeSuppliers.has(name),
     }));
 
     // ── Critères retenus comme filtres ────────────────────────────────────────
-    // Dérivés des specs des articles présents, mais bornés à la liste blanche :
-    // tout critère TecDoc donnait une section, soit une vingtaine par véhicule.
     const criteriaGroupsMap = new Map<string, Set<string>>();
     for (const p of parts ?? []) {
         for (const s of p.specs) {
@@ -68,7 +100,6 @@ export function FacetPanel({
             criteriaGroupsMap.set(s.criteriaName, values);
         }
     }
-    // Une seule valeur distincte : filtrer ne retirerait rien.
     const criteriaGroups = FACET_CRITERIA.map(
         (name) => [name, criteriaGroupsMap.get(name) ?? new Set<string>()] as const
     ).filter(([, values]) => values.size > 1);
@@ -113,8 +144,8 @@ export function FacetPanel({
 
             {/* Sections critères dynamiques */}
             {criteriaGroups.map(([criteriaName, values]) => {
+                const partsWithoutCrit = filterPartsExcept(parts, activeCategories, activeSuppliers, activeCriteria, criteriaName);
                 const active = activeCriteria[criteriaName] ?? new Set<string>();
-                // Tri numérique si possible, alphabétique sinon
                 const sortedValues = [...values].sort((a, b) => {
                     const na = parseFloat(a);
                     const nb = parseFloat(b);
@@ -123,7 +154,7 @@ export function FacetPanel({
                 });
                 const options: FacetOption[] = sortedValues.map((value) => ({
                     label: value,
-                    count: (parts ?? []).filter((p) =>
+                    count: partsWithoutCrit.filter((p) =>
                         p.specs.some(
                             (s) =>
                                 s.criteriaName === criteriaName &&
@@ -167,7 +198,6 @@ function FilterSection({
     const [query, setQuery] = useState("");
 
     const q = query.trim().toLowerCase();
-    // Les options cochées restent toujours visibles, même si la recherche les masquerait.
     const checkedFirst = [...options].sort((a, b) => Number(b.checked) - Number(a.checked));
     const visible = q
         ? checkedFirst.filter((o) => o.checked || o.label.toLowerCase().includes(q))
@@ -231,12 +261,18 @@ function CheckRow({
     checked: boolean;
     onToggle: () => void;
 }) {
+    const disabled = count === 0 && !checked;
+
     return (
         <button
             type="button"
-            onClick={onToggle}
+            onClick={disabled ? undefined : onToggle}
             aria-pressed={checked}
-            className="flex w-full shrink-0 items-center gap-2.5 rounded-md px-1 py-2 text-sm text-ink transition-colors hover:bg-muted"
+            disabled={disabled}
+            className={cn(
+                "flex w-full shrink-0 items-center gap-2.5 rounded-md px-1 py-2 text-sm text-ink transition-colors hover:bg-muted",
+                disabled && "opacity-40 cursor-not-allowed pointer-events-none"
+            )}
         >
             <span
                 className={cn(

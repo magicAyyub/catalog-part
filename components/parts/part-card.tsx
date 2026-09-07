@@ -78,19 +78,37 @@ function SpecRow({ name, values }: { name: string; values: string[] }) {
     );
 }
 
+import { isEtfSupplier } from "@/lib/parts/suppliers";
+
 export function PartCard({ part, detailHref }: PartCardProps) {
     const specs = groupSpecs(part.specs);
     const shown = specs.slice(0, VISIBLE_SPECS);
     const hidden = specs.slice(VISIBLE_SPECS);
 
+    const isEtf = isEtfSupplier(part.supplierId, part.supplierName);
+    const altText = `${part.supplierName ?? "Pièce"} — ${part.articleProductName} — ${part.articleNo}`;
+
     return (
-        <article className="flex w-full flex-col gap-y-4 rounded-lg border border-stroke bg-card p-4 sm:flex-row sm:items-start sm:gap-y-0">
+        <article className="relative overflow-hidden flex w-full flex-col gap-y-4 rounded-lg border border-stroke bg-card p-4 sm:flex-row sm:items-start sm:gap-y-0 shadow-2xs hover:shadow-xs transition-all duration-200">
+            {/* Ruban oblique ETF dans le coin supérieur gauche */}
+            {isEtf && (
+                <div className="absolute top-0 left-0 size-20 overflow-hidden pointer-events-none z-10 select-none">
+                    <div className="absolute top-3.5 -left-8 w-28 -rotate-45 bg-pine py-0.5 text-center shadow-xs">
+                        <span className="font-heading text-[10px] font-extrabold tracking-widest text-white uppercase">
+                            ETF
+                        </span>
+                    </div>
+                </div>
+            )}
             {/* La photo prime : c'est elle qui fait reconnaître la pièce au comptoir. */}
             <div className="flex size-32 shrink-0 items-center justify-center self-center sm:size-40 sm:self-start">
                 {part.s3image ? (
                     <img
                         src={part.s3image}
-                        alt={part.articleProductName}
+                        alt={altText}
+                        width={160}
+                        height={160}
+                        loading="lazy"
                         className="size-full object-contain"
                         onError={(e) => {
                             (e.currentTarget as HTMLImageElement).style.display = "none";

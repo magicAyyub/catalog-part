@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,6 @@ interface UnlockFormProps {
  * une fois ouvre les deux pages, et le cookie posé vaut pour les deux.
  */
 export function UnlockForm({ title, submitLabel }: UnlockFormProps) {
-    const router = useRouter();
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
