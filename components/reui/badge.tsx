@@ -27,11 +27,11 @@ const badgeVariants = cva(
         "warning-light":
           "border-warning/15 bg-warning/10 text-warning-foreground dark:border-warning/25 dark:bg-warning/15 dark:text-warning",
         "success-light":
-          "border-success/15 bg-success/10 text-success-foreground dark:border-success/25 dark:bg-success/15 dark:text-success",
+          "border-success/20 bg-success/10 text-pine dark:border-success/30 dark:bg-success/15 dark:text-success",
         "info-light":
           "border-info/15 bg-info/10 text-info-foreground dark:border-info/25 dark:bg-info/15 dark:text-info",
         "destructive-light":
-          "border-destructive/15 bg-destructive/10 text-destructive-foreground dark:border-destructive/25 dark:bg-destructive/15 dark:text-destructive",
+          "border-destructive/20 bg-destructive/10 text-destructive dark:border-destructive/30 dark:bg-destructive/15 dark:text-destructive",
         "invert-light":
           "border-invert/15 bg-invert/10 text-foreground dark:border-invert/45 dark:bg-invert/35 dark:text-invert-foreground",
         "focus-light":
@@ -41,7 +41,7 @@ const badgeVariants = cva(
         "warning-outline":
           "bg-background border-border text-warning-foreground dark:bg-input/30",
         "success-outline":
-          "bg-background border-border text-success-foreground dark:bg-input/30",
+          "bg-background border-border text-pine dark:bg-input/30",
         "info-outline":
           "bg-background border-border text-info-foreground dark:bg-input/30",
         "destructive-outline":
