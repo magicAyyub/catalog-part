@@ -2,12 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { UserMenu } from "./user-menu";
-import { SearchModal } from "./search-modal";
 
-/**
- * Le logo officiel est en blanc et or, dessiné pour un fond sombre. On lui pose
- * donc son pavé vert plutôt que de le recoloriser.
- */
 function BrandMark() {
     return (
         <div className="flex items-center gap-3">
@@ -37,10 +32,6 @@ export async function SiteHeader() {
                 <Link href="/" aria-label="Accueil du catalogue">
                     <BrandMark />
                 </Link>
-
-                <div className="flex flex-1 justify-center min-w-0 max-w-xl mx-1 sm:mx-4">
-                    <SearchModal />
-                </div>
 
                 {user && (
                     <UserMenu
