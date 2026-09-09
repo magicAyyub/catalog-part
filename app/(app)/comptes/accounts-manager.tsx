@@ -53,6 +53,7 @@ export function AccountsManager() {
     const [username, setUsername] = useState("");
     const [displayName, setDisplayName] = useState("");
     const [franchise, setFranchise] = useState("");
+    const [role, setRole] = useState<"user" | "admin">("user");
 
     const load = refetch;
 
@@ -65,7 +66,7 @@ export function AccountsManager() {
             const res = await fetch("/api/admin/users", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, displayName, franchise }),
+                body: JSON.stringify({ username, displayName, franchise, role }),
             });
             const body = await res.json().catch(() => null);
 
@@ -78,13 +79,14 @@ export function AccountsManager() {
             setUsername("");
             setDisplayName("");
             setFranchise("");
+            setRole("user");
             await load();
         } finally {
             setBusy(null);
         }
     }
 
-    async function act(account: Account, action: "password" | "disable" | "enable") {
+    async function act(account: Account, action: "password" | "disable" | "enable" | "role", targetRole?: "user" | "admin") {
         if (action === "disable" && !confirm(`Révoquer l'accès de ${account.username} ?`)) return;
 
         setError(null);
@@ -94,7 +96,7 @@ export function AccountsManager() {
             const res = await fetch(`/api/admin/users/${encodeURIComponent(account.username)}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action }),
+                body: JSON.stringify({ action, role: targetRole }),
             });
             const body = await res.json().catch(() => null);
 
@@ -146,7 +148,7 @@ export function AccountsManager() {
             >
                 <h2 className="font-heading text-base font-bold text-ink">Créer un compte</h2>
 
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-4">
                     <div className="flex flex-col gap-1.5">
                         <Label htmlFor="username">Identifiant</Label>
                         <Input
@@ -178,6 +180,18 @@ export function AccountsManager() {
                             onChange={(e) => setFranchise(e.target.value)}
                         />
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="role">Rôle</Label>
+                        <select
+                            id="role"
+                            value={role}
+                            onChange={(e) => setRole(e.target.value as "user" | "admin")}
+                            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        >
+                            <option value="user">Utilisateur</option>
+                            <option value="admin">Administrateur</option>
+                        </select>
+                    </div>
                 </div>
 
                 <Button type="submit" disabled={busy === "create"} className="self-start">
@@ -192,6 +206,7 @@ export function AccountsManager() {
                         <tr>
                             <th className="px-4 py-3 font-semibold">Identifiant</th>
                             <th className="px-4 py-3 font-semibold">Franchise</th>
+                            <th className="px-4 py-3 font-semibold">Rôle</th>
                             <th className="px-4 py-3 font-semibold">État</th>
                             <th className="px-4 py-3 font-semibold">Dernière connexion</th>
                             <th className="px-4 py-3" />
@@ -200,14 +215,14 @@ export function AccountsManager() {
                     <tbody>
                         {accounts === undefined && (
                             <tr>
-                                <td colSpan={5} className="px-4 py-6 text-center text-txt2">
+                                <td colSpan={6} className="px-4 py-6 text-center text-txt2">
                                     Chargement…
                                 </td>
                             </tr>
                         )}
                         {accounts?.length === 0 && (
                             <tr>
-                                <td colSpan={5} className="px-4 py-6 text-center text-txt2">
+                                <td colSpan={6} className="px-4 py-6 text-center text-txt2">
                                     Aucun compte.
                                 </td>
                             </tr>
@@ -215,6 +230,7 @@ export function AccountsManager() {
                         {accounts?.map((account) => {
                             const locked =
                                 account.lockedUntil && new Date(account.lockedUntil) > new Date();
+                            const isAdmin = account.role === "admin";
                             return (
                                 <tr key={account.id} className="border-b border-stroke/60 last:border-0">
                                     <td className="px-4 py-3">
@@ -224,6 +240,17 @@ export function AccountsManager() {
                                         )}
                                     </td>
                                     <td className="px-4 py-3 text-txt2">{account.franchise ?? "—"}</td>
+                                    <td className="px-4 py-3">
+                                        <span
+                                            className={
+                                                isAdmin
+                                                    ? "inline-flex items-center rounded-md bg-pine/10 px-2 py-0.5 text-xs font-semibold text-pine"
+                                                    : "text-txt2"
+                                            }
+                                        >
+                                            {isAdmin ? "Admin" : "Utilisateur"}
+                                        </span>
+                                    </td>
                                     <td className="px-4 py-3">
                                         {account.disabled ? (
                                             <span className="text-destructive">Révoqué</span>
@@ -237,7 +264,16 @@ export function AccountsManager() {
                                         {formatDate(account.lastLoginAt)}
                                     </td>
                                     <td className="px-4 py-3">
-                                        <div className="flex justify-end gap-3">
+                                        <div className="flex justify-end items-center gap-3">
+                                            <button
+                                                onClick={() =>
+                                                    act(account, "role", isAdmin ? "user" : "admin")
+                                                }
+                                                disabled={busy !== null}
+                                                className="text-xs font-medium text-txt2 hover:text-ink disabled:opacity-50"
+                                            >
+                                                {isAdmin ? "Rétrograder" : "Promouvoir Admin"}
+                                            </button>
                                             <button
                                                 onClick={() => act(account, "password")}
                                                 disabled={busy !== null}

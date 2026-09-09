@@ -15,7 +15,12 @@ async function handleGet(request: Request) {
     }
 
     try {
-        return NextResponse.json((await getModels(manufacturerId)).map(toApiModel));
+        const models = (await getModels(manufacturerId)).map(toApiModel);
+        return NextResponse.json(models, {
+            headers: {
+                "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+            },
+        });
     } catch (error) {
         return rapidApiFailure(error, { manufacturerId });
     }

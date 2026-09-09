@@ -21,3 +21,14 @@ export function useSaveSelection() {
     });
     return mutate;
 }
+
+export function useClearSelection() {
+    const { mutate } = useMutation({
+        mutationFn: async () => {
+            await fetch("/api/vehicle/selection", {
+                method: "DELETE",
+            });
+        },
+    });
+    return mutate;
+}

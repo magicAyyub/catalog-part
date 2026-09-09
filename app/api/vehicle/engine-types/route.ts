@@ -15,7 +15,12 @@ async function handleGet(request: Request) {
     }
 
     try {
-        return NextResponse.json((await getVehicles(modelId)).map(toApiEngineType));
+        const engineTypes = (await getVehicles(modelId)).map(toApiEngineType);
+        return NextResponse.json(engineTypes, {
+            headers: {
+                "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+            },
+        });
     } catch (error) {
         return rapidApiFailure(error, { modelId });
     }

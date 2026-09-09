@@ -7,24 +7,31 @@
 
 import { NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/admin/guard";
-import { AccountError, resetAccountPassword, setAccountEnabled } from "@/lib/auth/accounts";
+import {
+    AccountError,
+    AccountRole,
+    resetAccountPassword,
+    setAccountEnabled,
+    updateAccountRole,
+} from "@/lib/auth/accounts";
 import { logger } from "@/lib/logger";
 import { withRequestContext } from "@/lib/logs/request-context";
 
-const ACTIONS = ["password", "disable", "enable"] as const;
+const ACTIONS = ["password", "disable", "enable", "role"] as const;
 type Action = (typeof ACTIONS)[number];
 
 async function handlePatch(req: Request, username: string) {
     const auth = await requireAdminAccess();
     if (auth instanceof NextResponse) return auth;
 
-    let action: unknown;
+    let body: Record<string, unknown>;
     try {
-        ({ action } = await req.json());
+        body = await req.json();
     } catch {
         return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
     }
 
+    const action = body.action;
     if (typeof action !== "string" || !ACTIONS.includes(action as Action)) {
         return NextResponse.json(
             { error: `Action inconnue. Attendu : ${ACTIONS.join(", ")}.` },
@@ -32,16 +39,38 @@ async function handlePatch(req: Request, username: string) {
         );
     }
 
+    const ip =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        req.headers.get("x-real-ip") ||
+        "127.0.0.1";
+
     try {
         if (action === "password") {
             const { generatedPassword, closedSessions } = await resetAccountPassword(username);
             logger.info("Account password reset", {
                 action: "account-password",
                 userId: auth.id,
+                adminUsername: auth.username,
                 account: username,
                 closedSessions,
+                ip,
             });
             return NextResponse.json({ generatedPassword, closedSessions });
+        }
+
+        if (action === "role") {
+            const newRole = body.role as AccountRole;
+            const { closedSessions } = await updateAccountRole(username, newRole);
+            logger.info("Account role updated", {
+                action: "account-role-updated",
+                userId: auth.id,
+                adminUsername: auth.username,
+                account: username,
+                role: newRole,
+                closedSessions,
+                ip,
+            });
+            return NextResponse.json({ closedSessions, role: newRole });
         }
 
         const enabled = action === "enable";
@@ -49,8 +78,10 @@ async function handlePatch(req: Request, username: string) {
         logger.info(enabled ? "Account enabled" : "Account disabled", {
             action: enabled ? "account-enabled" : "account-disabled",
             userId: auth.id,
+            adminUsername: auth.username,
             account: username,
             closedSessions,
+            ip,
         });
         return NextResponse.json({ closedSessions });
     } catch (error) {

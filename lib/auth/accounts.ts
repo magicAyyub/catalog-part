@@ -176,3 +176,21 @@ export async function setAccountEnabled(
     const closed = await db.delete(sessions).where(eq(sessions.userId, user.id));
     return { closedSessions: closed.changes };
 }
+
+/** Updates the role of an account ('user' | 'admin'). Closes sessions on role change. */
+export async function updateAccountRole(
+    rawUsername: string,
+    role: AccountRole
+): Promise<{ closedSessions: number }> {
+    if (role !== "user" && role !== "admin") {
+        throw new AccountError('Rôle invalide. Attendu : "user" ou "admin".', 400);
+    }
+    const user = await findAccount(normaliseUsername(rawUsername));
+    if (user.role === role) {
+        return { closedSessions: 0 };
+    }
+
+    await db.update(users).set({ role }).where(eq(users.id, user.id));
+    const closed = await db.delete(sessions).where(eq(sessions.userId, user.id));
+    return { closedSessions: closed.changes };
+}

@@ -149,7 +149,7 @@ function ErrorState() {
 
 // ─── Pagination bar ───────────────────────────────────────────────────────────
 
-const PAGE_SIZES = [5, 10, 20] as const;
+const PAGE_SIZES = [20, 50, 100, 9999] as const;
 
 interface PaginationBarProps {
     currentPage: number;
@@ -158,6 +158,7 @@ interface PaginationBarProps {
     totalItems: number;
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
+    position?: "top" | "bottom";
 }
 
 function PaginationBar({
@@ -167,8 +168,9 @@ function PaginationBar({
     totalItems,
     onPageChange,
     onPageSizeChange,
+    position = "bottom",
 }: PaginationBarProps) {
-    if (totalPages <= 1 && totalItems <= PAGE_SIZES[0]) return null;
+    if (totalItems === 0) return null;
 
     // Génère les numéros de pages à afficher (avec ellipsis)
     function getPageNumbers(): (number | "ellipsis")[] {
@@ -184,59 +186,61 @@ function PaginationBar({
     }
 
     return (
-        <Pagination className="mt-6">
-            <PaginationContent className="w-full justify-between">
+        <Pagination className={position === "top" ? "mb-4" : "mt-6"}>
+            <PaginationContent className="w-full justify-between gap-2 flex-wrap sm:flex-nowrap">
                 {/* Compteur */}
                 <PaginationItem>
                     <span className="text-sm text-muted-foreground">
                         Page <span className="font-medium text-foreground">{currentPage}</span> sur{" "}
                         <span className="font-medium text-foreground">{totalPages}</span>
-                        <span className="ml-2 text-xs">({totalItems} pièces)</span>
+                        <span className="ml-2 text-xs">({totalItems} pièce{totalItems > 1 ? "s" : ""})</span>
                     </span>
                 </PaginationItem>
 
-                {/* Navigation */}
-                <PaginationItem className="flex items-center gap-1">
-                    <PaginationPrevious
-                        href="#"
-                        text="Préc."
-                        onClick={(e) => { e.preventDefault(); if (currentPage > 1) onPageChange(currentPage - 1); }}
-                        aria-disabled={currentPage === 1}
-                        className={currentPage === 1 ? "pointer-events-none opacity-40" : ""}
-                    />
-                    {getPageNumbers().map((p, i) =>
-                        p === "ellipsis" ? (
-                            <PaginationEllipsis key={`ellipsis-${i}`} />
-                        ) : (
-                            <PaginationLink
-                                key={p}
-                                href="#"
-                                isActive={p === currentPage}
-                                onClick={(e) => { e.preventDefault(); onPageChange(p); }}
-                            >
-                                {p}
-                            </PaginationLink>
-                        )
-                    )}
-                    <PaginationNext
-                        href="#"
-                        text="Suiv."
-                        onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) onPageChange(currentPage + 1); }}
-                        aria-disabled={currentPage === totalPages}
-                        className={currentPage === totalPages ? "pointer-events-none opacity-40" : ""}
-                    />
-                </PaginationItem>
+                {/* Navigation (masquée si Tout afficher) */}
+                {pageSize !== 9999 && totalPages > 1 && (
+                    <PaginationItem className="flex items-center gap-1">
+                        <PaginationPrevious
+                            href="#"
+                            text="Préc."
+                            onClick={(e) => { e.preventDefault(); if (currentPage > 1) onPageChange(currentPage - 1); }}
+                            aria-disabled={currentPage === 1}
+                            className={currentPage === 1 ? "pointer-events-none opacity-40" : ""}
+                        />
+                        {getPageNumbers().map((p, i) =>
+                            p === "ellipsis" ? (
+                                <PaginationEllipsis key={`ellipsis-${i}`} />
+                            ) : (
+                                <PaginationLink
+                                    key={p}
+                                    href="#"
+                                    isActive={p === currentPage}
+                                    onClick={(e) => { e.preventDefault(); onPageChange(p); }}
+                                >
+                                    {p}
+                                </PaginationLink>
+                            )
+                        )}
+                        <PaginationNext
+                            href="#"
+                            text="Suiv."
+                            onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) onPageChange(currentPage + 1); }}
+                            aria-disabled={currentPage === totalPages}
+                            className={currentPage === totalPages ? "pointer-events-none opacity-40" : ""}
+                        />
+                    </PaginationItem>
+                )}
 
                 {/* Taille de page */}
                 <PaginationItem>
                     <NativeSelect
                         value={pageSize}
                         onChange={(e) => { onPageSizeChange(Number(e.target.value)); }}
-                        className="w-28"
+                        className="w-36"
                     >
                         {PAGE_SIZES.map((size) => (
                             <NativeSelectOption key={size} value={size}>
-                                {size} / page
+                                {size === 9999 ? "Tout afficher" : `${size} / page`}
                             </NativeSelectOption>
                         ))}
                     </NativeSelect>
@@ -300,12 +304,24 @@ export function PartsGrid({
     }
 
     const totalItems = parts.length;
-    const totalPages = Math.ceil(totalItems / pageSize);
-    const start = (currentPage - 1) * pageSize;
-    const pageParts = parts.slice(start, start + pageSize);
+    const effectivePageSize = pageSize === 9999 ? totalItems : pageSize;
+    const totalPages = Math.max(Math.ceil(totalItems / effectivePageSize), 1);
+    const start = (currentPage - 1) * effectivePageSize;
+    const pageParts = parts.slice(start, start + effectivePageSize);
 
     return (
         <div className="flex flex-col gap-4">
+            {/* Pagination en HAUT */}
+            <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                onPageChange={onPageChange}
+                onPageSizeChange={onPageSizeChange}
+                position="top"
+            />
+
             <div className="flex flex-col gap-4">
                 {pageParts.map((part) => (
                     <PartCard
@@ -316,6 +332,7 @@ export function PartsGrid({
                 ))}
             </div>
 
+            {/* Pagination en BAS */}
             <PaginationBar
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -323,6 +340,7 @@ export function PartsGrid({
                 totalItems={totalItems}
                 onPageChange={onPageChange}
                 onPageSizeChange={onPageSizeChange}
+                position="bottom"
             />
         </div>
     );

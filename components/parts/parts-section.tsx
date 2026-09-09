@@ -21,7 +21,23 @@ import {
 import { isEtfSupplier } from "@/lib/parts/suppliers";
 import { SortSelect, type SortOption } from "./sort-select";
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 20;
+const STORAGE_PAGE_SIZE_KEY = "catalog_page_size";
+
+function getInitialPageSize(): number {
+    try {
+        if (typeof window !== "undefined") {
+            const stored = localStorage.getItem(STORAGE_PAGE_SIZE_KEY);
+            if (stored) {
+                const parsed = Number(stored);
+                if (Number.isSafeInteger(parsed) && parsed > 0) return parsed;
+            }
+        }
+    } catch {
+        // Ignorer
+    }
+    return DEFAULT_PAGE_SIZE;
+}
 
 /**
  * Query keys the catalog reads its own state from. Filters live in the URL so
@@ -78,7 +94,7 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
     );
     const activeSort = (searchParams.get(PARAM.sort) as SortOption) || "pertinence";
     const currentPage = Math.max(Number(searchParams.get(PARAM.page)) || 1, 1);
-    const pageSize = Number(searchParams.get(PARAM.pageSize)) || DEFAULT_PAGE_SIZE;
+    const pageSize = Number(searchParams.get(PARAM.pageSize)) || getInitialPageSize();
 
     const { data: parts, isLoading, isError, error } = useParts(vehicleId, CATEGORY_IDS);
 
@@ -229,9 +245,13 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
     }
 
     function handlePageSizeChange(size: number) {
+        try {
+            localStorage.setItem(STORAGE_PAGE_SIZE_KEY, String(size));
+        } catch {
+            // Ignorer
+        }
         commit((params) => {
-            if (size === DEFAULT_PAGE_SIZE) params.delete(PARAM.pageSize);
-            else params.set(PARAM.pageSize, String(size));
+            params.set(PARAM.pageSize, String(size));
             params.delete(PARAM.page);
         });
     }

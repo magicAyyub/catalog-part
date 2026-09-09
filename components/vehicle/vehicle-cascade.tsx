@@ -58,6 +58,15 @@ function today(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
+import { SearchModal } from "@/components/layout/search-modal";
+import { Search } from "lucide-react";
+
+const POPULAR_MANUFACTURER_NAMES = new Set([
+    "RENAULT", "PEUGEOT", "CITROËN", "DACIA", "VOLKSWAGEN",
+    "TOYOTA", "FORD", "OPEL", "BMW", "MERCEDES-BENZ",
+    "AUDI", "FIAT", "NISSAN", "SEAT", "SKODA", "ŠKODA", "HYUNDAI", "KIA"
+]);
+
 export function VehicleCascade({
     onVehicleSelected,
     onVehicleConfirmed,
@@ -82,6 +91,30 @@ export function VehicleCascade({
         if (!manufacturers) return [];
         return Array.from(new Map(manufacturers.map((m) => [m.manufacturerId, m])).values());
     }, [manufacturers]);
+
+    const manufacturerGroups = useMemo(() => {
+        if (!uniqueManufacturers.length) return [];
+        const popular: ApiManufacturer[] = [];
+        const others: ApiManufacturer[] = [];
+
+        for (const m of uniqueManufacturers) {
+            const nameUpper = m.manufacturerName.toUpperCase();
+            if (POPULAR_MANUFACTURER_NAMES.has(nameUpper)) {
+                popular.push(m);
+            } else {
+                others.push(m);
+            }
+        }
+
+        const groups = [];
+        if (popular.length > 0) {
+            groups.push({ value: "Constructeurs courants", items: popular });
+        }
+        if (others.length > 0) {
+            groups.push({ value: "Autres constructeurs", items: others });
+        }
+        return groups;
+    }, [uniqueManufacturers]);
 
     // Un choix manuel prime toujours. Sinon la suggestion tient, dès que la liste
     // qui la porte est arrivée : on dérive plutôt que de recopier dans un état.
@@ -117,11 +150,6 @@ export function VehicleCascade({
 
     const UNKNOWN_FUEL = "Carburant non précisé";
 
-    /**
-     * Motorisations groupées par carburant, le premier tri que fait le comptoir.
-     * Le libellé du groupe portant déjà le carburant, les lignes ne le répètent
-     * pas ; la recherche, elle, continue de le voir.
-     */
     const engineGroups = useMemo(() => {
         const groups = new Map<string, ApiEngineType[]>();
         for (const engine of uniqueEngineTypes) {
@@ -146,8 +174,6 @@ export function VehicleCascade({
         setEngineType(null);
         setSuggestion(next);
 
-        // Une fois par jour : assez pour que le geste s'installe, assez peu pour
-        // ne pas encombrer quelqu'un qui cherche vingt plaques dans la journée.
         try {
             if (localStorage.getItem(GUIDE_SEEN_KEY) !== today()) setGuideOpen(true);
         } catch {
@@ -161,7 +187,7 @@ export function VehicleCascade({
         try {
             localStorage.setItem(GUIDE_SEEN_KEY, today());
         } catch {
-            // Stockage indisponible : le guide reviendra, ce n'est pas grave.
+            // Ignorer
         }
     }
 
@@ -216,11 +242,6 @@ export function VehicleCascade({
         ? ` Le fournisseur annonce « ${suggestion.version} ».`
         : "";
 
-    /**
-     * Le repère plutôt que l'explication. Le libellé du fournisseur se retrouve
-     * presque mot pour mot dans la liste TecDoc, carburant compris, alors on le
-     * donne à recopier au lieu de raconter pourquoi la plaque n'a pas suffi.
-     */
     const guideHint = missingModel
         ? `Ouvrez cette liste et choisissez le modèle de la ${suggestion?.manufacturerName ?? ""}.`
         : suggestion?.version
@@ -239,9 +260,9 @@ export function VehicleCascade({
                 </p>
             )}
 
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-0">
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch xl:gap-0">
                 {/* 1. Recherche par plaque d'immatriculation */}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     <p className="mb-3.5 font-heading text-base font-semibold text-white">
                         Recherche par plaque d&apos;immatriculation
                     </p>
@@ -252,31 +273,69 @@ export function VehicleCascade({
                 </div>
 
                 {/* Séparateur "OU" */}
-                <div className="flex items-center justify-center py-2 lg:px-6 lg:py-0">
-                    <div className="flex w-full items-center gap-3 lg:hidden">
+                <div className="flex items-center justify-center py-2 xl:px-4 xl:py-0">
+                    <div className="flex w-full items-center gap-3 xl:hidden">
                         <div className="h-px flex-1 bg-white/20" />
                         <span className="text-xs font-bold text-white/50">OU</span>
                         <div className="h-px flex-1 bg-white/20" />
                     </div>
-                    <div className="hidden lg:flex lg:h-full lg:flex-col lg:items-center">
+                    <div className="hidden xl:flex xl:h-full xl:flex-col xl:items-center">
                         <div className="w-px flex-1 bg-white/20" />
-                        <span className="my-3 flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 text-xs font-bold text-white">
+                        <span className="my-3 flex size-8 shrink-0 items-center justify-center rounded-full border border-white/30 text-[11px] font-bold text-white">
                             OU
                         </span>
                         <div className="w-px flex-1 bg-white/20" />
                     </div>
                 </div>
 
-                {/* 2. Recherche par cascade (Marque / Modèle / Motorisation) */}
-                <div className="flex-1">
+                {/* 2. Recherche par référence */}
+                <div className="flex-1 min-w-0">
+                    <p className="mb-3.5 font-heading text-base font-semibold text-white">
+                        Recherche par référence
+                    </p>
+                    <SearchModal
+                        trigger={
+                            <div className="flex h-12 w-full items-center justify-between rounded-md border-2 border-transparent bg-white px-3.5 text-sm shadow-sm transition-colors hover:bg-white/90">
+                                <div className="flex items-center gap-2.5 truncate text-ink">
+                                    <Search className="size-4 shrink-0 text-pine" />
+                                    <span className="truncate font-medium text-txt2">
+                                        Référence, EAN, WVA ou OE…
+                                    </span>
+                                </div>
+                                <kbd className="hidden sm:inline-flex items-center rounded border border-stroke bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold text-txt2 shadow-2xs">
+                                    ⌘K
+                                </kbd>
+                            </div>
+                        }
+                    />
+                </div>
+
+                {/* Séparateur "OU" */}
+                <div className="flex items-center justify-center py-2 xl:px-4 xl:py-0">
+                    <div className="flex w-full items-center gap-3 xl:hidden">
+                        <div className="h-px flex-1 bg-white/20" />
+                        <span className="text-xs font-bold text-white/50">OU</span>
+                        <div className="h-px flex-1 bg-white/20" />
+                    </div>
+                    <div className="hidden xl:flex xl:h-full xl:flex-col xl:items-center">
+                        <div className="w-px flex-1 bg-white/20" />
+                        <span className="my-3 flex size-8 shrink-0 items-center justify-center rounded-full border border-white/30 text-[11px] font-bold text-white">
+                            OU
+                        </span>
+                        <div className="w-px flex-1 bg-white/20" />
+                    </div>
+                </div>
+
+                {/* 3. Recherche par modèle */}
+                <div className="flex-1 min-w-0">
                     <p className="mb-3.5 font-heading text-base font-semibold text-white">
                         Recherche par modèle
                     </p>
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex flex-col gap-2.5 sm:flex-row">
                         {/* Fabricant */}
                         <div className="flex flex-1 flex-col gap-1.5 min-w-0">
                             <Combobox
-                                items={uniqueManufacturers}
+                                items={manufacturerGroups}
                                 value={manufacturer}
                                 onValueChange={(m) => {
                                     setPickedManufacturer(m);
@@ -290,7 +349,7 @@ export function VehicleCascade({
                                     render={
                                         <Button
                                             variant="outline"
-                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
+                                            className="w-full h-12 justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
                                             disabled={mfLoading}
                                         />
                                     }
@@ -303,14 +362,21 @@ export function VehicleCascade({
                                         )}
                                     </ComboboxValue>
                                 </ComboboxTrigger>
-                                <ComboboxContent className="w-(--anchor-width)">
+                                <ComboboxContent className="min-w-[340px] w-(--anchor-width)">
                                     <ComboboxInput showTrigger={false} placeholder="Rechercher un fabricant..." />
                                     <ComboboxEmpty>Aucun fabricant trouvé.</ComboboxEmpty>
                                     <ComboboxList>
-                                        {(m) => (
-                                            <ComboboxItem key={m.manufacturerId} value={m}>
-                                                {m.manufacturerName}
-                                            </ComboboxItem>
+                                        {(group: { value: string; items: ApiManufacturer[] }) => (
+                                            <ComboboxGroup key={group.value} items={group.items}>
+                                                <ComboboxLabel>{group.value}</ComboboxLabel>
+                                                <ComboboxCollection>
+                                                    {(m: ApiManufacturer) => (
+                                                        <ComboboxItem key={m.manufacturerId} value={m} title={m.manufacturerName}>
+                                                            <span className="truncate">{m.manufacturerName}</span>
+                                                        </ComboboxItem>
+                                                    )}
+                                                </ComboboxCollection>
+                                            </ComboboxGroup>
                                         )}
                                     </ComboboxList>
                                 </ComboboxContent>
@@ -345,7 +411,7 @@ export function VehicleCascade({
                                     render={
                                         <Button
                                             variant="outline"
-                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
+                                            className="w-full h-12 justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
                                             disabled={!manufacturer || mdLoading}
                                         />
                                     }
@@ -366,16 +432,18 @@ export function VehicleCascade({
                                         )}
                                     </ComboboxValue>
                                 </ComboboxTrigger>
-                                <ComboboxContent className="w-(--anchor-width)">
+                                <ComboboxContent className="min-w-[380px] w-(--anchor-width)">
                                     <ComboboxInput showTrigger={false} placeholder="Rechercher un modèle..." />
                                     <ComboboxEmpty>Aucun modèle trouvé.</ComboboxEmpty>
                                     <ComboboxList>
-                                        {(m) => (
-                                            <ComboboxItem key={m.modelId} value={m}>
-                                                {m.modelName} ({m.modelYearFrom.slice(0, 4)}
-                                                {m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})
-                                            </ComboboxItem>
-                                        )}
+                                        {(m) => {
+                                            const label = `${m.modelName} (${m.modelYearFrom.slice(0, 4)}${m.modelYearTo ? ` – ${m.modelYearTo.slice(0, 4)}` : " →"})`;
+                                            return (
+                                                <ComboboxItem key={m.modelId} value={m} title={label}>
+                                                    <span className="line-clamp-2">{label}</span>
+                                                </ComboboxItem>
+                                            );
+                                        }}
                                     </ComboboxList>
                                 </ComboboxContent>
                             </Combobox>
@@ -403,7 +471,7 @@ export function VehicleCascade({
                                     render={
                                         <Button
                                             variant="outline"
-                                            className="w-full justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
+                                            className="w-full h-12 justify-between border-transparent bg-white font-normal text-left min-w-0 overflow-hidden text-ink shadow-sm hover:bg-white/90"
                                             disabled={!model || etLoading}
                                         />
                                     }
@@ -422,7 +490,7 @@ export function VehicleCascade({
                                         )}
                                     </ComboboxValue>
                                 </ComboboxTrigger>
-                                <ComboboxContent className="w-(--anchor-width)">
+                                <ComboboxContent className="min-w-[380px] w-(--anchor-width)">
                                     <ComboboxInput showTrigger={false} placeholder="Rechercher une motorisation..." />
                                     <ComboboxEmpty>Aucune motorisation trouvée.</ComboboxEmpty>
                                     <ComboboxList>
@@ -430,11 +498,14 @@ export function VehicleCascade({
                                             <ComboboxGroup key={group.value} items={group.items}>
                                                 <ComboboxLabel>{group.value}</ComboboxLabel>
                                                 <ComboboxCollection>
-                                                    {(et: ApiEngineType) => (
-                                                        <ComboboxItem key={et.vehicleId} value={et}>
-                                                            {et.typeEngineName} | {et.powerKw} kW
-                                                        </ComboboxItem>
-                                                    )}
+                                                    {(et: ApiEngineType) => {
+                                                        const label = `${et.typeEngineName} | ${et.powerKw} kW`;
+                                                        return (
+                                                            <ComboboxItem key={et.vehicleId} value={et} title={label}>
+                                                                <span className="line-clamp-2">{label}</span>
+                                                            </ComboboxItem>
+                                                        );
+                                                    }}
                                                 </ComboboxCollection>
                                             </ComboboxGroup>
                                         )}

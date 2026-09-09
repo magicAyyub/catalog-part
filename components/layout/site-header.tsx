@@ -46,6 +46,7 @@ export async function SiteHeader() {
                     <UserMenu
                         label={user.displayName || user.username}
                         franchise={user.franchise}
+                        role={user.role}
                     />
                 )}
             </div>

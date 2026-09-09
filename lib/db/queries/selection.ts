@@ -30,3 +30,9 @@ export async function saveLastSelection(userId: string, vehicleId: number): Prom
             set: { vehicleId, selectedAt: new Date() },
         });
 }
+
+export async function clearLastSelection(userId: string): Promise<void> {
+    await db
+        .delete(vehicleSelections)
+        .where(eq(vehicleSelections.userId, userId));
+}

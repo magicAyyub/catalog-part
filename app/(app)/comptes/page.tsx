@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { adminPasswordConfigured, adminUnlocked } from "@/lib/admin/access";
-import { UnlockForm } from "@/components/auth/unlock-form";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/session";
+import { ShieldAlert } from "lucide-react";
 import { AccountsManager } from "./accounts-manager";
 
 export const metadata: Metadata = {
@@ -8,20 +9,30 @@ export const metadata: Metadata = {
 };
 
 export default async function AccountsPage() {
-    const unlocked = await adminUnlocked();
+    const user = await getCurrentUser();
+    if (!user) {
+        redirect("/login");
+    }
+
+    if (user.role !== "admin") {
+        return (
+            <main className="mx-auto w-full max-w-md flex-1 px-4 py-12">
+                <div className="rounded-xl border border-stroke bg-card p-6 text-center shadow-xs">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-4">
+                        <ShieldAlert className="size-6" />
+                    </div>
+                    <h1 className="font-heading text-lg font-bold text-ink">Accès restreint</h1>
+                    <p className="mt-2 text-sm text-txt2">
+                        Cette section est réservée aux administrateurs. Veuillez contacter le support si vous pensez qu&apos;il s&apos;agit d&apos;une erreur.
+                    </p>
+                </div>
+            </main>
+        );
+    }
 
     return (
         <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
-            {unlocked ? (
-                <AccountsManager />
-            ) : !adminPasswordConfigured() ? (
-                <p className="mx-auto max-w-md rounded-xl border border-stroke bg-white p-6 text-center text-sm text-txt2">
-                    L&apos;administration est fermée : définissez <code>ADMIN_PASSWORD</code> dans
-                    le fichier <code>.env</code> pour l&apos;activer.
-                </p>
-            ) : (
-                <UnlockForm title="Comptes franchisés" submitLabel="Ouvrir la gestion des comptes" />
-            )}
+            <AccountsManager />
         </main>
     );
 }

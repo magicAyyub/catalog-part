@@ -19,10 +19,12 @@
  */
 
 import {
+    AccountRole,
     createAccount,
     listAccounts,
     resetAccountPassword,
     setAccountEnabled,
+    updateAccountRole,
 } from "../lib/auth/accounts";
 
 type Flags = Record<string, string | boolean>;
@@ -117,6 +119,17 @@ async function commandEnable(positional: string[]): Promise<void> {
     console.log("Compte réactivé.");
 }
 
+async function commandRole(positional: string[]): Promise<void> {
+    const target = positional[0];
+    const role = positional[1] as AccountRole;
+    if (!target || (role !== "user" && role !== "admin")) {
+        console.log("Usage: pnpm auth:user role <identifiant> <user|admin>");
+        return;
+    }
+    const { closedSessions } = await updateAccountRole(target, role);
+    console.log(`Compte "${target}" mis à jour avec le rôle "${role}", ${closedSessions} session(s) fermée(s).`);
+}
+
 async function main(): Promise<void> {
     const { command, positional, flags } = parseArgs(process.argv.slice(2));
 
@@ -131,9 +144,11 @@ async function main(): Promise<void> {
             return commandDisable(positional);
         case "enable":
             return commandEnable(positional);
+        case "role":
+            return commandRole(positional);
         default:
             throw new Error(
-                `Commande inconnue "${command}". Attendu : list, create, password, disable, enable.`
+                `Commande inconnue "${command}". Attendu : list, create, password, disable, enable, role.`
             );
     }
 }

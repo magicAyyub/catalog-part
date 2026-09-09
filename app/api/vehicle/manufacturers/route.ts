@@ -10,7 +10,12 @@ async function handleGet() {
     if (auth instanceof NextResponse) return auth;
 
     try {
-        return NextResponse.json((await getManufacturers()).map(toApiManufacturer));
+        const manufacturers = (await getManufacturers()).map(toApiManufacturer);
+        return NextResponse.json(manufacturers, {
+            headers: {
+                "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+            },
+        });
     } catch (error) {
         return rapidApiFailure(error);
     }

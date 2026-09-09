@@ -16,7 +16,11 @@ interface SearchResultItem {
     specs: { criteriaName: string; criteriaValue: string }[];
 }
 
-export function SearchModal() {
+interface SearchModalProps {
+    trigger?: React.ReactNode;
+}
+
+export function SearchModal({ trigger }: SearchModalProps = {}) {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<SearchResultItem[]>([]);
@@ -110,24 +114,30 @@ export function SearchModal() {
 
     return (
         <>
-            {/* Barre déclencheuse dans le Header */}
-            <button
-                type="button"
-                onClick={openModal}
-                className="group flex w-full items-center justify-between gap-2.5 rounded-lg border border-stroke bg-muted/40 px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-txt2 transition-all hover:border-pine hover:bg-white hover:text-ink focus:outline-none focus:ring-2 focus:ring-pine/30 shadow-2xs cursor-pointer"
-                title="Rechercher par référence fabricant, EAN, WVA ou OE"
-            >
-                <div className="flex items-center gap-2 min-w-0 truncate">
-                    <Search className="size-4 shrink-0 text-pine transition-transform group-hover:scale-110" />
-                    <span className="truncate font-medium text-txt2 group-hover:text-ink text-xs sm:text-sm">
-                        <span className="inline sm:hidden">Rechercher réf...</span>
-                        <span className="hidden sm:inline">Rechercher une référence, EAN, OE…</span>
-                    </span>
+            {/* Déclencheur personnalisé ou bouton par défaut dans le Header */}
+            {trigger ? (
+                <div onClick={openModal} className="w-full cursor-pointer">
+                    {trigger}
                 </div>
-                <kbd className="hidden md:inline-flex items-center rounded border border-stroke bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-txt2 shadow-2xs">
-                    ⌘K
-                </kbd>
-            </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={openModal}
+                    className="group flex w-full items-center justify-between gap-2.5 rounded-lg border border-stroke bg-muted/40 px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-txt2 transition-all hover:border-pine hover:bg-white hover:text-ink focus:outline-none focus:ring-2 focus:ring-pine/30 shadow-2xs cursor-pointer"
+                    title="Rechercher par référence fabricant, EAN, WVA ou OE"
+                >
+                    <div className="flex items-center gap-2 min-w-0 truncate">
+                        <Search className="size-4 shrink-0 text-pine transition-transform group-hover:scale-110" />
+                        <span className="truncate font-medium text-txt2 group-hover:text-ink text-xs sm:text-sm">
+                            <span className="inline sm:hidden">Rechercher réf...</span>
+                            <span className="hidden sm:inline">Rechercher une référence, EAN, OE…</span>
+                        </span>
+                    </div>
+                    <kbd className="hidden md:inline-flex items-center rounded border border-stroke bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-txt2 shadow-2xs">
+                        ⌘K
+                    </kbd>
+                </button>
+            )}
 
             {/* Modale overlay téléportée au root body avec Portal */}
             {isOpen && typeof document !== "undefined" && createPortal(
@@ -208,6 +218,7 @@ export function SearchModal() {
                                             >
                                                 <div className="flex size-12 sm:size-14 shrink-0 items-center justify-center rounded border border-stroke bg-white p-1">
                                                     {item.s3image ? (
+                                                        /* eslint-disable-next-line @next/next/no-img-element */
                                                         <img
                                                             src={item.s3image}
                                                             alt={item.articleProductName}

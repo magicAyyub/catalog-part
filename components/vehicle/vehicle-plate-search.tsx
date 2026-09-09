@@ -83,9 +83,12 @@ export function VehiclePlateSearch({
             return;
         }
 
-        // Validation stricte du format SIV français : 2 lettres, 3 chiffres, 2 lettres
-        if (!/^[A-Z]{2}\d{3}[A-Z]{2}$/.test(clean)) {
-            setPlateError("Format de plaque non reconnu. Saisissez une plaque au format AA-123-BB.");
+        // Validation stricte SIV (AA-123-BB) et FNI (123 ABC 75)
+        const isSiv = /^[A-Z]{2}\d{3}[A-Z]{2}$/.test(clean);
+        const isFni = /^\d{1,4}[A-Z]{1,3}\d{2,3}$/.test(clean);
+
+        if (!isSiv && !isFni) {
+            setPlateError("Format de plaque non reconnu. Exemples : AA-123-BB ou 123 ABC 75.");
             return;
         }
 
@@ -110,14 +113,14 @@ export function VehiclePlateSearch({
                 if (msg.includes("404") || msg.toLowerCase().includes("inconnu") || msg.toLowerCase().includes("introuvable")) {
                     setPlateError("Aucun véhicule trouvé pour cette immatriculation.");
                 } else {
-                    setPlateError(msg || "Le service d'identification est momentanément indisponible.");
+                    setPlateError("Le service d'identification est momentanément indisponible. Utilisez la recherche par modèle.");
                 }
             },
         });
     }
 
     return (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
             <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch gap-2.5">
                 {/* Un label plutôt qu'un div : toute la plaque devient cliquable,
                     et la bordure pine signale le focus que l'input a supprimé. */}
@@ -149,6 +152,10 @@ export function VehiclePlateSearch({
                     {isPending ? "Identification…" : "Rechercher"}
                 </Button>
             </form>
+
+            <span className="text-[11px] font-medium text-white/75">
+                Formats acceptés : SIV (AA-123-BB) ou FNI (123 ABC 75)
+            </span>
 
             {/* Erreur */}
             {plateError && (

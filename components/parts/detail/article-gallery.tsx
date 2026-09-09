@@ -34,6 +34,7 @@ export function ArticleGallery({ images, alt }: ArticleGalleryProps) {
     return (
         <div className="flex flex-col gap-3">
             <div className="relative flex h-80 w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/20">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={activeImage}
                     alt={alt}
@@ -65,6 +66,7 @@ export function ArticleGallery({ images, alt }: ArticleGalleryProps) {
                                 )}
                                 aria-label={`Afficher l'image ${idx + 1}`}
                             >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                     src={imgUrl}
                                     alt=""

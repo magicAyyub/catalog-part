@@ -18,24 +18,19 @@ import {
 export interface UserMenuProps {
     label: string;
     franchise: string | null;
+    role?: string;
 }
 
-/**
- * The only way into the trace and account pages. Both sit behind their own
- * password, so listing them here costs nothing and saves knowing the URLs by
- * heart, which nobody will in a year.
- */
-export function UserMenu({ label, franchise }: UserMenuProps) {
+export function UserMenu({ label, franchise, role }: UserMenuProps) {
     const router = useRouter();
     const [isSigningOut, setIsSigningOut] = useState(false);
+    const isAdmin = role === "admin";
 
     async function handleSignOut() {
         setIsSigningOut(true);
         try {
             await fetch("/api/auth/logout", { method: "POST" });
         } finally {
-            // Même si l'appel échoue, on renvoie vers /login : le middleware
-            // tranchera, et l'utilisateur n'est pas coincé sur une page fermée.
             router.replace("/login");
             router.refresh();
         }
@@ -51,7 +46,14 @@ export function UserMenu({ label, franchise }: UserMenuProps) {
                         {label.slice(0, 2).toUpperCase()}
                     </span>
                     <span className="hidden flex-col items-start leading-tight sm:flex">
-                        <span className="text-sm font-medium text-ink">{label}</span>
+                        <span className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                            {label}
+                            {isAdmin && (
+                                <span className="rounded bg-pine/10 px-1 py-0.2 text-[9px] font-bold text-pine uppercase">
+                                    Admin
+                                </span>
+                            )}
+                        </span>
                         {franchise && (
                             <span className="text-[10px] uppercase tracking-wider text-txt2">
                                 {franchise}
@@ -63,7 +65,6 @@ export function UserMenu({ label, franchise }: UserMenuProps) {
 
                 <DropdownMenuContent className="w-56" align="end">
                     <DropdownMenuGroup>
-                        {/* Base UI exige que le libellé soit dans un groupe. */}
                         <DropdownMenuLabel className="sm:hidden">
                             {label}
                             {franchise ? ` · ${franchise}` : ""}
@@ -72,14 +73,18 @@ export function UserMenu({ label, franchise }: UserMenuProps) {
                             <LayoutGrid aria-hidden="true" />
                             Catalogue
                         </DropdownMenuItem>
-                        <DropdownMenuItem render={<Link href="/logs" />}>
-                            <ScrollText aria-hidden="true" />
-                            Trace du système
-                        </DropdownMenuItem>
-                        <DropdownMenuItem render={<Link href="/comptes" />}>
-                            <Users aria-hidden="true" />
-                            Comptes franchisés
-                        </DropdownMenuItem>
+                        {isAdmin && (
+                            <>
+                                <DropdownMenuItem render={<Link href="/logs" />}>
+                                    <ScrollText aria-hidden="true" />
+                                    Trace du système
+                                </DropdownMenuItem>
+                                <DropdownMenuItem render={<Link href="/comptes" />}>
+                                    <Users aria-hidden="true" />
+                                    Comptes franchisés
+                                </DropdownMenuItem>
+                            </>
+                        )}
                     </DropdownMenuGroup>
 
                     <DropdownMenuSeparator />

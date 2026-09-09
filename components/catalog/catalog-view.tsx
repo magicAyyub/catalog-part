@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { VehicleCascade } from "@/components/vehicle/vehicle-cascade";
 import { ActiveVehicleCard, type ActiveVehicleData } from "@/components/vehicle/active-vehicle-card";
 import { PartsSection } from "@/components/parts/parts-section";
-import { useSaveSelection } from "@/hooks/vehicle/use-selection";
+import { useClearSelection, useSaveSelection } from "@/hooks/vehicle/use-selection";
 import { PLATE_LOOKUP_KEY } from "@/hooks/vehicle/use-plate-lookup";
 import { VehicleIdentificationSkeleton } from "@/components/vehicle/vehicle-identification-skeleton";
 import { ACTIVE_VEHICLE_KEY as STORAGE_KEY } from "@/lib/catalog/active-vehicle";
@@ -51,6 +51,7 @@ export function CatalogView() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const saveSelection = useSaveSelection();
+    const clearSelection = useClearSelection();
 
     const storedRaw = useSyncExternalStore(subscribeToStorage, readStoredVehicle, () => null);
     const storedVehicle = useMemo(() => parseVehicle(storedRaw), [storedRaw]);
@@ -140,7 +141,8 @@ export function CatalogView() {
 
     function handleResetVehicle() {
         setChosen(null);
-        router.replace(pathname, { scroll: false });
+        clearSelection();
+        setVehicleParam(null);
 
         try {
             localStorage.removeItem(STORAGE_KEY);

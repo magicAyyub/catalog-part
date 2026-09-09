@@ -60,12 +60,16 @@ function SpecRow({ name, values }: { name: string; values: string[] }) {
         );
     }
 
+    const firstTwo = values.slice(0, 2).join(", ");
+    const extra = values.length > 2 ? `, +${values.length - 2}` : "";
+    const preview = `${firstTwo}${extra}`;
+
     return (
         <details className="group border-b border-stroke/60 text-sm">
             <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 py-1 marker:content-none">
-                <span className="font-bold text-ink">{name}</span>
-                <span className="text-right text-txt2">
-                    {values.length} valeurs
+                <span className="font-bold text-ink shrink-0">{name}</span>
+                <span className="text-right text-txt2 truncate max-w-[60%]" title={values.join(", ")}>
+                    {preview}
                     <span className="ml-1.5 inline-block transition-transform group-open:rotate-90">›</span>
                 </span>
             </summary>
@@ -103,6 +107,7 @@ export function PartCard({ part, detailHref }: PartCardProps) {
             {/* La photo prime : c'est elle qui fait reconnaître la pièce au comptoir. */}
             <div className="flex size-32 shrink-0 items-center justify-center self-center sm:size-40 sm:self-start">
                 {part.s3image ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                         src={part.s3image}
                         alt={altText}
