@@ -59,7 +59,7 @@ function today(): string {
 }
 
 import { SearchModal } from "@/components/layout/search-modal";
-import { Search } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 
 const POPULAR_MANUFACTURER_NAMES = new Set([
     "RENAULT", "PEUGEOT", "CITROËN", "DACIA", "VOLKSWAGEN",
@@ -71,6 +71,7 @@ export function VehicleCascade({
     onVehicleSelected,
     onVehicleConfirmed,
 }: VehicleCascadeProps) {
+    const [modelSearchOpen, setModelSearchOpen] = useState(false);
     const [pickedManufacturer, setPickedManufacturer] = useState<ApiManufacturer | null>(null);
     const [pickedModel, setPickedModel] = useState<ApiModel | null>(null);
     const [engineType, setEngineType] = useState<ApiEngineType | null>(null);
@@ -173,6 +174,7 @@ export function VehicleCascade({
         setPickedModel(null);
         setEngineType(null);
         setSuggestion(next);
+        setModelSearchOpen(true);
 
         try {
             if (localStorage.getItem(GUIDE_SEEN_KEY) !== today()) setGuideOpen(true);
@@ -248,6 +250,8 @@ export function VehicleCascade({
           ? `Ouvrez cette liste et cherchez « ${suggestion.version} ».`
           : `Ouvrez cette liste et choisissez la motorisation de la ${named}.`;
 
+    const showModelSection = modelSearchOpen;
+
     return (
         <div className="rounded-lg bg-banner-pine p-6">
             {suggestion && (
@@ -303,36 +307,32 @@ export function VehicleCascade({
                                     </span>
                                 </div>
                                 <kbd className="hidden sm:inline-flex items-center rounded border border-stroke bg-muted px-1.5 py-0.5 font-mono text-[10px] font-bold text-txt2 shadow-2xs">
-                                    ⌘K
+                                    Ctrl K
                                 </kbd>
                             </div>
                         }
                     />
                 </div>
+            </div>
 
-                {/* Séparateur "OU" */}
-                <div className="flex items-center justify-center py-2 xl:px-4 xl:py-0">
-                    <div className="flex w-full items-center gap-3 xl:hidden">
-                        <div className="h-px flex-1 bg-white/20" />
-                        <span className="text-xs font-bold text-white/50">OU</span>
-                        <div className="h-px flex-1 bg-white/20" />
-                    </div>
-                    <div className="hidden xl:flex xl:h-full xl:flex-col xl:items-center">
-                        <div className="w-px flex-1 bg-white/20" />
-                        <span className="my-3 flex size-8 shrink-0 items-center justify-center rounded-full border border-white/30 text-[11px] font-bold text-white">
-                            OU
-                        </span>
-                        <div className="w-px flex-1 bg-white/20" />
-                    </div>
-                </div>
+            {/* 3. Recherche par modèle (Dépliable comme option avancée) */}
+            <div className="mt-5 pt-4 border-t border-white/15 flex flex-col gap-3">
+                <button
+                    type="button"
+                    onClick={() => setModelSearchOpen(!modelSearchOpen)}
+                    className="flex items-center justify-between w-full rounded-md bg-white/10 hover:bg-white/15 px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-white transition-colors cursor-pointer"
+                >
+                    <span>Recherche par modèle (Marque, Modèle, Motorisation)</span>
+                    <ChevronDown className={cn("size-4 transition-transform duration-200", showModelSection && "rotate-180")} />
+                </button>
 
-                {/* 3. Recherche par modèle */}
-                <div className="flex-1 min-w-0">
-                    <p className="mb-3.5 font-heading text-base font-semibold text-white">
-                        Recherche par modèle
-                    </p>
-                    <div className="flex flex-col gap-2.5 sm:flex-row">
-                        {/* Fabricant */}
+                {showModelSection && (
+                    <div className="pt-2 animate-in fade-in duration-150">
+                        <p className="mb-3.5 font-heading text-base font-semibold text-white">
+                            Recherche par modèle
+                        </p>
+                        <div className="flex flex-col gap-2.5 sm:flex-row">
+                            {/* Fabricant */}
                         <div className="flex flex-1 flex-col gap-1.5 min-w-0">
                             <Combobox
                                 items={manufacturerGroups}
@@ -515,7 +515,8 @@ export function VehicleCascade({
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
+        </div>
 
             {suggestion && (
                 <CascadeGuide

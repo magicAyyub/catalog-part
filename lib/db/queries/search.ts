@@ -57,28 +57,31 @@ export async function searchArticlesByReference(
     const searchPattern = `%${cleaned}%`;
     const cleanedArticleNoSql = sql`UPPER(REPLACE(REPLACE(REPLACE(${articles.articleNo}, ' ', ''), '-', ''), '.', ''))`;
     const cleanedEanSql = sql`UPPER(REPLACE(REPLACE(REPLACE(COALESCE(${articles.eanNumber}, ''), ' ', ''), '-', ''), '.', ''))`;
+    const candidateLimit = Math.max(limit * 10, 200);
 
-    // 1. Recherche directe par articleNo ou eanNumber
+    // 1. Recherche directe par articleNo ou eanNumber (exacte puis partielle)
     const directRows = await db
         .select({ articleId: articles.articleId })
         .from(articles)
         .where(
             or(
+                sql`${cleanedArticleNoSql} = ${cleaned}`,
+                sql`${cleanedEanSql} = ${cleaned}`,
                 sql`${cleanedArticleNoSql} LIKE ${searchPattern}`,
                 sql`${cleanedEanSql} LIKE ${searchPattern}`
             )
         )
-        .limit(limit * 3);
+        .limit(candidateLimit);
 
     const candidateIds = new Set<number>(directRows.map((r) => r.articleId));
 
-    // 2. Recherche par WVA dans articleCriteria (filtrage strict sur la VALEUR)
+    // 2. Recherche par WVA dans articleCriteria
     const cleanedCriteriaValueSql = sql`UPPER(REPLACE(REPLACE(REPLACE(${articleCriteria.value}, ' ', ''), '-', ''), '.', ''))`;
     const wvaRows = await db
         .select({ articleId: articleCriteria.articleId })
         .from(articleCriteria)
         .where(sql`${cleanedCriteriaValueSql} LIKE ${searchPattern}`)
-        .limit(limit * 3);
+        .limit(candidateLimit);
 
     for (const r of wvaRows) {
         candidateIds.add(r.articleId);
@@ -89,7 +92,7 @@ export async function searchArticlesByReference(
         .select({ articleId: articleOemNumbers.articleId })
         .from(articleOemNumbers)
         .where(like(articleOemNumbers.cleanedNo, searchPattern))
-        .limit(limit * 3);
+        .limit(candidateLimit);
 
     for (const r of oemRows) {
         candidateIds.add(r.articleId);
@@ -118,7 +121,7 @@ export async function searchArticlesByReference(
     const groupedCriteria = await criteriaByArticle(allCandidateIds);
     const groupedOem = await oemByArticle(allCandidateIds);
 
-    // Évaluation du score de pertinence pour chaque article candidat
+    // Évaluation multi-niveaux du score de pertinence
     const scoredArticles = fullRows
         .map((row) => {
             const normArticleNo = normalizeReference(row.articleNo);
@@ -131,36 +134,41 @@ export async function searchArticlesByReference(
 
             let score = 0;
 
-            // Égalité stricte (100 points)
-            if (
-                normArticleNo === cleaned ||
-                normEan === cleaned ||
-                wvaValues.includes(cleaned) ||
-                oemValues.includes(cleaned)
-            ) {
-                score = 100;
+            // Tier 1 : Égalité stricte (1000 pts base)
+            if (normArticleNo === cleaned) {
+                score = 1200; // Exact match articleNo
+            } else if (normEan === cleaned) {
+                score = 1180; // Exact match EAN
+            } else if (oemValues.includes(cleaned)) {
+                score = 1150; // Exact match OEM
+            } else if (wvaValues.includes(cleaned)) {
+                score = 1140; // Exact match WVA
             }
-            // Début de chaîne (75 points)
+            // Tier 2 : Début de chaîne (500 pts base)
             else if (
                 normArticleNo.startsWith(cleaned) ||
                 normEan.startsWith(cleaned) ||
                 wvaValues.some((v) => v.startsWith(cleaned)) ||
                 oemValues.some((v) => v.startsWith(cleaned))
             ) {
-                score = 75;
+                score = 500;
             }
-            // Contient la sous-chaîne (50 points)
+            // Tier 3 : Contient la sous-chaîne (100 pts base)
             else if (
                 normArticleNo.includes(cleaned) ||
                 normEan.includes(cleaned) ||
                 wvaValues.some((v) => v.includes(cleaned)) ||
                 oemValues.some((v) => v.includes(cleaned))
             ) {
-                score = 50;
+                score = 100;
             }
 
             // Éliminer tout article sans correspondance réelle
             if (score === 0) return null;
+
+            // Bonus d'écart de longueur (jusqu'à +50 pts pour les références plus proches de la taille saisie)
+            const lengthDiff = Math.abs(normArticleNo.length - cleaned.length);
+            score += Math.max(0, 50 - lengthDiff);
 
             // Bonus marque partenaire ETF (+10 points)
             if (isEtfSupplier(row.supplierId, row.supplierName)) {
@@ -175,12 +183,15 @@ export async function searchArticlesByReference(
                 criteria: rowCriteria,
             };
 
-            return { article, score };
+            return { article, score, normArticleNo };
         })
-        .filter((item): item is { article: SearchResultArticle; score: number } => Boolean(item));
+        .filter((item): item is { article: SearchResultArticle; score: number; normArticleNo: string } => Boolean(item));
 
-    // Trier par score de pertinence décroissant
-    scoredArticles.sort((a, b) => b.score - a.score);
+    // Trier par score de pertinence décroissant, puis par longueur de référence croissante
+    scoredArticles.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.normArticleNo.length - b.normArticleNo.length;
+    });
 
     return scoredArticles.slice(0, limit).map((item) => item.article);
 }

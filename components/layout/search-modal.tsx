@@ -134,7 +134,7 @@ export function SearchModal({ trigger }: SearchModalProps = {}) {
                         </span>
                     </div>
                     <kbd className="hidden md:inline-flex items-center rounded border border-stroke bg-white px-1.5 py-0.5 font-mono text-[10px] font-bold text-txt2 shadow-2xs">
-                        ⌘K
+                        Ctrl K
                     </kbd>
                 </button>
             )}
