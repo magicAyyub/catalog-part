@@ -48,7 +48,7 @@ export function VehicleReferenceSearch() {
                             setQuery(e.target.value);
                             if (error) setError(null);
                         }}
-                        placeholder="Référence pièce, EAN, OE…"
+                        placeholder="Référence de la pièce…"
                         aria-label="Référence pièce"
                         className="w-full bg-transparent px-3 font-mono text-sm sm:text-base font-semibold text-ink placeholder:text-txt2/60 focus:outline-none"
                     />
@@ -74,7 +74,7 @@ export function VehicleReferenceSearch() {
             </form>
 
             <span className="text-[11px] font-medium text-white/75">
-                Exemples : Réf. fabricant, Code EAN, WVA ou OE
+                Exemples : EP0849, 2370802, DF4183 ou 0 986 479 042
             </span>
 
             {error && (
