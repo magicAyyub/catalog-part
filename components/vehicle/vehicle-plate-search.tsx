@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPlateInput } from "@/lib/vehicle/plate-resolver";
 import { usePlateLookup, type PlateSuggestionResult } from "@/hooks/vehicle/use-plate-lookup";
@@ -120,8 +121,8 @@ export function VehiclePlateSearch({
     }
 
     return (
-        <div className="flex flex-col gap-2">
-            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch gap-2.5">
+        <div className="flex flex-col gap-2 w-full">
+            <form onSubmit={handleSearch} className="flex items-stretch gap-2.5 w-full">
                 {/* Un label plutôt qu'un div : toute la plaque devient cliquable,
                     et la bordure pine signale le focus que l'input a supprimé. */}
                 <label className="relative flex flex-1 cursor-text items-center rounded-md border-2 border-transparent bg-white p-1 shadow-sm transition-colors focus-within:border-pine">
@@ -139,7 +140,7 @@ export function VehiclePlateSearch({
                         placeholder="AA-123-BB"
                         maxLength={12}
                         aria-label="Numéro d'immatriculation"
-                        className="w-full bg-transparent px-3 text-center font-mono text-lg font-bold tracking-widest text-ink caret-pine placeholder:text-ink/30 focus:outline-none uppercase"
+                        className="w-full bg-transparent px-2 sm:px-3 text-center font-mono text-base sm:text-lg font-bold tracking-widest text-ink caret-pine placeholder:text-ink/30 focus:outline-none uppercase"
                         disabled={isPending}
                     />
                 </label>
@@ -147,9 +148,9 @@ export function VehiclePlateSearch({
                 <Button
                     type="submit"
                     disabled={isPending || !rawInput.trim()}
-                    className="h-12 shrink-0 bg-pine px-6 font-heading font-bold text-white hover:bg-pine-hover"
+                    className="h-12 shrink-0 bg-pine px-4 sm:px-6 font-heading font-bold text-white hover:bg-pine-hover transition-colors"
                 >
-                    {isPending ? "Identification…" : "Rechercher"}
+                    {isPending ? <Loader2 className="size-5 animate-spin" /> : "Rechercher"}
                 </Button>
             </form>
 

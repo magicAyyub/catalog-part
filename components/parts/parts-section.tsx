@@ -6,6 +6,7 @@ import { BRAKE_CATEGORIES, CATEGORY_IDS } from "@/lib/parts/facets";
 import { FacetPanel } from "./facet-panel";
 import { PartsGrid } from "./parts-grid";
 import { useParts } from "@/hooks/parts/use-parts";
+import { useReferenceParts } from "@/hooks/parts/use-reference-parts";
 import { canonicalCriteriaValue } from "@/lib/parts/facets";
 
 import { Button } from "@/components/ui/button";
@@ -66,11 +67,12 @@ function parseCriteria(values: string[]): Record<string, Set<string>> {
 }
 
 interface PartsSectionProps {
-    vehicleId: number;
+    vehicleId?: number | null;
     vehicleLabel?: string;
+    referenceQuery?: string | null;
 }
 
-export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
+export function PartsSection({ vehicleId, vehicleLabel, referenceQuery }: PartsSectionProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -96,7 +98,16 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
     const currentPage = Math.max(Number(searchParams.get(PARAM.page)) || 1, 1);
     const pageSize = Number(searchParams.get(PARAM.pageSize)) || getInitialPageSize();
 
-    const { data: parts, isLoading, isError, error } = useParts(vehicleId, CATEGORY_IDS);
+    const vehicleQueryResult = useParts(vehicleId ?? null, CATEGORY_IDS);
+    const referenceQueryResult = useReferenceParts(referenceQuery ?? null);
+
+    const isReferenceSearch = Boolean(referenceQuery && referenceQuery.trim().length >= 3);
+    const activeQuery = isReferenceSearch ? referenceQueryResult : vehicleQueryResult;
+
+    const parts = activeQuery.data;
+    const isLoading = activeQuery.isLoading;
+    const isError = activeQuery.isError;
+    const error = activeQuery.error;
 
     /**
      * Replaces rather than pushes: a history entry per filter click would bury
@@ -315,11 +326,19 @@ export function PartsSection({ vehicleId, vehicleLabel }: PartsSectionProps) {
             {/* En-tête + Sort + Bouton filtres mobile */}
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
-                    <h2 className="font-heading text-lg font-bold text-ink">Pièces compatibles</h2>
-                    {vehicleLabel && (
+                    <h2 className="font-heading text-lg font-bold text-ink">
+                        {isReferenceSearch ? "Pièces équivalentes autorisées" : "Pièces compatibles"}
+                    </h2>
+                    {vehicleLabel && !isReferenceSearch && (
                         <p className="text-sm text-muted-foreground">
                             Résultats pour :{" "}
                             <span className="font-medium text-foreground">{vehicleLabel}</span>
+                        </p>
+                    )}
+                    {isReferenceSearch && (
+                        <p className="text-sm text-muted-foreground">
+                            Résultats pour la référence :{" "}
+                            <span className="font-medium text-foreground">{referenceQuery}</span>
                         </p>
                     )}
                 </div>

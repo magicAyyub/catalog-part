@@ -1,7 +1,8 @@
-import { like, or, eq, inArray, asc, sql } from "drizzle-orm";
+import { like, or, and, eq, inArray, asc, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { articleCriteria, articleOemNumbers, articles, suppliers } from "@/lib/db/schema";
 import { isEtfSupplier } from "@/lib/parts/suppliers";
+import { ALLOWED_SUPPLIER_IDS } from "@/lib/config";
 import type { CatalogArticle, Criteria } from "./catalog";
 
 export interface SearchResultArticle extends CatalogArticle {
@@ -49,26 +50,32 @@ async function oemByArticle(articleIds: number[]): Promise<Map<number, string[]>
 
 export async function searchArticlesByReference(
     query: string,
-    limit: number = 20
+    limit: number = 50
 ): Promise<SearchResultArticle[]> {
     const cleaned = normalizeReference(query);
     if (cleaned.length < 3) return [];
+
+    const allowedSupplierList = Array.from(ALLOWED_SUPPLIER_IDS);
+    if (allowedSupplierList.length === 0) return [];
 
     const searchPattern = `%${cleaned}%`;
     const cleanedArticleNoSql = sql`UPPER(REPLACE(REPLACE(REPLACE(${articles.articleNo}, ' ', ''), '-', ''), '.', ''))`;
     const cleanedEanSql = sql`UPPER(REPLACE(REPLACE(REPLACE(COALESCE(${articles.eanNumber}, ''), ' ', ''), '-', ''), '.', ''))`;
     const candidateLimit = Math.max(limit * 10, 200);
 
-    // 1. Recherche directe par articleNo ou eanNumber (exacte puis partielle)
+    // 1. Recherche directe par articleNo ou eanNumber (filtrée par marques autorisées)
     const directRows = await db
         .select({ articleId: articles.articleId })
         .from(articles)
         .where(
-            or(
-                sql`${cleanedArticleNoSql} = ${cleaned}`,
-                sql`${cleanedEanSql} = ${cleaned}`,
-                sql`${cleanedArticleNoSql} LIKE ${searchPattern}`,
-                sql`${cleanedEanSql} LIKE ${searchPattern}`
+            and(
+                inArray(articles.supplierId, allowedSupplierList),
+                or(
+                    sql`${cleanedArticleNoSql} = ${cleaned}`,
+                    sql`${cleanedEanSql} = ${cleaned}`,
+                    sql`${cleanedArticleNoSql} LIKE ${searchPattern}`,
+                    sql`${cleanedEanSql} LIKE ${searchPattern}`
+                )
             )
         )
         .limit(candidateLimit);
@@ -80,7 +87,13 @@ export async function searchArticlesByReference(
     const wvaRows = await db
         .select({ articleId: articleCriteria.articleId })
         .from(articleCriteria)
-        .where(sql`${cleanedCriteriaValueSql} LIKE ${searchPattern}`)
+        .innerJoin(articles, eq(articleCriteria.articleId, articles.articleId))
+        .where(
+            and(
+                inArray(articles.supplierId, allowedSupplierList),
+                sql`${cleanedCriteriaValueSql} LIKE ${searchPattern}`
+            )
+        )
         .limit(candidateLimit);
 
     for (const r of wvaRows) {
@@ -91,11 +104,45 @@ export async function searchArticlesByReference(
     const oemRows = await db
         .select({ articleId: articleOemNumbers.articleId })
         .from(articleOemNumbers)
-        .where(like(articleOemNumbers.cleanedNo, searchPattern))
+        .innerJoin(articles, eq(articleOemNumbers.articleId, articles.articleId))
+        .where(
+            and(
+                inArray(articles.supplierId, allowedSupplierList),
+                like(articleOemNumbers.cleanedNo, searchPattern)
+            )
+        )
         .limit(candidateLimit);
 
     for (const r of oemRows) {
         candidateIds.add(r.articleId);
+    }
+
+    // 4. Récupérer les numéros OEM / EAN / WVA des articles candidats cibles pour trouver tous leurs équivalents
+    if (candidateIds.size > 0) {
+        const targetIds = Array.from(candidateIds);
+        const targetOems = await db
+            .select({ cleanedNo: articleOemNumbers.cleanedNo })
+            .from(articleOemNumbers)
+            .where(inArray(articleOemNumbers.articleId, targetIds));
+
+        const targetOemList = targetOems.map((o) => o.cleanedNo).filter(Boolean);
+        if (targetOemList.length > 0) {
+            const equivalentRows = await db
+                .select({ articleId: articleOemNumbers.articleId })
+                .from(articleOemNumbers)
+                .innerJoin(articles, eq(articleOemNumbers.articleId, articles.articleId))
+                .where(
+                    and(
+                        inArray(articles.supplierId, allowedSupplierList),
+                        inArray(articleOemNumbers.cleanedNo, targetOemList)
+                    )
+                )
+                .limit(candidateLimit);
+
+            for (const r of equivalentRows) {
+                candidateIds.add(r.articleId);
+            }
+        }
     }
 
     if (candidateIds.size === 0) return [];
@@ -116,7 +163,12 @@ export async function searchArticlesByReference(
         })
         .from(articles)
         .leftJoin(suppliers, eq(articles.supplierId, suppliers.supplierId))
-        .where(inArray(articles.articleId, allCandidateIds));
+        .where(
+            and(
+                inArray(articles.supplierId, allowedSupplierList),
+                inArray(articles.articleId, allCandidateIds)
+            )
+        );
 
     const groupedCriteria = await criteriaByArticle(allCandidateIds);
     const groupedOem = await oemByArticle(allCandidateIds);
@@ -153,20 +205,12 @@ export async function searchArticlesByReference(
             ) {
                 score = 500;
             }
-            // Tier 3 : Contient la sous-chaîne (100 pts base)
-            else if (
-                normArticleNo.includes(cleaned) ||
-                normEan.includes(cleaned) ||
-                wvaValues.some((v) => v.includes(cleaned)) ||
-                oemValues.some((v) => v.includes(cleaned))
-            ) {
-                score = 100;
+            // Tier 3 : Équivalence cross-reference ou correspondance partielle (200 pts base)
+            else {
+                score = 200;
             }
 
-            // Éliminer tout article sans correspondance réelle
-            if (score === 0) return null;
-
-            // Bonus d'écart de longueur (jusqu'à +50 pts pour les références plus proches de la taille saisie)
+            // Bonus d'écart de longueur
             const lengthDiff = Math.abs(normArticleNo.length - cleaned.length);
             score += Math.max(0, 50 - lengthDiff);
 

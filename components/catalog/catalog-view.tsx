@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useIsMutating } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Search, Trash2Icon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { VehicleCascade } from "@/components/vehicle/vehicle-cascade";
 import { ActiveVehicleCard, type ActiveVehicleData } from "@/components/vehicle/active-vehicle-card";
 import { PartsSection } from "@/components/parts/parts-section";
@@ -153,6 +155,15 @@ export function CatalogView() {
 
     const selectedVehicleId = activeVehicleData?.vehicleId ?? null;
     const isVehicleActive = selectedVehicleId !== null && activeVehicleData !== null;
+    const referenceQuery = searchParams.get("ref");
+    const isReferenceActive = Boolean(referenceQuery && referenceQuery.trim().length >= 3);
+
+    function handleResetReference() {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("ref");
+        params.delete("page");
+        router.replace(params.toString() ? `${pathname}?${params}` : pathname, { scroll: false });
+    }
 
     // L'identification acquiert déjà la première catégorie : sans cette attente,
     // le comptoir reste plusieurs secondes devant un écran qui ne bouge pas.
@@ -163,12 +174,36 @@ export function CatalogView() {
             <div className="mb-8">
                 <h1 className="font-heading text-2xl font-bold text-ink">Catalogue de pièces auto</h1>
                 <p className="mt-1 text-sm text-txt2">
-                    Identifiez votre véhicule pour trouver les pièces compatibles.
+                    Identifiez votre véhicule ou saisissez une référence pour trouver les pièces compatibles.
                 </p>
             </div>
 
             <section className="mb-10 max-w-6xl">
-                {isVehicleActive ? (
+                {isReferenceActive ? (
+                    <div className="flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center gap-4 rounded-lg bg-banner-pine px-5 py-4">
+                            <div className="flex size-10 items-center justify-center rounded-full bg-white/15 text-white shrink-0">
+                                <Search className="size-5" />
+                            </div>
+
+                            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                                <h3 className="font-heading text-lg font-bold leading-tight text-white truncate">
+                                    Référence : {referenceQuery}
+                                </h3>
+                                <p className="text-sm text-white/70">
+                                    Affichage de la pièce ciblée et des équivalences toutes marques autorisées
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <Button type="button" variant="destructive" size="lg" onClick={handleResetReference}>
+                                <Trash2Icon />
+                                Effacer la recherche
+                            </Button>
+                        </div>
+                    </div>
+                ) : isVehicleActive ? (
                     <ActiveVehicleCard vehicle={activeVehicleData} onReset={handleResetVehicle} />
                 ) : (
                     <VehicleCascade
@@ -182,6 +217,11 @@ export function CatalogView() {
                 <>
                     <div className="mb-10 border-t border-border" />
                     <VehicleIdentificationSkeleton />
+                </>
+            ) : isReferenceActive ? (
+                <>
+                    <div className="mb-10 border-t border-border" />
+                    <PartsSection referenceQuery={referenceQuery} />
                 </>
             ) : (
                 selectedVehicleId && (
