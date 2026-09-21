@@ -52,3 +52,8 @@ export const ALLOWED_SUPPLIER_IDS: Set<number> = parseIntList(
     process.env.ALLOWED_SUPPLIER_IDS_PROD,
     [7657, 161, 30, 21, 39]
 );
+
+// Service d'orchestration IA
+export const CHAT_API_KEY = process.env.CHAT_API_KEY ?? "";
+export const CHAT_API_URL = process.env.CHAT_API_URL ?? "http://127.0.0.1:8000/api/v1/chat";
+

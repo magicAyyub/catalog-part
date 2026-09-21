@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronDown, LayoutGrid, LogOut, ScrollText, Users } from "lucide-react";
+import { ChevronDown, LayoutGrid, LogOut, ScrollText, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -75,6 +75,10 @@ export function UserMenu({ label, franchise, role }: UserMenuProps) {
                         </DropdownMenuItem>
                         {isAdmin && (
                             <>
+                                <DropdownMenuItem render={<Link href="/ai-demo" />}>
+                                    <Sparkles aria-hidden="true" />
+                                    Démo Assistant IA
+                                </DropdownMenuItem>
                                 <DropdownMenuItem render={<Link href="/logs" />}>
                                     <ScrollText aria-hidden="true" />
                                     Trace du système
