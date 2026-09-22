@@ -196,10 +196,11 @@ export async function getArticleDetail(articleId: number): Promise<ArticleDetail
                 }
             }
 
-            insertCompatibleVehicles(tx, article.compatibleCars);
+            const cars = article.compatibleCars ?? [];
+            insertCompatibleVehicles(tx, cars);
             insertFitments(
                 tx,
-                article.compatibleCars.flatMap((car) =>
+                cars.flatMap((car) =>
                     categoryIds.map((categoryId) => ({
                         vehicleId: car.vehicleId,
                         articleId,
@@ -237,7 +238,7 @@ export async function getArticleDetail(articleId: number): Promise<ArticleDetail
             module: "acquisition",
             action: "article_details",
             articleId,
-            compatibleCars: article.compatibleCars.length,
+            compatibleCars: article.compatibleCars?.length ?? 0,
         });
     } catch (error) {
         // Enrichissement facultatif : la fiche reste affichable avec ce que la

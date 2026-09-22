@@ -24,6 +24,46 @@ function insertSuppliers(tx: Tx, rows: { supplierId: number; name: string }[]): 
     }
 }
 
+function saveArticlesBatch(
+    rows: {
+        supplierId: number;
+        supplierName: string;
+        articleNo: string;
+        articleProductName: string;
+        articleId?: number | null;
+        articleMediaType?: string | null;
+        articleMediaFileName?: string | null;
+        s3image?: string | null;
+    }[]
+): void {
+    if (rows.length === 0) return;
+    db.transaction((tx) => {
+        insertSuppliers(
+            tx,
+            rows.map((a) => ({ supplierId: a.supplierId, name: a.supplierName }))
+        );
+        for (const batch of chunked(rows)) {
+            tx.insert(articles)
+                .values(
+                    batch.map((a) => ({
+                        articleId:
+                            a.articleId && a.articleId > 0
+                                ? a.articleId
+                                : generateSyntheticArticleId(a.supplierId, a.articleNo),
+                        articleNo: a.articleNo,
+                        supplierId: a.supplierId,
+                        productName: a.articleProductName,
+                        mediaType: a.articleMediaType ?? null,
+                        mediaFileName: a.articleMediaFileName ?? null,
+                        imageUrl: a.s3image ?? null,
+                    }))
+                )
+                .onConflictDoNothing()
+                .run();
+        }
+    });
+}
+
 /**
  * Récupération et acquisition par référence d'article.
  *
@@ -78,52 +118,64 @@ export async function getArticlesByReferenceWithCrossReferences(
                     }
                 });
 
-                // Pour les articles principaux (top matches) : récupérer les cross-références
+                // Pour les articles principaux (top matches) : récupérer les cross-références (niveau 1 & 2)
                 const topMainArticles = (quickRes.articles ?? []).filter((a) => a.articleId).slice(0, 3);
                 for (const mainArt of topMainArticles) {
                     if (!mainArt.articleId) continue;
 
+                    // Niveau 1 : Cross-références directes
                     const xrefRes = await rapidApi.selectArticleCrossReferences(mainArt.articleId);
                     const xrefList = (xrefRes.articles ?? []).filter((a) =>
                         ALLOWED_SUPPLIER_IDS.has(a.supplierId)
                     );
 
                     if (xrefList.length > 0) {
-                        db.transaction((tx) => {
-                            insertSuppliers(
-                                tx,
-                                xrefList.map((a) => ({ supplierId: a.supplierId, name: a.supplierName }))
-                            );
-                            for (const batch of chunked(xrefList)) {
-                                tx.insert(articles)
-                                    .values(
-                                        batch.map((a) => ({
-                                            articleId:
-                                                a.articleId && a.articleId > 0
-                                                    ? a.articleId
-                                                    : generateSyntheticArticleId(a.supplierId, a.articleNo),
-                                            articleNo: a.articleNo,
-                                            supplierId: a.supplierId,
-                                            productName: a.articleProductName,
-                                            mediaType: a.articleMediaType ?? null,
-                                            mediaFileName: a.articleMediaFileName ?? null,
-                                            imageUrl: a.s3image ?? null,
-                                        }))
-                                    )
-                                    .onConflictDoNothing()
-                                    .run();
+                        saveArticlesBatch(xrefList);
+
+                        // 3. Collection de tous les articleId uniques découverts pour enrichir leurs numéros OEM
+                        const allDiscovered = [...xrefList];
+
+                        // Niveau 2 : Interroger les cross-références des 2 premiers équivalents autorisés
+                        // Cela permet de découvrir des marques comme VALEO quand TecDoc ne lie TRW qu'à BOSCH
+                        const topFirstLevelAllowed = xrefList.filter((a) => a.articleId && a.articleId > 0).slice(0, 3);
+                        for (const firstLevelArt of topFirstLevelAllowed) {
+                            if (!firstLevelArt.articleId) continue;
+                            try {
+                                const secondXrefRes = await rapidApi.selectArticleCrossReferences(firstLevelArt.articleId);
+                                const secondXrefList = (secondXrefRes.articles ?? []).filter((a) =>
+                                    ALLOWED_SUPPLIER_IDS.has(a.supplierId)
+                                );
+                                saveArticlesBatch(secondXrefList);
+                                allDiscovered.push(...secondXrefList);
+                            } catch (err) {
+                                logger.warn("Second level cross-reference fetch failed", {
+                                    module: "acquisition",
+                                    action: "second_level_xref_failed",
+                                    articleId: firstLevelArt.articleId,
+                                    error: err,
+                                });
                             }
-                        });
-                    }
+                        }
 
-                    // Enrichir les détails de l'article principal (sauvegarde OEM + compatibilités véhicules)
-                    await getArticleDetail(mainArt.articleId);
+                        // 4. Enrichissement des détails (getArticleDetail) pour l'article principal et 
+                        // les premiers articles de chaque équipementier pour sauvegarder les numéros OEM
+                        await getArticleDetail(mainArt.articleId);
 
-                    // Enrichir également les détails des premières cross-références avec un articleId valide
-                    const topXrefs = xrefList.filter((a) => a.articleId && a.articleId > 0).slice(0, 3);
-                    for (const xref of topXrefs) {
-                        if (xref.articleId) {
-                            await getArticleDetail(xref.articleId);
+                        // Grouper par équipementier et prendre au plus 2 articles par équipementier
+                        const bySupplier = new Map<number, number[]>();
+                        for (const item of allDiscovered) {
+                            if (item.articleId && item.articleId > 0 && item.articleId !== mainArt.articleId) {
+                                const list = bySupplier.get(item.supplierId) ?? [];
+                                if (list.length < 2 && !list.includes(item.articleId)) {
+                                    list.push(item.articleId);
+                                    bySupplier.set(item.supplierId, list);
+                                }
+                            }
+                        }
+
+                        const articleIdsToEnrich = [...bySupplier.values()].flat();
+                        for (const artId of articleIdsToEnrich) {
+                            await getArticleDetail(artId);
                         }
                     }
                 }

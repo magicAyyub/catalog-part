@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronDown, LayoutGrid, LogOut, ScrollText, Sparkles, Users } from "lucide-react";
+import { ChevronDown, Database, LayoutGrid, LogOut, ScrollText, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -86,6 +86,10 @@ export function UserMenu({ label, franchise, role }: UserMenuProps) {
                                 <DropdownMenuItem render={<Link href="/comptes" />}>
                                     <Users aria-hidden="true" />
                                     Comptes franchisés
+                                </DropdownMenuItem>
+                                <DropdownMenuItem render={<Link href="/cache" />}>
+                                    <Database aria-hidden="true" />
+                                    Gestion du cache
                                 </DropdownMenuItem>
                             </>
                         )}
