@@ -133,3 +133,36 @@ export interface ApiMediaItem {
     mediaInformation: string;
     s3image: string;
 }
+
+export interface ApiQuickArticleSearchItem {
+    articleId: number;
+    articleNo: string;
+    articleProductName: string;
+    supplierName: string;
+    supplierId: number;
+    articleMediaType?: string;
+    articleMediaFileName?: string;
+    s3image?: string;
+}
+
+export interface ApiQuickArticleSearchResponse {
+    articleNo: string;
+    countArticles: number;
+    articles: ApiQuickArticleSearchItem[] | null;
+}
+
+export interface ApiCrossReferenceItem {
+    articleId: number | null;
+    articleNo: string;
+    supplierName: string;
+    supplierId: number;
+    articleProductName: string;
+    articleMediaType?: string;
+    articleMediaFileName?: string;
+    s3image?: string;
+}
+
+export interface ApiCrossReferencesResponse {
+    countArticles: number;
+    articles: ApiCrossReferenceItem[] | null;
+}

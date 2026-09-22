@@ -8,6 +8,8 @@ import type {
     ApiSparePartCriteriaResponse,
     ApiSupplier,
     ApiMediaItem,
+    ApiQuickArticleSearchResponse,
+    ApiCrossReferencesResponse,
 } from "./types";
 import { logger } from "@/lib/logger";
 import { RapidApiError } from "./errors";
@@ -41,7 +43,12 @@ export function billedCallCount(): number {
     return billedCalls;
 }
 
-async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise<T> {
+interface ApiCallOptions {
+    method?: "GET" | "POST";
+    body?: BodyInit;
+}
+
+async function callRealApi<T>(path: string, options?: ApiCallOptions, retries = 5, backoff = 500): Promise<T> {
     if (!RAPIDAPI_KEY) {
         throw new RapidApiError(
             "RAPIDAPI_KEY manquante dans les variables d'environnement.",
@@ -52,16 +59,22 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
     billedCalls++;
     logger.info("RapidAPI HTTP call executed", { action: "rapidapi_call", path });
 
+    const method = options?.method ?? "GET";
+    const headers: Record<string, string> = {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": "auto-parts-catalog.p.rapidapi.com",
+    };
+    if (method === "GET") {
+        headers["Content-Type"] = "application/json";
+    }
+
     for (let attempt = 1; attempt <= retries; attempt++) {
         let res: Response;
         try {
             res = await fetch(`${RAPIDAPI_BASE_URL}${path}`, {
-                method: "GET",
-                headers: {
-                    "x-rapidapi-key": RAPIDAPI_KEY,
-                    "x-rapidapi-host": "auto-parts-catalog.p.rapidapi.com",
-                    "Content-Type": "application/json",
-                },
+                method,
+                headers,
+                body: options?.body,
                 cache: "no-store",
             });
         } catch (cause) {
@@ -124,9 +137,9 @@ async function callRealApi<T>(path: string, retries = 5, backoff = 500): Promise
     );
 }
 
-async function callApi<T>(path: string): Promise<T> {
+async function callApi<T>(path: string, options?: ApiCallOptions): Promise<T> {
     assertServerSide();
-    return callRealApi<T>(path);
+    return callRealApi<T>(path, options);
 }
 
 export const rapidApi = {
@@ -167,4 +180,19 @@ export const rapidApi = {
         ),
 
     listAllSuppliers: () => callApi<ApiSupplier[]>(`/suppliers/list`),
+
+    quickArticleSearch: (articleNo: string) => {
+        const body = new URLSearchParams();
+        body.append("articleNo", articleNo.trim());
+        body.append("langId", LANG_ID);
+        return callApi<ApiQuickArticleSearchResponse>("/articles/quick-article-search", {
+            method: "POST",
+            body,
+        });
+    },
+
+    selectArticleCrossReferences: (articleId: number, langId = LANG_ID) =>
+        callApi<ApiCrossReferencesResponse>(
+            `/artlookup/select-article-cross-references/article-id/${articleId}/lang-id/${langId}`
+        ),
 };

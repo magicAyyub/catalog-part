@@ -394,6 +394,7 @@ function insertFitments(
 
 /** Les véhicules compatibles n'ont que sept champs : on ne remplace jamais une fiche de cascade. */
 function insertCompatibleVehicles(tx: Tx, cars: ApiCompatibleCar[]): void {
+    if (!cars || cars.length === 0) return;
     for (const batch of chunked(cars)) {
         tx.insert(vehicles)
             .values(
